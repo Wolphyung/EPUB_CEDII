@@ -100,7 +100,7 @@ const DashMembre = () => {
         transition: "width 0.3s ease",
         flexShrink: 0
       }}>
-        <MembreSidebar onCollapse={handleSidebarCollapse} />
+    
       </div>
 
       {/* Contenu Principal */}
