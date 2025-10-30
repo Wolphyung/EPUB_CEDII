@@ -7,6 +7,7 @@ use App\Http\Controllers\MembreController;
 use App\Http\Controllers\PublicationController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\EvenementController;
+use App\Http\Controllers\AppelOffreController;
 
 Route::apiResource('evenements', EvenementController::class);
 
@@ -41,3 +42,5 @@ Route::get('/membres', [MembreController::class, 'index']);
 Route::post('/membres', [MembreController::class, 'store']);
 Route::put('/membres/{id}', [MembreController::class, 'update']);
 Route::delete('/membres/{id}', [MembreController::class, 'destroy']);
+
+Route::apiResource('appeloffres', AppelOffreController::class);

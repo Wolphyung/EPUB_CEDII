@@ -32,7 +32,7 @@ const AppelOffre = () => {
     fichier: null,
     statut: "En attente"
   });
-
+  
   // Afficher messages temporairement
   const showNotification = (type, message) => {
     setShowAlert({ show: true, type, message });
