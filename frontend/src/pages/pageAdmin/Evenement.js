@@ -1,0 +1,1024 @@
+import React, { useState, useEffect } from "react";
+import AdminSidebar from "../../components/AdminSidebar";
+import { 
+  Modal, 
+  Button, 
+  Form, 
+  Card, 
+  Row, 
+  Col, 
+  Badge, 
+  Alert, 
+  Spinner, 
+  InputGroup,
+  Dropdown
+} from "react-bootstrap";
+import axios from "axios";
+
+const API_URL = "http://127.0.0.1:8000/api";
+
+const Evenement = () => {
+  const [evenements, setEvenements] = useState([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [showAlert, setShowAlert] = useState({ show: false, type: "", message: "" });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatut, setFilterStatut] = useState("Tous");
+  const [filterType, setFilterType] = useState("Tous");
+
+  const [newEvent, setNewEvent] = useState({
+    titre: "",
+    description: "",
+    date_heure: "",
+    lieu: "",
+    type: "Présentiel",
+    statut: "En attente",
+    fichier: null,
+  });
+
+  // Afficher messages temporairement
+  const showNotification = (type, message) => {
+    setShowAlert({ show: true, type, message });
+    setTimeout(() => {
+      setShowAlert({ show: false, type: "", message: "" });
+    }, 5000);
+  };
+
+  // Charger les événements
+  const fetchEvenements = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API_URL}/evenements`);
+      setEvenements(res.data.data || res.data);
+    } catch (err) {
+      console.error(err);
+      showNotification("error", "Erreur lors du chargement des événements");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvenements();
+  }, []);
+
+  // Recherche et filtres
+  const filteredEvenements = evenements.filter(ev => {
+    const matchesSearch = ev.titre?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         ev.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatut = filterStatut === "Tous" || ev.statut === filterStatut;
+    const matchesType = filterType === "Tous" || ev.type === filterType;
+    
+    return matchesSearch && matchesStatut && matchesType;
+  });
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilterStatut("Tous");
+    setFilterType("Tous");
+  };
+
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    setNewEvent({
+      titre: "",
+      description: "",
+      date_heure: "",
+      lieu: "",
+      type: "Présentiel",
+      statut: "En attente",
+      fichier: null,
+    });
+  };
+
+  const handleShowAddModal = () => setShowAddModal(true);
+  const handleCloseEditModal = () => setShowEditModal(false);
+
+  const handleFileChange = (e) => setNewEvent({ ...newEvent, fichier: e.target.files[0] });
+  const handleEditFileChange = (e) => setSelectedEvent({ ...selectedEvent, fichier: e.target.files[0] });
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewEvent(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setSelectedEvent(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Ajouter événement
+  const handleAddEvent = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    const formData = new FormData();
+    Object.keys(newEvent).forEach(key => {
+      if (newEvent[key] !== null) formData.append(key, newEvent[key]);
+    });
+    try {
+      const res = await axios.post(`${API_URL}/evenements`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setEvenements(prev => [res.data.data || res.data, ...prev]);
+      showNotification("success", "✅ Événement ajouté avec succès !");
+      handleCloseAddModal();
+    } catch (err) {
+      console.error(err);
+      showNotification("error", err.response?.data?.message || "❌ Erreur lors de l'ajout de l'événement");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Modifier événement
+  const handleEditEvent = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    const formData = new FormData();
+    Object.keys(selectedEvent).forEach(key => {
+      if (selectedEvent[key] !== null && key !== 'id') formData.append(key, selectedEvent[key]);
+    });
+    formData.append("_method", "PUT");
+    if (selectedEvent.fichier instanceof File) {
+      formData.append("fichier", selectedEvent.fichier);
+    }
+    try {
+      const res = await axios.post(`${API_URL}/evenements/${selectedEvent.id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setEvenements(prev => prev.map(ev => ev.id === selectedEvent.id ? (res.data.data || res.data) : ev));
+      showNotification("success", "✅ Événement modifié avec succès !");
+      handleCloseEditModal();
+    } catch (err) {
+      console.error(err);
+      showNotification("error", err.response?.data?.message || "❌ Erreur lors de la modification de l'événement");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Supprimer événement
+  const handleDeleteEvent = async (id) => {
+    if (!window.confirm("Voulez-vous vraiment supprimer cet événement ?")) return;
+    try {
+      await axios.delete(`${API_URL}/evenements/${id}`);
+      setEvenements(prev => prev.filter(ev => ev.id !== id));
+      showNotification("success", "✅ Événement supprimé avec succès !");
+    } catch (err) {
+      console.error(err);
+      showNotification("error", "❌ Erreur lors de la suppression de l'événement");
+    }
+  };
+
+  // Changer statut
+  const handleChangeStatus = async (id, newStatus) => {
+    try {
+      const formData = new FormData();
+      formData.append("statut", newStatus);
+      formData.append("_method", "PUT");
+      const res = await axios.post(`${API_URL}/evenements/${id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setEvenements(prev => prev.map(ev => ev.id === id ? (res.data.data || res.data) : ev));
+      showNotification("success", `✅ Statut changé en "${newStatus}" avec succès !`);
+    } catch (err) {
+      console.error(err);
+      showNotification("error", "❌ Erreur lors du changement de statut");
+    }
+  };
+
+  const handleShowEditModal = (event) => {
+    setSelectedEvent({ ...event });
+    setShowEditModal(true);
+  };
+
+  const getStatusVariant = (statut) => {
+    switch(statut) {
+      case "Validé": return "success";
+      case "En attente": return "warning";
+      case "Rejeté": return "danger";
+      default: return "secondary";
+    }
+  };
+
+  const getStatusIcon = (statut) => {
+    switch(statut) {
+      case "Validé": return "fa-check-circle";
+      case "En attente": return "fa-clock";
+      case "Rejeté": return "fa-times-circle";
+      default: return "fa-question-circle";
+    }
+  };
+
+  const getTypeIcon = (type) => {
+    switch(type) {
+      case "Présentiel": return "fa-building";
+      case "En ligne": return "fa-video";
+      case "Hybride": return "fa-blender-phone";
+      default: return "fa-calendar";
+    }
+  };
+
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return '';
+    const date = new Date(dateTimeString);
+    return date.toLocaleString('fr-FR', { 
+      day: '2-digit', 
+      month:'2-digit', 
+      year:'numeric', 
+      hour:'2-digit', 
+      minute:'2-digit' 
+    });
+  };
+
+  const getFileName = (fichier) => {
+    if (!fichier) return '';
+    if (typeof fichier === 'string') return fichier.split('/').pop() || 'Fichier joint';
+    if (fichier instanceof File) return fichier.name;
+    return 'Fichier joint';
+  };
+
+  const isUpcoming = (dateTimeString) => {
+    if (!dateTimeString) return false;
+    return new Date(dateTimeString) > new Date();
+  };
+
+  return (
+    <div className="d-flex" style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)" }}>
+      <AdminSidebar />
+
+      <div className="flex-grow-1 p-4" style={{ marginLeft: "280px" }}>
+        {/* Alert Notification */}
+        {showAlert.show && (
+          <Alert 
+            variant={showAlert.type === "success" ? "success" : "danger"}
+            className="d-flex align-items-center shadow-lg border-0"
+            style={{
+              position: "fixed",
+              top: "20px",
+              right: "20px",
+              zIndex: 1050,
+              minWidth: "350px",
+              borderRadius: "15px",
+              borderLeft: `4px solid ${showAlert.type === "success" ? "#28a745" : "#dc3545"}`,
+              backdropFilter: "blur(10px)",
+              backgroundColor: "rgba(255, 255, 255, 0.95)"
+            }}
+          >
+            <i className={`fas ${
+              showAlert.type === "success" ? "fa-check-circle text-success" : "fa-exclamation-triangle text-danger"
+            } me-3 fs-5`}></i>
+            <div>
+              <strong className="d-block">
+                {showAlert.type === "success" ? "Succès" : "Erreur"}
+              </strong>
+              <span className="text-muted">{showAlert.message}</span>
+            </div>
+          </Alert>
+        )}
+
+        {/* En-tête de page */}
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h2 className="fw-bold mb-2" style={{ 
+              background: "linear-gradient(135deg, #2c3e50, #34495e)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent"
+            }}>
+              Gestion des Événements
+            </h2>
+            <p className="text-muted mb-0 d-flex align-items-center">
+              <i className="fas fa-calendar-alt me-2"></i>
+              Créez et gérez vos événements
+            </p>
+          </div>
+          <Button 
+            variant="success" 
+            onClick={handleShowAddModal} 
+            className="d-flex align-items-center shadow-sm"
+            style={{
+              background: "linear-gradient(135deg, #00b09b, #96c93d)",
+              border: "none",
+              borderRadius: "12px",
+              padding: "12px 24px",
+              fontWeight: "600"
+            }}
+          >
+            <i className="fas fa-plus me-2"></i>
+            Nouvel Événement
+          </Button>
+        </div>
+
+        {/* Cartes de statistiques */}
+        <Row className="mb-4">
+          {[
+            { 
+              title: "Total Événements", 
+              count: evenements.length, 
+              icon: "fa-calendar-alt", 
+              color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+            },
+            { 
+              title: "À venir", 
+              count: evenements.filter(ev => isUpcoming(ev.date_heure)).length, 
+              icon: "fa-clock", 
+              color: "linear-gradient(135deg, #00b09b, #96c93d)"
+            },
+            { 
+              title: "Validés", 
+              count: evenements.filter((ev) => ev.statut === "Validé").length, 
+              icon: "fa-check-circle", 
+              color: "linear-gradient(135deg, #4facfe, #00f2fe)"
+            },
+            { 
+              title: "En attente", 
+              count: evenements.filter((ev) => ev.statut === "En attente").length, 
+              icon: "fa-hourglass-half", 
+              color: "linear-gradient(135deg, #f093fb, #f5576c)"
+            }
+          ].map((stat, index) => (
+            <Col md={3} key={index} className="mb-3">
+              <Card className="border-0 shadow-sm h-100" style={{ borderRadius: "20px" }}>
+                <Card.Body className="p-4">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 className="card-title text-muted mb-2">{stat.title}</h6>
+                      <h2 className="fw-bold mb-0" style={{ 
+                        background: stat.color,
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent"
+                      }}>
+                        {stat.count}
+                      </h2>
+                    </div>
+                    <div 
+                      className="rounded-circle d-flex align-items-center justify-content-center"
+                      style={{ 
+                        width: "60px", 
+                        height: "60px",
+                        background: stat.color
+                      }}
+                    >
+                      <i className={`fas ${stat.icon} text-white fs-4`}></i>
+                    </div>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+
+        {/* Barre de recherche et filtres */}
+        <Card className="border-0 shadow-sm mb-4" style={{ borderRadius: "20px" }}>
+          <Card.Body className="p-4">
+            <Row className="g-3 align-items-end">
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label className="fw-semibold text-muted mb-2">
+                    <i className="fas fa-search me-2"></i>
+                    Recherche
+                  </Form.Label>
+                  <InputGroup>
+                    <InputGroup.Text style={{ 
+                      background: "linear-gradient(135deg, #667eea, #764ba2)",
+                      border: "none",
+                      color: "white"
+                    }}>
+                      <i className="fas fa-search"></i>
+                    </InputGroup.Text>
+                    <Form.Control
+                      type="text"
+                      placeholder="Rechercher par titre ou description..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={{ borderRadius: "0 10px 10px 0" }}
+                    />
+                  </InputGroup>
+                </Form.Group>
+              </Col>
+              
+              <Col md={3}>
+                <Form.Group>
+                  <Form.Label className="fw-semibold text-muted mb-2">
+                    <i className="fas fa-filter me-2"></i>
+                    Statut
+                  </Form.Label>
+                  <Form.Select
+                    value={filterStatut}
+                    onChange={(e) => setFilterStatut(e.target.value)}
+                    style={{ borderRadius: "10px" }}
+                  >
+                    <option value="Tous">Tous les statuts</option>
+                    <option value="Validé">Validé</option>
+                    <option value="En attente">En attente</option>
+                    <option value="Rejeté">Rejeté</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              
+              <Col md={3}>
+                <Form.Group>
+                  <Form.Label className="fw-semibold text-muted mb-2">
+                    <i className="fas fa-tag me-2"></i>
+                    Type
+                  </Form.Label>
+                  <Form.Select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    style={{ borderRadius: "10px" }}
+                  >
+                    <option value="Tous">Tous les types</option>
+                    <option value="Présentiel">Présentiel</option>
+                    <option value="En ligne">En ligne</option>
+                    <option value="Hybride">Hybride</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              
+              <Col md={2}>
+                <div className="d-flex gap-2">
+                  <Button 
+                    variant="outline-primary" 
+                    onClick={fetchEvenements}
+                    className="d-flex align-items-center"
+                    style={{ borderRadius: "10px" }}
+                  >
+                    <i className="fas fa-refresh"></i>
+                  </Button>
+                  <Button 
+                    variant="outline-secondary" 
+                    onClick={clearFilters}
+                    className="d-flex align-items-center"
+                    style={{ borderRadius: "10px" }}
+                  >
+                    <i className="fas fa-times"></i>
+                  </Button>
+                </div>
+              </Col>
+            </Row>
+          </Card.Body>
+        </Card>
+
+        {/* Liste des événements */}
+        {loading ? (
+          <div className="text-center py-5">
+            <div className="spinner-border text-primary mb-3" style={{ width: "3rem", height: "3rem" }} role="status">
+              <span className="visually-hidden">Chargement...</span>
+            </div>
+            <p className="text-muted fw-semibold">Chargement des événements...</p>
+          </div>
+        ) : (
+          <Row>
+            {filteredEvenements.map(ev => (
+              <Col md={6} lg={4} key={ev.id} className="mb-4">
+                <Card 
+                  className="border-0 shadow-sm h-100" 
+                  style={{ 
+                    borderRadius: "20px", 
+                    transition: "transform 0.2s",
+                    borderLeft: `4px solid ${
+                      ev.statut === "Validé" ? "#28a745" :
+                      ev.statut === "En attente" ? "#ffc107" :
+                      "#dc3545"
+                    }`
+                  }}
+                >
+                  <Card.Body className="d-flex flex-column p-4">
+                    {/* En-tête avec titre et statut */}
+                    <div className="d-flex justify-content-between align-items-start mb-3">
+                      <Card.Title 
+                        className="h5 fw-bold mb-0"
+                        style={{ 
+                          lineHeight: "1.3",
+                          color: "#2c3e50"
+                        }}
+                      >
+                        {ev.titre}
+                      </Card.Title>
+                      <Badge 
+                        bg={getStatusVariant(ev.statut)} 
+                        className="d-flex align-items-center"
+                        style={{ 
+                          borderRadius: "20px", 
+                          padding: "6px 12px",
+                          fontSize: "0.75rem",
+                          fontWeight: "600"
+                        }}
+                      >
+                        <i className={`fas ${getStatusIcon(ev.statut)} me-1`}></i>
+                        {ev.statut}
+                      </Badge>
+                    </div>
+
+                    {/* Description */}
+                    <Card.Text 
+                      className="text-muted flex-grow-1 mb-3" 
+                      style={{ lineHeight: "1.5", fontSize: "0.9rem" }}
+                    >
+                      {ev.description?.length > 120 ? `${ev.description.substring(0, 120)}...` : ev.description}
+                    </Card.Text>
+
+                    {/* Informations détaillées */}
+                    <div className="small text-muted mb-3">
+                      <div className="d-flex align-items-center mb-2">
+                        <i className="fas fa-calendar text-primary me-2" style={{ width: "16px" }}></i>
+                        <span>{formatDateTime(ev.date_heure)}</span>
+                        {isUpcoming(ev.date_heure) && (
+                          <Badge bg="info" className="ms-2" style={{ fontSize: "0.65rem" }}>
+                            À venir
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="d-flex align-items-center mb-2">
+                        <i className="fas fa-map-marker-alt text-primary me-2" style={{ width: "16px" }}></i>
+                        <span>{ev.lieu}</span>
+                      </div>
+                      
+                      <div className="d-flex align-items-center mb-2">
+                        <i className={`fas ${getTypeIcon(ev.type)} text-primary me-2`} style={{ width: "16px" }}></i>
+                        <span>{ev.type}</span>
+                      </div>
+
+                      {ev.fichier && (
+                        <div className="d-flex align-items-center">
+                          <i className="fas fa-paperclip text-primary me-2" style={{ width: "16px" }}></i>
+                          <a 
+                            href={ev.fichier} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-decoration-none text-primary small"
+                          >
+                            {getFileName(ev.fichier)}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="mt-auto pt-3 border-top">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <div className="d-flex gap-1">
+                          {ev.statut === "En attente" && (
+                            <>
+                              <Button 
+                                variant="outline-success" 
+                                size="sm" 
+                                onClick={() => handleChangeStatus(ev.id, "Validé")}
+                                className="d-flex align-items-center"
+                                style={{ borderRadius: "8px" }}
+                                title="Valider"
+                              >
+                                <i className="fas fa-check"></i>
+                              </Button>
+                              <Button 
+                                variant="outline-danger" 
+                                size="sm" 
+                                onClick={() => handleChangeStatus(ev.id, "Rejeté")}
+                                className="d-flex align-items-center"
+                                style={{ borderRadius: "8px" }}
+                                title="Rejeter"
+                              >
+                                <i className="fas fa-times"></i>
+                              </Button>
+                            </>
+                          )}
+                          {ev.statut === "Validé" && (
+                            <Button 
+                              variant="outline-danger" 
+                              size="sm" 
+                              onClick={() => handleChangeStatus(ev.id, "Rejeté")}
+                              className="d-flex align-items-center"
+                              style={{ borderRadius: "8px" }}
+                              title="Rejeter"
+                            >
+                              <i className="fas fa-times"></i>
+                            </Button>
+                          )}
+                          {ev.statut === "Rejeté" && (
+                            <Button 
+                              variant="outline-success" 
+                              size="sm" 
+                              onClick={() => handleChangeStatus(ev.id, "Validé")}
+                              className="d-flex align-items-center"
+                              style={{ borderRadius: "8px" }}
+                              title="Valider"
+                            >
+                              <i className="fas fa-check"></i>
+                            </Button>
+                          )}
+                        </div>
+                        
+                        <div className="d-flex gap-1">
+                          <Button 
+                            variant="outline-primary" 
+                            size="sm" 
+                            onClick={() => handleShowEditModal(ev)}
+                            className="d-flex align-items-center"
+                            style={{ borderRadius: "8px" }}
+                            title="Modifier"
+                          >
+                            <i className="fas fa-edit"></i>
+                          </Button>
+                          <Button 
+                            variant="outline-danger" 
+                            size="sm" 
+                            onClick={() => handleDeleteEvent(ev.id)}
+                            className="d-flex align-items-center"
+                            style={{ borderRadius: "8px" }}
+                            title="Supprimer"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+            ))}
+            
+            {filteredEvenements.length === 0 && (
+              <Col md={12}>
+                <Card className="border-0 shadow-sm text-center" style={{ borderRadius: "20px" }}>
+                  <Card.Body className="py-5">
+                    <i className="fas fa-calendar-times fs-1 text-muted mb-3 d-block" style={{ opacity: 0.5 }}></i>
+                    <h5 className="text-muted mb-2">Aucun événement trouvé</h5>
+                    <p className="text-muted mb-3">Aucun événement ne correspond à vos critères de recherche</p>
+                    <Button 
+                      variant="primary" 
+                      onClick={clearFilters}
+                      className="d-flex align-items-center mx-auto"
+                    >
+                      <i className="fas fa-times me-2"></i>
+                      Effacer les filtres
+                    </Button>
+                  </Card.Body>
+                </Card>
+              </Col>
+            )}
+          </Row>
+        )}
+
+        {/* Modal Ajouter */}
+        <Modal show={showAddModal} onHide={handleCloseAddModal} size="lg" centered>
+          <Modal.Header 
+            closeButton 
+            className="border-0"
+            style={{ 
+              background: "linear-gradient(135deg, #667eea, #764ba2)",
+              color: "white"
+            }}
+          >
+            <Modal.Title className="d-flex align-items-center fw-bold">
+              <i className="fas fa-plus me-2"></i>
+              Nouvel Événement
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body className="p-4">
+            <Form onSubmit={handleAddEvent}>
+              <Row>
+                <Col md={8}>
+                  <Form.Group className="mb-4">
+                    <Form.Label className="fw-semibold text-muted">
+                      <i className="fas fa-heading me-2 text-primary"></i>
+                      Titre *
+                    </Form.Label>
+                    <Form.Control 
+                      type="text" 
+                      name="titre" 
+                      value={newEvent.titre} 
+                      onChange={handleInputChange} 
+                      required 
+                      style={{ borderRadius: "10px", padding: "12px" }}
+                      placeholder="Titre de l'événement"
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group className="mb-4">
+                    <Form.Label className="fw-semibold text-muted">
+                      <i className="fas fa-chart-line me-2 text-primary"></i>
+                      Statut *
+                    </Form.Label>
+                    <Form.Select 
+                      name="statut" 
+                      value={newEvent.statut} 
+                      onChange={handleInputChange}
+                      style={{ borderRadius: "10px", padding: "12px" }}
+                    >
+                      <option value="En attente">En attente</option>
+                      <option value="Validé">Validé</option>
+                      <option value="Rejeté">Rejeté</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Form.Group className="mb-4">
+                <Form.Label className="fw-semibold text-muted">
+                  <i className="fas fa-align-left me-2 text-primary"></i>
+                  Description *
+                </Form.Label>
+                <Form.Control 
+                  as="textarea" 
+                  rows={4} 
+                  name="description" 
+                  value={newEvent.description} 
+                  onChange={handleInputChange} 
+                  required 
+                  style={{ borderRadius: "10px", padding: "12px" }}
+                  placeholder="Description de l'événement..."
+                />
+              </Form.Group>
+
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-4">
+                    <Form.Label className="fw-semibold text-muted">
+                      <i className="fas fa-calendar me-2 text-primary"></i>
+                      Date et heure *
+                    </Form.Label>
+                    <Form.Control 
+                      type="datetime-local" 
+                      name="date_heure" 
+                      value={newEvent.date_heure} 
+                      onChange={handleInputChange} 
+                      required 
+                      style={{ borderRadius: "10px", padding: "12px" }}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-4">
+                    <Form.Label className="fw-semibold text-muted">
+                      <i className="fas fa-map-marker-alt me-2 text-primary"></i>
+                      Lieu *
+                    </Form.Label>
+                    <Form.Control 
+                      type="text" 
+                      name="lieu" 
+                      value={newEvent.lieu} 
+                      onChange={handleInputChange} 
+                      required 
+                      style={{ borderRadius: "10px", padding: "12px" }}
+                      placeholder="Lieu de l'événement"
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-4">
+                    <Form.Label className="fw-semibold text-muted">
+                      <i className="fas fa-tag me-2 text-primary"></i>
+                      Type *
+                    </Form.Label>
+                    <Form.Select 
+                      name="type" 
+                      value={newEvent.type} 
+                      onChange={handleInputChange}
+                      style={{ borderRadius: "10px", padding: "12px" }}
+                    >
+                      <option value="Présentiel">Présentiel</option>
+                      <option value="En ligne">En ligne</option>
+                      <option value="Hybride">Hybride</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-4">
+                    <Form.Label className="fw-semibold text-muted">
+                      <i className="fas fa-paperclip me-2 text-primary"></i>
+                      Fichier joint
+                    </Form.Label>
+                    <Form.Control 
+                      type="file" 
+                      onChange={handleFileChange} 
+                      style={{ borderRadius: "10px", padding: "12px" }}
+                    />
+                    <Form.Text className="text-muted">
+                      <i className="fas fa-info-circle me-1"></i>
+                      Formats acceptés: PDF, DOC, Images. Taille max: 10MB
+                    </Form.Text>
+                  </Form.Group>
+                </Col>
+              </Row>
+            </Form>
+          </Modal.Body>
+          <Modal.Footer className="border-0">
+            <Button 
+              variant="outline-secondary" 
+              onClick={handleCloseAddModal}
+              className="d-flex align-items-center"
+              style={{ borderRadius: "10px", padding: "10px 20px" }}
+            >
+              <i className="fas fa-times me-2"></i>
+              Annuler
+            </Button>
+            <Button 
+              variant="primary" 
+              type="submit"
+              onClick={handleAddEvent}
+              disabled={loading}
+              className="d-flex align-items-center"
+              style={{ 
+                borderRadius: "10px", 
+                padding: "10px 20px",
+                background: "linear-gradient(135deg, #667eea, #764ba2)",
+                border: "none"
+              }}
+            >
+              <i className="fas fa-save me-2"></i>
+              {loading ? "Création..." : "Créer l'événement"}
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* Modal Modifier */}
+        {selectedEvent && (
+          <Modal show={showEditModal} onHide={handleCloseEditModal} size="lg" centered>
+            <Modal.Header 
+              closeButton 
+              className="border-0"
+              style={{ 
+                background: "linear-gradient(135deg, #667eea, #764ba2)",
+                color: "white"
+              }}
+            >
+              <Modal.Title className="d-flex align-items-center fw-bold">
+                <i className="fas fa-edit me-2"></i>
+                Modifier l'Événement
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body className="p-4">
+              <Form onSubmit={handleEditEvent}>
+                <Row>
+                  <Col md={8}>
+                    <Form.Group className="mb-4">
+                      <Form.Label className="fw-semibold text-muted">
+                        <i className="fas fa-heading me-2 text-primary"></i>
+                        Titre *
+                      </Form.Label>
+                      <Form.Control 
+                        type="text" 
+                        name="titre" 
+                        value={selectedEvent.titre} 
+                        onChange={handleEditInputChange} 
+                        required 
+                        style={{ borderRadius: "10px", padding: "12px" }}
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Group className="mb-4">
+                      <Form.Label className="fw-semibold text-muted">
+                        <i className="fas fa-chart-line me-2 text-primary"></i>
+                        Statut *
+                      </Form.Label>
+                      <Form.Select 
+                        name="statut" 
+                        value={selectedEvent.statut} 
+                        onChange={handleEditInputChange}
+                        style={{ borderRadius: "10px", padding: "12px" }}
+                      >
+                        <option value="En attente">En attente</option>
+                        <option value="Validé">Validé</option>
+                        <option value="Rejeté">Rejeté</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Form.Group className="mb-4">
+                  <Form.Label className="fw-semibold text-muted">
+                    <i className="fas fa-align-left me-2 text-primary"></i>
+                    Description *
+                  </Form.Label>
+                  <Form.Control 
+                    as="textarea" 
+                    rows={4} 
+                    name="description" 
+                    value={selectedEvent.description} 
+                    onChange={handleEditInputChange} 
+                    required 
+                    style={{ borderRadius: "10px", padding: "12px" }}
+                  />
+                </Form.Group>
+
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-4">
+                      <Form.Label className="fw-semibold text-muted">
+                        <i className="fas fa-calendar me-2 text-primary"></i>
+                        Date et heure *
+                      </Form.Label>
+                      <Form.Control 
+                        type="datetime-local" 
+                        name="date_heure" 
+                        value={selectedEvent.date_heure} 
+                        onChange={handleEditInputChange} 
+                        required 
+                        style={{ borderRadius: "10px", padding: "12px" }}
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-4">
+                      <Form.Label className="fw-semibold text-muted">
+                        <i className="fas fa-map-marker-alt me-2 text-primary"></i>
+                        Lieu *
+                      </Form.Label>
+                      <Form.Control 
+                        type="text" 
+                        name="lieu" 
+                        value={selectedEvent.lieu} 
+                        onChange={handleEditInputChange} 
+                        required 
+                        style={{ borderRadius: "10px", padding: "12px" }}
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-4">
+                      <Form.Label className="fw-semibold text-muted">
+                        <i className="fas fa-tag me-2 text-primary"></i>
+                        Type *
+                      </Form.Label>
+                      <Form.Select 
+                        name="type" 
+                        value={selectedEvent.type} 
+                        onChange={handleEditInputChange}
+                        style={{ borderRadius: "10px", padding: "12px" }}
+                      >
+                        <option value="Présentiel">Présentiel</option>
+                        <option value="En ligne">En ligne</option>
+                        <option value="Hybride">Hybride</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-4">
+                      <Form.Label className="fw-semibold text-muted">
+                        <i className="fas fa-paperclip me-2 text-primary"></i>
+                        Fichier joint
+                      </Form.Label>
+                      <Form.Control 
+                        type="file" 
+                        onChange={handleEditFileChange} 
+                        style={{ borderRadius: "10px", padding: "12px" }}
+                      />
+                      {selectedEvent.fichier && (
+                        <div className="mt-2">
+                          <small className="text-muted d-block">
+                            <i className="fas fa-file me-1"></i>
+                            Fichier actuel: {getFileName(selectedEvent.fichier)}
+                          </small>
+                        </div>
+                      )}
+                    </Form.Group>
+                  </Col>
+                </Row>
+              </Form>
+            </Modal.Body>
+            <Modal.Footer className="border-0">
+              <Button 
+                variant="outline-secondary" 
+                onClick={handleCloseEditModal}
+                className="d-flex align-items-center"
+                style={{ borderRadius: "10px", padding: "10px 20px" }}
+              >
+                <i className="fas fa-times me-2"></i>
+                Annuler
+              </Button>
+              <Button 
+                variant="primary" 
+                type="submit"
+                onClick={handleEditEvent}
+                disabled={loading}
+                className="d-flex align-items-center"
+                style={{ 
+                  borderRadius: "10px", 
+                  padding: "10px 20px",
+                  background: "linear-gradient(135deg, #667eea, #764ba2)",
+                  border: "none"
+                }}
+              >
+                <i className="fas fa-save me-2"></i>
+                {loading ? "Modification..." : "Modifier"}
+              </Button>
+            </Modal.Footer>
+          </Modal>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Evenement;
