@@ -8,6 +8,7 @@ use App\Http\Controllers\PublicationController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\EvenementController;
 use App\Http\Controllers\AppelOffreController;
+use App\Http\Controllers\MessageController;
 
 Route::apiResource('evenements', EvenementController::class);
 
@@ -44,3 +45,26 @@ Route::put('/membres/{id}', [MembreController::class, 'update']);
 Route::delete('/membres/{id}', [MembreController::class, 'destroy']);
 
 Route::apiResource('appeloffres', AppelOffreController::class);
+
+
+// --- Routes de Messagerie Admin ---
+
+// GET: Liste tous les messages (avec les réponses)
+Route::get('/messages', [MessageController::class, 'index']);
+// POST: Crée un nouveau message (Formulaire de contact client)
+Route::post('/messages', [MessageController::class, 'store']); 
+// DELETE: Supprime un message
+Route::delete('/messages/{id}', [MessageController::class, 'destroy']); 
+// PUT: Marque un message individuel comme lu
+Route::put('/messages/{id}/read', [MessageController::class, 'markAsRead']); 
+// PUT: Marque tous les messages comme lus
+Route::put('/messages/mark-all-read', [MessageController::class, 'markAllAsRead']); 
+// POST: Envoie la réponse de l'administrateur à un message existant
+Route::post('/messages/{id}/reply', [MessageController::class, 'reply']); 
+
+// --- Routes pour l'envoi de messages initiés par l'Admin ---
+
+// GET: Liste les membres (destinataires potentiels)
+Route::get('/members', [MessageController::class, 'listMembers']); 
+// POST: Envoi d'un message initié par l'admin
+Route::post('/messages/send-admin', [MessageController::class, 'sendAdminMessage']);
