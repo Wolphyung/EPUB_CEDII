@@ -102,7 +102,7 @@ const DashMembre = () => {
       }}>
     
       </div>
-
+<MembreSidebar/>
       {/* Contenu Principal */}
       <div className="flex-grow-1" style={{ 
         padding: "30px",

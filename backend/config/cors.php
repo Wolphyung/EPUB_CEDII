@@ -17,8 +17,8 @@ return [
     'allowed_methods' => ['*'], // Autorise toutes les méthodes HTTP (GET, POST, PUT, DELETE, etc.)
 
     'allowed_origins' => [
-        'http://localhost:3001',
-        'http://192.168.56.1:3001',
+        'http://localhost:3000',
+        'http://192.168.56.1:3000',
     ],
 
     'allowed_origins_patterns' => [],
