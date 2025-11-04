@@ -35,7 +35,7 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard">
-      <Navbar />
+  
       
       {/* Hero Section */}
       <section className="hero">
