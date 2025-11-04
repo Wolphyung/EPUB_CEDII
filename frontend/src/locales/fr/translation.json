@@ -1,0 +1,66 @@
+{
+  "accueil": "Accueil",
+  "publications": "Publications",
+  "membres": "Membres",
+  "connexion": "Connexion",
+  "bienvenue_titre": "Bienvenue sur notre plateforme !",
+  "language_selector": "Langue",
+  "tous_droits_réservés": "Tous droits réservés",
+
+  "admin_dashboard_title": "Tableau de Bord Administrateur",
+  "admin_dashboard_subtitle": "Aperçu complet de votre plateforme",
+  "refresh_button": "Actualiser",
+  "loading": "Chargement",
+  "progression": "Progression",
+  "sans_titre": "Sans titre",
+  "general": "Général",
+
+  "events_total": "Événements",
+  "publications_total": "Publications",
+  "offers_total": "Appels d'offre",
+  "members_total": "Membres",
+
+  "events_pending_subtitle": "{{count}} en attente",
+  "publications_pending_subtitle": "{{count}} en attente",
+  "offers_active_subtitle": "{{count}} actifs",
+  "members_total_subtitle": "Total membres",
+  
+  "events_upcoming_title": "📅 Événements à venir",
+  "publications_recent_title": "📢 Dernières publications",
+  "offers_recent_title": "📂 Appels d'offre récents",
+
+  "events_empty_message": "Aucun événement planifié",
+  "publications_empty_message": "Aucune publication récente",
+  "offers_empty_message": "Aucun appel d'offre actif",
+  
+  "recent_activity_title": "📈 Activité Récente",
+  "overview_badge": "Vue d'ensemble",
+  "events_total_label": "Événements total",
+  "publications_total_label": "Publications total",
+  "offers_total_label": "Appels d'offre total",
+  "members_total_label": "Membres inscrits",
+
+  "Validé": "Validé",
+  "En attente": "En attente",
+  "Actif": "Actif",
+  "Brouillon": "Brouillon",
+  "Rejeté": "Rejeté",
+
+  "admin_panel_title": "Panneau d'administration",
+  "admin_role_label": "Administrateur",
+  "menu_dashboard": "Tableau de bord",
+  "menu_publication": "Publication",
+  "menu_event": "Événement",
+  "menu_call_for_tender": "Appel d'offre",
+  "menu_member": "Membre",
+  "menu_messages": "Messages",
+  "menu_notifications": "Notifications",
+  "menu_settings": "Paramètres",
+  
+  "theme_light_mode": "Mode Clair",
+  "theme_dark_mode": "Mode Sombre",
+  "logout_button": "Déconnexion",
+  "cancel_button": "Annuler",
+  "logout_modal_title": "Déconnexion",
+  "logout_modal_message": "Êtes-vous sûr de vouloir vous déconnecter de votre session administrateur ?"
+}

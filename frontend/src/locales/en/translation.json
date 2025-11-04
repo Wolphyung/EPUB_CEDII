@@ -1,0 +1,66 @@
+{
+  "accueil": "Home",
+  "publications": "Publications",
+  "membres": "Members",
+  "connexion": "Login",
+  "bienvenue_titre": "Welcome to our platform!",
+  "language_selector": "Language",
+  "tous_droits_réservés": "All rights reserved",
+
+  "admin_dashboard_title": "Administrator Dashboard",
+  "admin_dashboard_subtitle": "Complete overview of your platform",
+  "refresh_button": "Refresh",
+  "loading": "Loading",
+  "progression": "Progress",
+  "sans_titre": "Untitled",
+  "general": "General",
+
+  "events_total": "Events",
+  "publications_total": "Publications",
+  "offers_total": "Call for Tenders",
+  "members_total": "Members",
+
+  "events_pending_subtitle": "{{count}} pending",
+  "publications_pending_subtitle": "{{count}} pending",
+  "offers_active_subtitle": "{{count}} active",
+  "members_total_subtitle": "Total members",
+  
+  "events_upcoming_title": "📅 Upcoming Events",
+  "publications_recent_title": "📢 Latest Publications",
+  "offers_recent_title": "📂 Recent Call for Tenders",
+
+  "events_empty_message": "No events planned",
+  "publications_empty_message": "No recent publications",
+  "offers_empty_message": "No active tenders",
+  
+  "recent_activity_title": "📈 Recent Activity",
+  "overview_badge": "Overview",
+  "events_total_label": "Total Events",
+  "publications_total_label": "Total Publications",
+  "offers_total_label": "Total Tenders",
+  "members_total_label": "Registered Members",
+
+  "Validé": "Validated",
+  "En attente": "Pending",
+  "Actif": "Active",
+  "Brouillon": "Draft",
+  "Rejeté": "Rejected",
+
+  "admin_panel_title": "Admin Panel",
+  "admin_role_label": "Administrator",
+  "menu_dashboard": "Dashboard",
+  "menu_publication": "Publication",
+  "menu_event": "Event",
+  "menu_call_for_tender": "Call for Tender",
+  "menu_member": "Member",
+  "menu_messages": "Messages",
+  "menu_notifications": "Notifications",
+  "menu_settings": "Settings",
+
+  "theme_light_mode": "Light Mode",
+  "theme_dark_mode": "Dark Mode",
+  "logout_button": "Logout",
+  "cancel_button": "Cancel",
+  "logout_modal_title": "Logout",
+  "logout_modal_message": "Are you sure you want to log out of your administrator session?"
+}

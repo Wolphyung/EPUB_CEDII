@@ -7,6 +7,9 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+// Importez la configuration i18n
+import './i18n';
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>

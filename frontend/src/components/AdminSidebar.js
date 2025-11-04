@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Modal, Button } from "react-bootstrap";
+import { useTranslation } from 'react-i18next'; 
+import LanguageSwitcher from "./LanguageSwitcher"; 
 
 const AdminSidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation(); 
+  
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeItem, setActiveItem] = useState("");
   const [isHovered, setIsHovered] = useState(false);
@@ -52,15 +56,16 @@ const AdminSidebar = () => {
     setShowLogoutModal(true);
   };
 
+  // Utilisation des CLÉS de traduction pour les labels du menu
   const menuItems = [
-    { path: "/dashAdmin", icon: "fas fa-tachometer-alt", label: "Tableau de bord" },
-    { path: "/pubAdmin", icon: "fas fa-bullhorn", label: "Publication" },
-    { path: "/adminEv", icon: "fas fa-calendar-alt", label: "Événement" },
-    { path: "/appeloffreAdmin", icon: "fas fa-file-contract", label: "Appel d'offre" },
-    { path: "/membreAdmin", icon: "fas fa-users", label: "Membre" },
-    { path: "/messageAdmin", icon: "fas fa-comments", label: "Messages" },
-    { path: "/notificationAdmin", icon: "fas fa-bell", label: "Notifications" },
-    { path: "/parametreAdmin", icon: "fas fa-cogs", label: "Paramètre" },
+    { path: "/dashAdmin", icon: "fas fa-tachometer-alt", labelKey: "menu_dashboard" },
+    { path: "/pubAdmin", icon: "fas fa-bullhorn", labelKey: "menu_publication" },
+    { path: "/adminEv", icon: "fas fa-calendar-alt", labelKey: "menu_event" },
+    { path: "/appeloffreAdmin", icon: "fas fa-file-contract", labelKey: "menu_call_for_tender" },
+    { path: "/membreAdmin", icon: "fas fa-users", labelKey: "menu_member" },
+    { path: "/messageAdmin", icon: "fas fa-comments", labelKey: "menu_messages" },
+    { path: "/notificationAdmin", icon: "fas fa-bell", labelKey: "menu_notifications" },
+    { path: "/parametreAdmin", icon: "fas fa-cogs", labelKey: "menu_settings" },
   ];
 
   const sidebarStyle = {
@@ -139,9 +144,9 @@ const AdminSidebar = () => {
                       fontSize: "1.3rem"
                     }}
                   >
-                    Admin Panel
+                    {t('admin_panel_title')}
                   </h4>
-                  <span className="text-white-50 small d-block">Administrateur</span>
+                  <span className="text-white-50 small d-block">{t('admin_role_label')}</span>
                 </div>
               </div>
             )}
@@ -164,7 +169,7 @@ const AdminSidebar = () => {
         </div>
 
         {/* Menu de navigation */}
-        <div className="p-3" style={{ height: "calc(100vh - 240px)", overflowY: "auto" }}>
+        <div className="p-3" style={{ height: "calc(100vh - 290px)", overflowY: "auto" }}>
           <ul className="nav flex-column">
             {menuItems.map((item) => (
               <li key={item.path} className="nav-item">
@@ -187,7 +192,7 @@ const AdminSidebar = () => {
                 >
                   <i className={`${item.icon} me-3`} style={{ width: "20px", textAlign: "center" }}></i>
                   {(!isCollapsed || isHovered) && (
-                    <span className="fw-medium">{item.label}</span>
+                    <span className="fw-medium">{t(item.labelKey)}</span>
                   )}
                   {activeItem === item.path && (
                     <div 
@@ -210,7 +215,7 @@ const AdminSidebar = () => {
           </ul>
         </div>
 
-        {/* Section Thème et Déconnexion */}
+        {/* Section Thème, Déconnexion et Langue */}
         <div className="p-3 border-top border-secondary" style={{ 
           borderColor: "rgba(255,255,255,0.1) !important",
           position: "absolute",
@@ -218,6 +223,11 @@ const AdminSidebar = () => {
           left: "0",
           right: "0"
         }}>
+          {/* SÉLECTEUR DE LANGUE (TOUJOURS AFFICHÉ) */}
+          <div className="mb-3 text-center">
+            <LanguageSwitcher />
+          </div>
+          
           {/* Bouton Thème */}
           <button
             onClick={toggleTheme}
@@ -226,7 +236,8 @@ const AdminSidebar = () => {
               background: "linear-gradient(135deg, #ffd700 0%, #ffa500 100%)",
               border: "none",
               borderRadius: "12px",
-              padding: "12px 16px",
+              // 🎯 Ajustement du padding pour le mode icône
+              padding: isCollapsed && !isHovered ? "12px 0" : "12px 16px",
               transition: "all 0.3s ease",
               boxShadow: "0 4px 15px rgba(255, 215, 0, 0.3)"
             }}
@@ -239,10 +250,16 @@ const AdminSidebar = () => {
               e.target.style.boxShadow = "0 4px 15px rgba(255, 215, 0, 0.3)";
             }}
           >
-            <i className={`fas ${isDarkMode ? "fa-sun" : "fa-moon"} me-2`}></i>
+            <i className={`fas ${isDarkMode ? "fa-sun" : "fa-moon"}`} style={{ 
+              // 🎯 Marge conditionnelle
+              marginRight: (!isCollapsed || isHovered) ? "8px" : "0", 
+              // 🎯 Taille d'icône augmentée en mode réduit
+              fontSize: isCollapsed && !isHovered ? "1.25rem" : "1rem"
+            }}></i>
+            {/* Le texte s'affiche SEULEMENT si la barre n'est PAS réduite OU est survolée */}
             {(!isCollapsed || isHovered) && (
               <span className="fw-medium">
-                {isDarkMode ? "Mode Clair" : "Mode Sombre"}
+                {t(isDarkMode ? 'theme_light_mode' : 'theme_dark_mode')}
               </span>
             )}
           </button>
@@ -255,7 +272,8 @@ const AdminSidebar = () => {
               background: "linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)",
               border: "none",
               borderRadius: "12px",
-              padding: "12px 16px",
+              // 🎯 Ajustement du padding pour le mode icône
+              padding: isCollapsed && !isHovered ? "12px 0" : "12px 16px",
               transition: "all 0.3s ease",
               boxShadow: "0 4px 15px rgba(255, 107, 107, 0.3)"
             }}
@@ -268,9 +286,15 @@ const AdminSidebar = () => {
               e.target.style.boxShadow = "0 4px 15px rgba(255, 107, 107, 0.3)";
             }}
           >
-            <i className="fas fa-sign-out-alt me-2"></i>
+            <i className="fas fa-sign-out-alt" style={{
+              // 🎯 Marge conditionnelle
+              marginRight: (!isCollapsed || isHovered) ? "8px" : "0",
+              // 🎯 Taille d'icône augmentée en mode réduit
+              fontSize: isCollapsed && !isHovered ? "1.25rem" : "1rem"
+            }}></i>
+            {/* Le texte s'affiche SEULEMENT si la barre n'est PAS réduite OU est survolée */}
             {(!isCollapsed || isHovered) && (
-              <span className="fw-medium">Déconnexion</span>
+              <span className="fw-medium">{t('logout_button')}</span>
             )}
           </button>
 
@@ -326,11 +350,11 @@ const AdminSidebar = () => {
           </div>
           
           <h4 className="fw-bold mb-3" style={{ color: "#2c3e50" }}>
-            Déconnexion
+            {t('logout_modal_title')}
           </h4>
           
           <p className="text-muted mb-4" style={{ lineHeight: "1.5" }}>
-            Êtes-vous sûr de vouloir vous déconnecter de votre session administrateur ?
+            {t('logout_modal_message')}
           </p>
           
           <div className="d-flex gap-3 justify-content-center">
@@ -346,7 +370,7 @@ const AdminSidebar = () => {
               }}
             >
               <i className="fas fa-times me-2"></i>
-              Annuler
+              {t('cancel_button')}
             </Button>
             <Button
               variant="danger"
@@ -361,13 +385,13 @@ const AdminSidebar = () => {
               }}
             >
               <i className="fas fa-check me-2"></i>
-              Se déconnecter
+              {t('logout_button')}
             </Button>
           </div>
         </Modal.Body>
       </Modal>
 
-      {/* Styles CSS pour le mode sombre */}
+      {/* Styles CSS (aucune modification nécessaire) */}
       <style>
         {`
           [data-theme="dark"] {

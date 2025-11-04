@@ -5,10 +5,16 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { FaUsers, FaCalendarAlt, FaFileAlt, FaBullhorn, FaChartLine, FaEye, FaPlus, FaArrowRight } from "react-icons/fa";
 import axios from "axios";
 
+// Le Hook useTranslation est déjà là, c'est parfait !
+import { useTranslation } from 'react-i18next';
+
 const API_URL = "http://127.0.0.1:8000/api";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  // 🎯 UTILISATION DU HOOK DE TRADUCTION
+  const { t } = useTranslation();
+  
   const [stats, setStats] = useState({
     evenements: 0,
     publications: 0,
@@ -47,6 +53,8 @@ const AdminDashboard = () => {
         const membres = membresRes.data || [];
 
         // Calculer les statistiques
+        // NOTE: Les chaînes de statut ('En attente', 'Actif', 'Validé', etc.) 
+        // DOIVENT correspondre exactement aux valeurs renvoyées par votre API Laravel.
         const evenementsEnAttente = events.filter(ev => ev.statut === "En attente").length;
         const publicationsEnAttente = publications.filter(pub => pub.statut === "En attente").length;
         const appelsOffreActifs = appelsOffre.filter(offre => offre.statut === "Actif").length;
@@ -70,15 +78,10 @@ const AdminDashboard = () => {
 
       } catch (error) {
         console.error("Erreur chargement stats:", error);
-        // Valeurs par défaut en cas d'erreur
+        // Gestion d'erreur simplifiée
         setStats({
-          evenements: 0,
-          publications: 0,
-          appelsOffre: 0,
-          membres: 0,
-          evenementsEnAttente: 0,
-          publicationsEnAttente: 0,
-          appelsOffreActifs: 0
+          evenements: 0, publications: 0, appelsOffre: 0, membres: 0, 
+          evenementsEnAttente: 0, publicationsEnAttente: 0, appelsOffreActifs: 0
         });
       } finally {
         setLoading(false);
@@ -88,6 +91,7 @@ const AdminDashboard = () => {
     fetchStats();
   }, []);
 
+  // Fonction pour obtenir la couleur de la pastille de statut
   const getStatusVariant = (statut) => {
     switch(statut) {
       case "Validé": return "success";
@@ -99,8 +103,12 @@ const AdminDashboard = () => {
     }
   };
 
+  // Fonction pour formater la date
   const formatDate = (dateString) => {
     if (!dateString) return '';
+    // Utilisation de 'fr-FR' pour conserver le format français, 
+    // mais pour être complètement multilingue, on utiliserait 
+    // l'objet i18n.language ici si nécessaire.
     return new Date(dateString).toLocaleDateString('fr-FR', {
       day: '2-digit',
       month: '2-digit',
@@ -108,6 +116,7 @@ const AdminDashboard = () => {
     });
   };
 
+  // Composant StatCard - Le titre et le sous-titre sont traduits
   const StatCard = ({ title, value, icon, color, subtitle, progress, onClick }) => (
     <Card 
       className="border-0 shadow-sm h-100" 
@@ -133,7 +142,8 @@ const AdminDashboard = () => {
       <Card.Body className="p-4">
         <div className="d-flex justify-content-between align-items-start mb-3">
           <div>
-            <h6 className="text-muted mb-2 fw-semibold">{title}</h6>
+            {/* 🎯 Traduction du titre */}
+            <h6 className="text-muted mb-2 fw-semibold">{t(title)}</h6>
             <h2 className="fw-bold mb-0" style={{ 
               background: color,
               WebkitBackgroundClip: "text",
@@ -142,14 +152,18 @@ const AdminDashboard = () => {
             }}>
               {loading ? (
                 <div className="spinner-border spinner-border-sm text-primary" role="status">
-                  <span className="visually-hidden">Chargement...</span>
+                  {/* 🎯 Traduction du texte de chargement */}
+                  <span className="visually-hidden">{t('loading')}...</span>
                 </div>
               ) : (
                 value
               )}
             </h2>
             {subtitle && (
-              <p className="text-muted small mb-0 mt-2">{subtitle}</p>
+              <p className="text-muted small mb-0 mt-2">
+                {/* 🎯 Le sous-titre doit être géré par des clés contenant des valeurs dynamiques */}
+                {subtitle}
+              </p>
             )}
           </div>
           <div 
@@ -163,10 +177,11 @@ const AdminDashboard = () => {
             {icon}
           </div>
         </div>
-        {progress && (
+        {progress !== undefined && ( // Utiliser progress !== undefined pour supporter la valeur 0
           <div className="mt-3">
             <div className="d-flex justify-content-between align-items-center mb-1">
-              <small className="text-muted">Progression</small>
+              {/* 🎯 Traduction du mot Progression */}
+              <small className="text-muted">{t('progression')}</small>
               <small className="fw-semibold">{progress}%</small>
             </div>
             <ProgressBar 
@@ -183,11 +198,13 @@ const AdminDashboard = () => {
     </Card>
   );
 
+  // Composant QuickSection - Tous les textes sont traduits
   const QuickSection = ({ title, data, type, emptyMessage, onAdd, onViewAll }) => (
     <Card className="border-0 shadow-sm h-100" style={{ borderRadius: "20px" }}>
       <Card.Body className="p-4 d-flex flex-column">
         <div className="d-flex justify-content-between align-items-center mb-3">
-          <h6 className="fw-bold mb-0" style={{ color: "#2c3e50" }}>{title}</h6>
+          {/* 🎯 Traduction du titre */}
+          <h6 className="fw-bold mb-0" style={{ color: "#2c3e50" }}>{t(title)}</h6>
           <div className="d-flex gap-2">
             <Button 
               variant="outline-primary" 
@@ -214,7 +231,8 @@ const AdminDashboard = () => {
           {loading ? (
             <div className="text-center py-3">
               <div className="spinner-border spinner-border-sm text-primary" role="status">
-                <span className="visually-hidden">Chargement...</span>
+                {/* 🎯 Traduction du texte de chargement */}
+                <span className="visually-hidden">{t('loading')}...</span>
               </div>
             </div>
           ) : data.length > 0 ? (
@@ -223,16 +241,19 @@ const AdminDashboard = () => {
                 key={index} 
                 className="d-flex justify-content-between align-items-center py-2 border-bottom border-light"
                 style={{ cursor: "pointer" }}
-                onClick={() => navigate(`/${type}Admin`)}
+                // Navigation vers la page de gestion (ex: /pubAdmin)
+                onClick={() => navigate(`/${type}Admin`)} 
               >
                 <div className="flex-grow-1">
                   <div className="d-flex align-items-center mb-1">
                     <span className="fw-semibold text-dark small" style={{ lineHeight: "1.3" }}>
-                      {item.titre || item.nom || "Sans titre"}
+                      {/* Le titre de l'élément n'est pas traduit, il vient de l'API */}
+                      {item.titre || item.nom || t("sans_titre")}
                     </span>
                   </div>
                   <div className="d-flex align-items-center gap-3">
                     <small className="text-muted">
+                      {/* Les labels sont traduits */}
                       {type === 'evenements' && item.date_heure && (
                         <><FaCalendarAlt className="me-1" />{formatDate(item.date_heure)}</>
                       )}
@@ -240,7 +261,7 @@ const AdminDashboard = () => {
                         <><FaBullhorn className="me-1" />{item.type}</>
                       )}
                       {type === 'appeloffres' && (
-                        <><FaFileAlt className="me-1" />{item.categorie || "Général"}</>
+                        <><FaFileAlt className="me-1" />{item.categorie || t("general")}</>
                       )}
                     </small>
                     <Badge 
@@ -252,7 +273,8 @@ const AdminDashboard = () => {
                         padding: "2px 8px"
                       }}
                     >
-                      {item.statut}
+                      {/* 🎯 Traduction du statut (voir note ci-dessous) */}
+                      {t(item.statut)}
                     </Badge>
                   </div>
                 </div>
@@ -265,7 +287,8 @@ const AdminDashboard = () => {
                 {type === 'publications' && <FaBullhorn size={24} />}
                 {type === 'appeloffres' && <FaFileAlt size={24} />}
               </div>
-              <p className="text-muted small mb-0">{emptyMessage}</p>
+              {/* 🎯 Traduction du message si aucune donnée */}
+              <p className="text-muted small mb-0">{t(emptyMessage)}</p>
             </div>
           )}
         </div>
@@ -286,11 +309,13 @@ const AdminDashboard = () => {
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent"
             }}>
-              Tableau de Bord Administrateur
+              {/* 🎯 Traduction du titre du tableau de bord */}
+              {t('admin_dashboard_title')}
             </h2>
             <p className="text-muted mb-0 d-flex align-items-center">
               <FaChartLine className="me-2" />
-              Aperçu complet de votre plateforme
+              {/* 🎯 Traduction du sous-titre */}
+              {t('admin_dashboard_subtitle')}
             </p>
           </div>
           <div className="d-flex gap-2">
@@ -301,7 +326,8 @@ const AdminDashboard = () => {
               onClick={() => window.location.reload()}
             >
               <FaArrowRight className="me-2" />
-              Actualiser
+              {/* 🎯 Traduction du bouton */}
+              {t('refresh_button')}
             </Button>
           </div>
         </div>
@@ -310,44 +336,52 @@ const AdminDashboard = () => {
         <Row className="mb-4 g-3">
           <Col md={3}>
             <StatCard
-              title="Événements"
+              // 🎯 Clé de traduction
+              title="events_total"
               value={stats.evenements}
               icon={<FaCalendarAlt size={24} className="text-white" />}
               color="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-              subtitle={`${stats.evenementsEnAttente} en attente`}
+              // 🎯 Sous-titre traduit avec interpolation (voir JSON ci-dessous)
+              subtitle={t('events_pending_subtitle', { count: stats.evenementsEnAttente })}
               progress={stats.evenements > 0 ? Math.round((stats.evenementsEnAttente / stats.evenements) * 100) : 0}
               onClick={() => navigate("/adminEv")}
             />
           </Col>
           <Col md={3}>
             <StatCard
-              title="Publications"
+              // 🎯 Clé de traduction
+              title="publications_total"
               value={stats.publications}
               icon={<FaBullhorn size={24} className="text-white" />}
               color="linear-gradient(135deg, #00b09b, #96c93d)"
-              subtitle={`${stats.publicationsEnAttente} en attente`}
+              // 🎯 Sous-titre traduit avec interpolation
+              subtitle={t('publications_pending_subtitle', { count: stats.publicationsEnAttente })}
               progress={stats.publications > 0 ? Math.round((stats.publicationsEnAttente / stats.publications) * 100) : 0}
               onClick={() => navigate("/pubAdmin")}
             />
           </Col>
           <Col md={3}>
             <StatCard
-              title="Appels d'offre"
+              // 🎯 Clé de traduction
+              title="offers_total"
               value={stats.appelsOffre}
               icon={<FaFileAlt size={24} className="text-white" />}
               color="linear-gradient(135deg, #4facfe, #00f2fe)"
-              subtitle={`${stats.appelsOffreActifs} actifs`}
+              // 🎯 Sous-titre traduit avec interpolation
+              subtitle={t('offers_active_subtitle', { count: stats.appelsOffreActifs })}
               progress={stats.appelsOffre > 0 ? Math.round((stats.appelsOffreActifs / stats.appelsOffre) * 100) : 0}
               onClick={() => navigate("/appeloffreAdmin")}
             />
           </Col>
           <Col md={3}>
             <StatCard
-              title="Membres"
+              // 🎯 Clé de traduction
+              title="members_total"
               value={stats.membres}
               icon={<FaUsers size={24} className="text-white" />}
               color="linear-gradient(135deg, #f093fb, #f5576c)"
-              subtitle="Total membres"
+              // 🎯 Clé de traduction
+              subtitle={t('members_total_subtitle')}
               progress={100}
               onClick={() => navigate("/membreAdmin")}
             />
@@ -358,30 +392,33 @@ const AdminDashboard = () => {
         <Row className="g-3 mb-4">
           <Col md={4}>
             <QuickSection
-              title="📅 Événements à venir"
+              // 🎯 Clés de traduction pour le titre et le message vide
+              title="events_upcoming_title"
               data={recentData.evenements}
-              type="evenements"
-              emptyMessage="Aucun événement planifié"
+              type="adminEv" // Le type doit correspondre à la route
+              emptyMessage="events_empty_message"
               onAdd={() => navigate("/adminEv")}
               onViewAll={() => navigate("/adminEv")}
             />
           </Col>
           <Col md={4}>
             <QuickSection
-              title="📢 Dernières publications"
+              // 🎯 Clés de traduction pour le titre et le message vide
+              title="publications_recent_title"
               data={recentData.publications}
-              type="publications"
-              emptyMessage="Aucune publication récente"
+              type="pub" // Le type doit correspondre à la route
+              emptyMessage="publications_empty_message"
               onAdd={() => navigate("/pubAdmin")}
               onViewAll={() => navigate("/pubAdmin")}
             />
           </Col>
           <Col md={4}>
             <QuickSection
-              title="📂 Appels d'offre récents"
+              // 🎯 Clés de traduction pour le titre et le message vide
+              title="offers_recent_title"
               data={recentData.appelsOffre}
-              type="appeloffres"
-              emptyMessage="Aucun appel d'offre actif"
+              type="appeloffre" // Le type doit correspondre à la route
+              emptyMessage="offers_empty_message"
               onAdd={() => navigate("/appeloffreAdmin")}
               onViewAll={() => navigate("/appeloffreAdmin")}
             />
@@ -393,36 +430,42 @@ const AdminDashboard = () => {
           <Card.Body className="p-4">
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h6 className="fw-bold mb-0" style={{ color: "#2c3e50" }}>
-                📈 Activité Récente
+                {/* 🎯 Traduction du titre de section */}
+                {t('recent_activity_title')}
               </h6>
               <Badge bg="primary" className="d-flex align-items-center">
                 <FaEye className="me-1" />
-                Vue d'ensemble
+                {/* 🎯 Traduction de la pastille */}
+                {t('overview_badge')}
               </Badge>
             </div>
             <Row className="text-center">
               <Col md={3}>
                 <div className="border-end border-light py-3">
                   <h4 className="fw-bold text-primary mb-1">{stats.evenements}</h4>
-                  <small className="text-muted">Événements total</small>
+                  {/* 🎯 Traduction du label */}
+                  <small className="text-muted">{t('events_total_label')}</small>
                 </div>
               </Col>
               <Col md={3}>
                 <div className="border-end border-light py-3">
                   <h4 className="fw-bold text-success mb-1">{stats.publications}</h4>
-                  <small className="text-muted">Publications total</small>
+                  {/* 🎯 Traduction du label */}
+                  <small className="text-muted">{t('publications_total_label')}</small>
                 </div>
               </Col>
               <Col md={3}>
                 <div className="border-end border-light py-3">
                   <h4 className="fw-bold text-info mb-1">{stats.appelsOffre}</h4>
-                  <small className="text-muted">Appels d'offre total</small>
+                  {/* 🎯 Traduction du label */}
+                  <small className="text-muted">{t('offers_total_label')}</small>
                 </div>
               </Col>
               <Col md={3}>
                 <div className="py-3">
                   <h4 className="fw-bold text-warning mb-1">{stats.membres}</h4>
-                  <small className="text-muted">Membres inscrits</small>
+                  {/* 🎯 Traduction du label */}
+                  <small className="text-muted">{t('members_total_label')}</small>
                 </div>
               </Col>
             </Row>
