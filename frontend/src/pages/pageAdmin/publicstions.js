@@ -30,6 +30,7 @@ const Publication = () => {
   const [filterStatut, setFilterStatut] = useState("Tous");
   const [filterType, setFilterType] = useState("Tous");
   const [loading, setLoading] = useState(false);
+  const [previewFile, setPreviewFile] = useState(null);
 
   // Catégories prédéfinies
   const categories = [
@@ -58,8 +59,8 @@ const Publication = () => {
     source: "",
     categorie: "",
     statut: "Validé",
-    media: null,
-    type_media: "image",
+    fichier: null,
+    type_fichier: "image",
     auteur: "Admin",
     id_utilisateur: null
   });
@@ -73,12 +74,15 @@ const Publication = () => {
   useEffect(() => {
     return () => {
       publications.forEach(pub => {
-        if (pub.media_url && pub.media_url.startsWith('blob:')) {
-          URL.revokeObjectURL(pub.media_url);
+        if (pub.fichier_url && pub.fichier_url.startsWith('blob:')) {
+          URL.revokeObjectURL(pub.fichier_url);
         }
       });
+      if (previewFile && previewFile.url.startsWith('blob:')) {
+        URL.revokeObjectURL(previewFile.url);
+      }
     };
-  }, [publications]);
+  }, [publications, previewFile]);
 
   const loadPublications = async () => {
     try {
@@ -120,16 +124,44 @@ const Publication = () => {
   // Changement des champs
   const handleChange = (e) => {
     const { name, value, files } = e.target;
-    if (name === "media") {
-      setNewPub({ ...newPub, media: files[0] });
+    if (name === "fichier") {
+      const file = files[0];
+      setNewPub({ ...newPub, fichier: file });
+      
+      // Prévisualisation du fichier
+      if (file) {
+        const fileURL = URL.createObjectURL(file);
+        setPreviewFile({
+          url: fileURL,
+          name: file.name,
+          type: file.type
+        });
+        
+        // Déterminer automatiquement le type de fichier
+        const fileType = getFileTypeFromFile(file);
+        setNewPub(prev => ({ ...prev, type_fichier: fileType }));
+      } else {
+        setPreviewFile(null);
+      }
     } else {
       setNewPub({ ...newPub, [name]: value });
     }
   };
 
-  // Changer le type de média
-  const handleMediaTypeChange = (type) => {
-    setNewPub({ ...newPub, type_media: type, media: null });
+  // Changer le type de fichier
+  const handleFileTypeChange = (type) => {
+    setNewPub({ ...newPub, type_fichier: type, fichier: null });
+    setPreviewFile(null);
+  };
+
+  // Déterminer le type de fichier à partir du fichier
+  const getFileTypeFromFile = (file) => {
+    if (!file) return 'image';
+    
+    const fileType = file.type;
+    if (fileType.startsWith('image/')) return 'image';
+    if (fileType.startsWith('video/')) return 'video';
+    return 'document';
   };
 
   // Ajouter une publication
@@ -145,10 +177,10 @@ const Publication = () => {
       formData.append("statut", "Validé");
       formData.append("auteur", newPub.auteur);
       formData.append("id_utilisateur", newPub.id_utilisateur || "");
-      formData.append("type_media", newPub.type_media);
+      formData.append("type_fichier", newPub.type_fichier);
       
-      if(newPub.media) {
-        formData.append("media", newPub.media);
+      if(newPub.fichier) {
+        formData.append("fichier", newPub.fichier);
       }
 
       const res = await addPublication(formData);
@@ -166,10 +198,11 @@ const Publication = () => {
         date_publication: newPub.date_publication || new Date().toISOString().slice(0,10),
         likes: 0,
         vues: 0,
-        type_media: newPub.type_media,
+        type_fichier: newPub.type_fichier,
         // Créer l'URL temporaire pour l'affichage immédiat
-        media_url: newPub.media ? URL.createObjectURL(newPub.media) : null,
-        media: newPub.media ? newPub.media : null
+        fichier_url: newPub.fichier ? URL.createObjectURL(newPub.fichier) : null,
+        fichier: newPub.fichier ? newPub.fichier : null,
+        nom_fichier_original: newPub.fichier ? newPub.fichier.name : null
       };
       
       // Ajouter la publication avec les données complètes
@@ -184,11 +217,12 @@ const Publication = () => {
         source: "",
         categorie: "",
         statut: "Validé",
-        media: null,
-        type_media: "image",
+        fichier: null,
+        type_fichier: "image",
         auteur: "Admin",
         id_utilisateur: null
       });
+      setPreviewFile(null);
       setShowModal(false);
       showNotification("success", "✅ Publication ajoutée avec succès !");
     } catch (err) {
@@ -226,19 +260,38 @@ const Publication = () => {
   const handleEditShow = (pub) => {
     setSelectedPub({...pub});
     setEditModal(true);
+    setPreviewFile(null);
   };
 
   const handleEditChange = (e) => {
     const { name, value, files } = e.target;
-    if (name === "media") {
-      setSelectedPub({ ...selectedPub, media: files[0] });
+    if (name === "fichier") {
+      const file = files[0];
+      setSelectedPub({ ...selectedPub, fichier: file });
+      
+      // Prévisualisation du fichier
+      if (file) {
+        const fileURL = URL.createObjectURL(file);
+        setPreviewFile({
+          url: fileURL,
+          name: file.name,
+          type: file.type
+        });
+        
+        // Déterminer automatiquement le type de fichier
+        const fileType = getFileTypeFromFile(file);
+        setSelectedPub(prev => ({ ...prev, type_fichier: fileType }));
+      } else {
+        setPreviewFile(null);
+      }
     } else {
       setSelectedPub({ ...selectedPub, [name]: value });
     }
   };
 
-  const handleEditMediaTypeChange = (type) => {
-    setSelectedPub({ ...selectedPub, type_media: type, media: null });
+  const handleEditFileTypeChange = (type) => {
+    setSelectedPub({ ...selectedPub, type_fichier: type, fichier: null });
+    setPreviewFile(null);
   };
 
   const handleSaveEdit = async () => {
@@ -253,10 +306,10 @@ const Publication = () => {
       formData.append("statut", "Validé");
       formData.append("auteur", selectedPub.auteur);
       formData.append("id_utilisateur", selectedPub.id_utilisateur || "");
-      formData.append("type_media", selectedPub.type_media);
+      formData.append("type_fichier", selectedPub.type_fichier);
       
-      if(selectedPub.media) {
-        formData.append("media", selectedPub.media);
+      if(selectedPub.fichier) {
+        formData.append("fichier", selectedPub.fichier);
       }
 
       const res = await updatePublication(selectedPub.id_publication, formData);
@@ -269,12 +322,13 @@ const Publication = () => {
         contenu: selectedPub.contenu,
         type: selectedPub.type,
         categorie: selectedPub.categorie,
-        type_media: selectedPub.type_media,
-        // Créer l'URL temporaire si nouveau média
-        media_url: selectedPub.media && selectedPub.media instanceof File 
-          ? URL.createObjectURL(selectedPub.media) 
-          : selectedPub.media_url,
-        media: selectedPub.media || selectedPub.media
+        type_fichier: selectedPub.type_fichier,
+        // Créer l'URL temporaire si nouveau fichier
+        fichier_url: selectedPub.fichier && selectedPub.fichier instanceof File 
+          ? URL.createObjectURL(selectedPub.fichier) 
+          : selectedPub.fichier_url,
+        fichier: selectedPub.fichier || selectedPub.fichier,
+        nom_fichier_original: selectedPub.fichier ? selectedPub.fichier.name : selectedPub.nom_fichier_original
       };
 
       // Mettre à jour le state
@@ -282,6 +336,7 @@ const Publication = () => {
         pub.id_publication === selectedPub.id_publication ? updatedPub : pub
       ));
       setEditModal(false);
+      setPreviewFile(null);
       showNotification("success", "✅ Publication modifiée avec succès !");
     } catch (err) {
       console.error("Erreur modification publication:", err);
@@ -309,62 +364,197 @@ const Publication = () => {
     }
   };
 
-  // Fonction pour afficher le média correctement
-  const displayMedia = (pub) => {
-    // Si le média est une URL string temporaire (nouvelle publication)
-    if (pub.media_url && pub.media_url.startsWith('blob:')) {
-      return pub.media_url;
+  // Fonction pour afficher le fichier correctement
+  const displayFile = (pub) => {
+    // Si le fichier est une URL string temporaire (nouvelle publication)
+    if (pub.fichier_url && pub.fichier_url.startsWith('blob:')) {
+      return pub.fichier_url;
     }
     
-    // Si le média est une URL string de l'API
-    if (pub.media_url && typeof pub.media_url === 'string') {
-      return pub.media_url;
+    // Si le fichier est une URL string de l'API
+    if (pub.fichier_url && typeof pub.fichier_url === 'string') {
+      return pub.fichier_url;
     }
     
-    // Si le média est un fichier File (upload récent)
-    if (pub.media && pub.media instanceof File) {
-      return URL.createObjectURL(pub.media);
-    }
-    
-    // Si le média est un chemin d'accès de l'API
-    if (pub.media && typeof pub.media === 'string') {
-      if (pub.media.startsWith('http')) {
-        return pub.media;
+    // Si le fichier est un chemin d'accès de l'API
+    if (pub.fichier && typeof pub.fichier === 'string') {
+      if (pub.fichier.startsWith('http')) {
+        return pub.fichier;
       } else {
         // Ajouter l'URL de base de l'API si nécessaire
-        const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
-        return `${baseUrl}${pub.media.startsWith('/') ? '' : '/'}${pub.media}`;
+        const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+        return `${baseUrl}/storage/${pub.fichier}`;
       }
-    }
-    
-    // Si l'API retourne un objet média avec des propriétés
-    if (pub.media && pub.media.url) {
-      return pub.media.url;
     }
     
     return null;
   };
 
-  // Déterminer le type de média
-  const getMediaType = (pub) => {
-    if (pub.type_media) {
-      return pub.type_media;
+  // Déterminer le type de fichier
+  const getFileType = (pub) => {
+    if (pub.type_fichier) {
+      return pub.type_fichier;
     }
     
     // Deviner le type basé sur l'extension ou le contenu
-    const mediaUrl = displayMedia(pub);
-    if (!mediaUrl) return null;
+    const fileUrl = displayFile(pub);
+    if (!fileUrl) return null;
     
-    if (typeof mediaUrl === 'string') {
-      if (mediaUrl.match(/\.(mp4|avi|mov|wmv|flv|webm)$/i)) {
-        return 'video';
-      }
-      if (mediaUrl.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i)) {
+    if (typeof fileUrl === 'string') {
+      if (fileUrl.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i)) {
         return 'image';
+      }
+      if (fileUrl.match(/\.(mp4|avi|mov|wmv|flv|webm)$/i)) {
+        return 'video';
       }
     }
     
-    return 'image'; // Par défaut
+    return 'document';
+  };
+
+  // Fonction pour obtenir l'icône du fichier
+  const getFileIcon = (fileName) => {
+    if (!fileName) return 'fa-file';
+    
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return 'fa-file-pdf';
+      case 'doc':
+      case 'docx':
+        return 'fa-file-word';
+      case 'xls':
+      case 'xlsx':
+        return 'fa-file-excel';
+      case 'ppt':
+      case 'pptx':
+        return 'fa-file-powerpoint';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'bmp':
+        return 'fa-file-image';
+      case 'mp4':
+      case 'avi':
+      case 'mov':
+        return 'fa-file-video';
+      case 'zip':
+      case 'rar':
+      case '7z':
+        return 'fa-file-archive';
+      case 'txt':
+        return 'fa-file-alt';
+      default:
+        return 'fa-file';
+    }
+  };
+
+  // Fonction pour obtenir la couleur du badge fichier
+  const getFileBadgeVariant = (fileName) => {
+    if (!fileName) return 'secondary';
+    
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return 'danger';
+      case 'doc':
+      case 'docx':
+        return 'primary';
+      case 'xls':
+      case 'xlsx':
+        return 'success';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return 'info';
+      case 'zip':
+      case 'rar':
+        return 'warning';
+      default:
+        return 'secondary';
+    }
+  };
+
+  // Fonction pour télécharger le fichier
+  const handleDownloadFile = async (pub) => {
+    try {
+      const fileUrl = displayFile(pub);
+      if (!fileUrl) {
+        showNotification("error", "❌ Fichier non disponible");
+        return;
+      }
+
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = pub.nom_fichier_original || 'fichier-publication';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      showNotification("success", "✅ Téléchargement commencé");
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      showNotification("error", "❌ Erreur lors du téléchargement");
+    }
+  };
+
+  // Composant pour afficher la prévisualisation du fichier
+  const FilePreview = ({ file }) => {
+    if (!file) return null;
+
+    const isImage = file.type.startsWith('image/');
+    const isPDF = file.type === 'application/pdf';
+
+    return (
+      <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
+        <h6 className="mb-3">
+          <i className="fas fa-eye me-2"></i>
+          Aperçu du fichier
+        </h6>
+        
+        {isImage ? (
+          <div className="text-center">
+            <img 
+              src={file.url} 
+              alt="Aperçu" 
+              style={{ 
+                maxWidth: '100%', 
+                maxHeight: '200px', 
+                objectFit: 'contain',
+                borderRadius: '8px'
+              }}
+            />
+            <p className="mt-2 mb-0 small text-muted">{file.name}</p>
+          </div>
+        ) : isPDF ? (
+          <div className="text-center">
+            <iframe 
+              src={file.url} 
+              title="Aperçu PDF"
+              style={{ 
+                width: '100%', 
+                height: '300px', 
+                border: 'none',
+                borderRadius: '8px'
+              }}
+            />
+            <p className="mt-2 mb-0 small text-muted">{file.name}</p>
+          </div>
+        ) : (
+          <div className="text-center">
+            <i className={`fas ${getFileIcon(file.name)} fa-3x text-${getFileBadgeVariant(file.name)} mb-2`}></i>
+            <p className="mb-0 small text-muted">{file.name}</p>
+            <p className="small text-muted">Aperçu non disponible pour ce type de fichier</p>
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Filtrer les publications
@@ -428,7 +618,7 @@ const Publication = () => {
             </h2>
             <p className="text-muted mb-0 d-flex align-items-center">
               <i className="fas fa-newspaper me-2"></i>
-              Gérez et publiez du contenu avec images et vidéos
+              Gérez et publiez du contenu avec fichiers
             </p>
           </div>
           <Button 
@@ -458,20 +648,20 @@ const Publication = () => {
               color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
             },
             { 
-              title: "Avec Médias", 
-              count: publications.filter((p) => displayMedia(p)).length, 
-              icon: "fa-photo-video", 
+              title: "Avec Fichiers", 
+              count: publications.filter((p) => displayFile(p)).length, 
+              icon: "fa-paperclip", 
               color: "linear-gradient(135deg, #00b09b, #96c93d)"
             },
             { 
               title: "Vidéos", 
-              count: publications.filter((p) => getMediaType(p) === 'video').length, 
+              count: publications.filter((p) => getFileType(p) === 'video').length, 
               icon: "fa-video", 
               color: "linear-gradient(135deg, #f093fb, #f5576c)"
             },
             { 
               title: "Images", 
-              count: publications.filter((p) => getMediaType(p) === 'image').length, 
+              count: publications.filter((p) => getFileType(p) === 'image').length, 
               icon: "fa-image", 
               color: "linear-gradient(135deg, #fd746c, #ff9068)"
             }
@@ -609,15 +799,15 @@ const Publication = () => {
         ) : (
           <Row>
             {filteredPubs.map((pub) => {
-              const mediaUrl = displayMedia(pub);
-              const mediaType = getMediaType(pub);
+              const fileUrl = displayFile(pub);
+              const fileType = getFileType(pub);
               
               return (
                 <Col md={6} lg={4} key={pub.id_publication} className="mb-4">
                   <Card className="border-0 shadow-sm h-100" style={{ borderRadius: "20px", transition: "transform 0.2s" }}>
-                    {mediaUrl ? (
+                    {fileUrl ? (
                       <div style={{ position: "relative" }}>
-                        {mediaType === 'video' ? (
+                        {fileType === 'video' ? (
                           <div style={{ 
                             height: "200px", 
                             background: "#000",
@@ -629,7 +819,7 @@ const Publication = () => {
                             justifyContent: "center"
                           }}>
                             <video 
-                              src={mediaUrl}
+                              src={fileUrl}
                               style={{ 
                                 maxHeight: "100%",
                                 maxWidth: "100%",
@@ -638,7 +828,7 @@ const Publication = () => {
                               controls
                               muted
                               onError={(e) => {
-                                console.error("Erreur de chargement de la vidéo:", mediaUrl);
+                                console.error("Erreur de chargement de la vidéo:", fileUrl);
                                 e.target.style.display = 'none';
                               }}
                             />
@@ -652,7 +842,7 @@ const Publication = () => {
                         ) : (
                           <Card.Img 
                             variant="top" 
-                            src={mediaUrl} 
+                            src={fileUrl} 
                             style={{ 
                               height: "200px", 
                               objectFit: "cover",
@@ -660,7 +850,7 @@ const Publication = () => {
                               borderTopRightRadius: "20px"
                             }} 
                             onError={(e) => {
-                              console.error("Erreur de chargement de l'image:", mediaUrl);
+                              console.error("Erreur de chargement de l'image:", fileUrl);
                               e.target.style.display = 'none';
                             }}
                           />
@@ -691,7 +881,7 @@ const Publication = () => {
                       }}>
                         <div className="text-center text-white">
                           <i className={`fas ${getTypeIcon(pub.type)} fs-1 mb-2 d-block`}></i>
-                          <small>Aucun média</small>
+                          <small>Aucun fichier</small>
                         </div>
                         <Badge 
                           bg={getStatusVariant(pub.statut)} 
@@ -728,7 +918,7 @@ const Publication = () => {
                               {pub.categorie}
                             </Badge>
                           )}
-                          {mediaType === 'video' && (
+                          {fileType === 'video' && (
                             <Badge 
                               bg="dark" 
                               style={{ borderRadius: "15px", fontSize: "0.7rem", marginLeft: "5px" }}
@@ -758,6 +948,30 @@ const Publication = () => {
                             <span>{pub.auteur || "Admin"}</span>
                           </div>
                         </div>
+
+                        {/* Section Fichier avec téléchargement */}
+                        {fileUrl && (
+                          <div className="mb-3 p-2 border rounded" style={{ background: '#f8f9fa' }}>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div className="d-flex align-items-center">
+                                <i className={`fas ${getFileIcon(pub.nom_fichier_original)} text-${getFileBadgeVariant(pub.nom_fichier_original)} me-2`}></i>
+                                <span className="small">
+                                  {pub.nom_fichier_original || 'Fichier joint'}
+                                </span>
+                              </div>
+                              <Button
+                                variant="outline-primary"
+                                size="sm"
+                                onClick={() => handleDownloadFile(pub)}
+                                className="d-flex align-items-center"
+                                style={{ borderRadius: "6px", fontSize: "0.7rem" }}
+                              >
+                                <i className="fas fa-download me-1"></i>
+                                Télécharger
+                              </Button>
+                            </div>
+                          </div>
+                        )}
 
                         <div className="d-flex justify-content-between align-items-center">
                           <div className="d-flex gap-2 text-muted small">
@@ -833,7 +1047,7 @@ const Publication = () => {
         )}
 
         {/* Modal Ajout */}
-        <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
+        <Modal show={showModal} onHide={() => { setShowModal(false); setPreviewFile(null); }} size="lg" centered>
           <Modal.Header 
             closeButton 
             className="border-0"
@@ -944,18 +1158,18 @@ const Publication = () => {
                 </Col>
               </Row>
 
-              {/* Section Média */}
+              {/* Section Fichier */}
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
-                      <i className="fas fa-photo-video me-2 text-primary"></i>
-                      Type de Média
+                      <i className="fas fa-paperclip me-2 text-primary"></i>
+                      Type de Fichier
                     </Form.Label>
                     <div className="d-flex gap-2">
                       <Button
-                        variant={newPub.type_media === 'image' ? 'primary' : 'outline-primary'}
-                        onClick={() => handleMediaTypeChange('image')}
+                        variant={newPub.type_fichier === 'image' ? 'primary' : 'outline-primary'}
+                        onClick={() => handleFileTypeChange('image')}
                         className="d-flex align-items-center"
                         style={{ borderRadius: "10px" }}
                       >
@@ -963,13 +1177,22 @@ const Publication = () => {
                         Image
                       </Button>
                       <Button
-                        variant={newPub.type_media === 'video' ? 'primary' : 'outline-primary'}
-                        onClick={() => handleMediaTypeChange('video')}
+                        variant={newPub.type_fichier === 'video' ? 'primary' : 'outline-primary'}
+                        onClick={() => handleFileTypeChange('video')}
                         className="d-flex align-items-center"
                         style={{ borderRadius: "10px" }}
                       >
                         <i className="fas fa-video me-2"></i>
                         Vidéo
+                      </Button>
+                      <Button
+                        variant={newPub.type_fichier === 'document' ? 'primary' : 'outline-primary'}
+                        onClick={() => handleFileTypeChange('document')}
+                        className="d-flex align-items-center"
+                        style={{ borderRadius: "10px" }}
+                      >
+                        <i className="fas fa-file me-2"></i>
+                        Document
                       </Button>
                     </div>
                   </Form.Group>
@@ -993,23 +1216,35 @@ const Publication = () => {
               
               <Form.Group className="mb-4">
                 <Form.Label className="fw-semibold text-muted">
-                  <i className={`fas ${newPub.type_media === 'video' ? 'fa-video' : 'fa-image'} me-2 text-primary`}></i>
-                  {newPub.type_media === 'video' ? 'Vidéo' : 'Image'}
+                  <i className={`fas ${
+                    newPub.type_fichier === 'video' ? 'fa-video' : 
+                    newPub.type_fichier === 'document' ? 'fa-file' : 'fa-image'
+                  } me-2 text-primary`}></i>
+                  Fichier {newPub.type_fichier === 'video' ? 'Vidéo' : newPub.type_fichier === 'document' ? 'Document' : 'Image'}
                 </Form.Label>
                 <Form.Control 
                   type="file" 
-                  name="media" 
-                  accept={newPub.type_media === 'video' ? "video/*" : "image/*"}
+                  name="fichier" 
+                  accept={
+                    newPub.type_fichier === 'video' ? "video/*" : 
+                    newPub.type_fichier === 'document' ? ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar" : 
+                    "image/*"
+                  }
                   onChange={handleChange} 
                   style={{ borderRadius: "10px", padding: "12px" }}
                 />
                 <Form.Text className="text-muted">
                   <i className="fas fa-info-circle me-1"></i>
-                  {newPub.type_media === 'video' 
+                  {newPub.type_fichier === 'video' 
                     ? "Formats acceptés: MP4, AVI, MOV, WMV. Taille max: 50MB" 
-                    : "Formats acceptés: JPG, PNG, GIF. Taille max: 10MB"}
+                    : newPub.type_fichier === 'document'
+                    ? "Formats acceptés: PDF, DOC, XLS, PPT, ZIP. Taille max: 20MB"
+                    : "Formats acceptés: JPG, PNG, GIF, WEBP. Taille max: 10MB"}
                 </Form.Text>
               </Form.Group>
+
+              {/* Aperçu du fichier sélectionné */}
+              <FilePreview file={previewFile} />
 
               <Row>
                 <Col md={12}>
@@ -1034,7 +1269,7 @@ const Publication = () => {
           <Modal.Footer className="border-0">
             <Button 
               variant="outline-secondary" 
-              onClick={() => setShowModal(false)}
+              onClick={() => { setShowModal(false); setPreviewFile(null); }}
               className="d-flex align-items-center"
               style={{ borderRadius: "10px", padding: "10px 20px" }}
             >
@@ -1060,7 +1295,7 @@ const Publication = () => {
 
         {/* Modal Modifier */}
         {selectedPub && (
-          <Modal show={editModal} onHide={() => setEditModal(false)} size="lg" centered>
+          <Modal show={editModal} onHide={() => { setEditModal(false); setPreviewFile(null); }} size="lg" centered>
             <Modal.Header 
               closeButton 
               className="border-0"
@@ -1169,18 +1404,18 @@ const Publication = () => {
                   </Col>
                 </Row>
 
-                {/* Section Média pour modification */}
+                {/* Section Fichier pour modification */}
                 <Row>
                   <Col md={6}>
                     <Form.Group className="mb-4">
                       <Form.Label className="fw-semibold text-muted">
-                        <i className="fas fa-photo-video me-2 text-primary"></i>
-                        Type de Média
+                        <i className="fas fa-paperclip me-2 text-primary"></i>
+                        Type de Fichier
                       </Form.Label>
                       <div className="d-flex gap-2">
                         <Button
-                          variant={selectedPub.type_media === 'image' ? 'primary' : 'outline-primary'}
-                          onClick={() => handleEditMediaTypeChange('image')}
+                          variant={selectedPub.type_fichier === 'image' ? 'primary' : 'outline-primary'}
+                          onClick={() => handleEditFileTypeChange('image')}
                           className="d-flex align-items-center"
                           style={{ borderRadius: "10px" }}
                         >
@@ -1188,13 +1423,22 @@ const Publication = () => {
                           Image
                         </Button>
                         <Button
-                          variant={selectedPub.type_media === 'video' ? 'primary' : 'outline-primary'}
-                          onClick={() => handleEditMediaTypeChange('video')}
+                          variant={selectedPub.type_fichier === 'video' ? 'primary' : 'outline-primary'}
+                          onClick={() => handleEditFileTypeChange('video')}
                           className="d-flex align-items-center"
                           style={{ borderRadius: "10px" }}
                         >
                           <i className="fas fa-video me-2"></i>
                           Vidéo
+                        </Button>
+                        <Button
+                          variant={selectedPub.type_fichier === 'document' ? 'primary' : 'outline-primary'}
+                          onClick={() => handleEditFileTypeChange('document')}
+                          className="d-flex align-items-center"
+                          style={{ borderRadius: "10px" }}
+                        >
+                          <i className="fas fa-file me-2"></i>
+                          Document
                         </Button>
                       </div>
                     </Form.Group>
@@ -1218,53 +1462,45 @@ const Publication = () => {
                 
                 <Form.Group className="mb-4">
                   <Form.Label className="fw-semibold text-muted">
-                    <i className={`fas ${selectedPub.type_media === 'video' ? 'fa-video' : 'fa-image'} me-2 text-primary`}></i>
-                    {selectedPub.type_media === 'video' ? 'Vidéo' : 'Image'}
+                    <i className={`fas ${
+                      selectedPub.type_fichier === 'video' ? 'fa-video' : 
+                      selectedPub.type_fichier === 'document' ? 'fa-file' : 'fa-image'
+                    } me-2 text-primary`}></i>
+                    Fichier {selectedPub.type_fichier === 'video' ? 'Vidéo' : selectedPub.type_fichier === 'document' ? 'Document' : 'Image'}
                   </Form.Label>
                   <Form.Control 
                     type="file" 
-                    name="media" 
-                    accept={selectedPub.type_media === 'video' ? "video/*" : "image/*"}
+                    name="fichier" 
+                    accept={
+                      selectedPub.type_fichier === 'video' ? "video/*" : 
+                      selectedPub.type_fichier === 'document' ? ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar" : 
+                      "image/*"
+                    }
                     onChange={handleEditChange} 
                     style={{ borderRadius: "10px", padding: "12px" }}
                   />
-                  {displayMedia(selectedPub) && (
-                    <div className="mt-3 text-center">
-                      <p className="small text-muted mb-2">
-                        {getMediaType(selectedPub) === 'video' ? 'Vidéo actuelle:' : 'Image actuelle:'}
-                      </p>
-                      {getMediaType(selectedPub) === 'video' ? (
-                        <video 
-                          src={displayMedia(selectedPub)} 
-                          style={{ 
-                            maxHeight: "120px", 
-                            maxWidth: "200px", 
-                            objectFit: "contain",
-                            borderRadius: "10px",
-                            border: "2px solid #e9ecef"
-                          }}
-                          controls
-                          muted
-                        />
-                      ) : (
-                        <img 
-                          src={displayMedia(selectedPub)} 
-                          alt="Preview" 
-                          style={{ 
-                            maxHeight: "120px", 
-                            maxWidth: "200px", 
-                            objectFit: "cover",
-                            borderRadius: "10px",
-                            border: "2px solid #e9ecef"
-                          }}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                          }}
-                        />
-                      )}
+                  {selectedPub.fichier && !previewFile && (
+                    <div className="mt-2">
+                      <small className="text-muted d-block">
+                        <i className="fas fa-file me-1"></i>
+                        Fichier actuel: {selectedPub.nom_fichier_original || 'Fichier joint'}
+                      </small>
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        onClick={() => handleDownloadFile(selectedPub)}
+                        className="d-flex align-items-center mt-1"
+                        style={{ borderRadius: "6px", fontSize: "0.7rem" }}
+                      >
+                        <i className="fas fa-download me-1"></i>
+                        Télécharger
+                      </Button>
                     </div>
                   )}
                 </Form.Group>
+
+                {/* Aperçu du fichier sélectionné */}
+                <FilePreview file={previewFile} />
 
                 <Row>
                   <Col md={12}>
@@ -1288,7 +1524,7 @@ const Publication = () => {
             <Modal.Footer className="border-0">
               <Button 
                 variant="outline-secondary" 
-                onClick={() => setEditModal(false)}
+                onClick={() => { setEditModal(false); setPreviewFile(null); }}
                 className="d-flex align-items-center"
                 style={{ borderRadius: "10px", padding: "10px 20px" }}
               >

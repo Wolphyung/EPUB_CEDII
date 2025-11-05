@@ -10,6 +10,12 @@ use App\Http\Controllers\EvenementController;
 use App\Http\Controllers\AppelOffreController;
 use App\Http\Controllers\MessageController;
 
+
+
+
+Route::apiResource('publications', PublicationController::class);
+Route::post('/publications/{id}/validate', [PublicationController::class, 'validatePublication']);
+Route::get('/publications/{id}/download', [PublicationController::class, 'downloadFile']);
 Route::apiResource('evenements', EvenementController::class);
 
 

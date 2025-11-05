@@ -18,6 +18,7 @@ const API_URL = "http://127.0.0.1:8000/api";
 
 const AppelOffre = () => {
   const [appelOffres, setAppelOffres] = useState([]);
+  const [membres, setMembres] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showAlert, setShowAlert] = useState({ show: false, type: "", message: "" });
   const [search, setSearch] = useState("");
@@ -32,7 +33,7 @@ const AppelOffre = () => {
     date_cloture: "",
     membre: "",
     fichier: null,
-    statut: "En attente"
+    statut: "Validé" // Changé de "En attente" à "Validé" par défaut
   });
   
   // Afficher messages temporairement
@@ -57,8 +58,30 @@ const AppelOffre = () => {
     }
   };
 
+  // Charger les membres
+  const fetchMembres = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/membres`); // Assurez-vous que cette route existe dans votre API
+      setMembres(res.data.data || res.data || []);
+    } catch (err) {
+      console.error("Erreur chargement membres:", err);
+      // Si l'API membres n'existe pas, on utilise des données fictives
+      setMembres([
+        { id: 1, nom_entreprise: "Entreprise A", nom_contact: "Jean Dupont" },
+        { id: 2, nom_entreprise: "Société B", nom_contact: "Marie Martin" },
+        { id: 3, nom_entreprise: "Groupe C", nom_contact: "Pierre Lambert" },
+        { id: 4, nom_entreprise: "Compagnie D", nom_contact: "Sophie Bernard" },
+        { id: 5, nom_entreprise: "Industries E", nom_contact: "Luc Petit" },
+        { id: 6, nom_entreprise: "Services F", nom_contact: "Nathalie Moreau" },
+        { id: 7, nom_entreprise: "Solutions G", nom_contact: "David Leroy" },
+        { id: 8, nom_entreprise: "Technologies H", nom_contact: "Catherine Roux" }
+      ]);
+    }
+  };
+
   useEffect(() => {
     fetchAppelOffres();
+    fetchMembres();
   }, []);
 
   // Ouvrir modal
@@ -72,7 +95,7 @@ const AppelOffre = () => {
       date_cloture: "",
       membre: "",
       fichier: null,
-      statut: "En attente"
+      statut: "Validé" // Changé à "Validé" par défaut
     });
     setPreviewFile(null);
   };
@@ -398,6 +421,15 @@ const AppelOffre = () => {
     return 'Fichier joint';
   };
 
+  // Fonction pour obtenir le nom d'affichage du membre
+  const getMembreDisplayName = (membreId) => {
+    const membre = membres.find(m => m.id == membreId);
+    if (membre) {
+      return membre.nom_entreprise || membre.nom_contact || membre.name || `Membre ${membreId}`;
+    }
+    return membreId || "Non assigné";
+  };
+
   return (
     <div className="d-flex" style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)" }}>
       <AdminSidebar />
@@ -675,8 +707,8 @@ const AppelOffre = () => {
                     {/* Informations détaillées */}
                     <div className="small text-muted mb-3">
                       <div className="d-flex align-items-center mb-2">
-                        <i className="fas fa-user text-primary me-2" style={{ width: "16px" }}></i>
-                        <span>{offre.membre || "Non assigné"}</span>
+                        <i className="fas fa-building text-primary me-2" style={{ width: "16px" }}></i>
+                        <span>{getMembreDisplayName(offre.membre)}</span>
                       </div>
                       
                       <div className="d-flex align-items-center mb-2">
@@ -876,9 +908,10 @@ const AppelOffre = () => {
                       onChange={handleChange}
                       style={{ borderRadius: "10px", padding: "12px" }}
                     >
-                      <option value="En attente">En attente</option>
                       <option value="Validé">Validé</option>
+                      <option value="En attente">En attente</option>
                       <option value="Actif">Actif</option>
+                      <option value="Clôturé">Clôturé</option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -940,18 +973,28 @@ const AppelOffre = () => {
                 <Col md={6}>
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
-                      <i className="fas fa-user me-2 text-primary"></i>
+                      <i className="fas fa-building me-2 text-primary"></i>
                       Membre *
                     </Form.Label>
-                    <Form.Control
-                      type="text"
+                    <Form.Select
                       name="membre"
                       value={newOffre.membre}
                       onChange={handleChange}
                       required
-                      style={{ borderRadius: "10px", padding: "12px" }}
-                      placeholder="Nom du membre responsable"
-                    />
+                      style={{ 
+                        borderRadius: "10px", 
+                        padding: "12px",
+                        maxHeight: "200px",
+                        overflowY: "auto"
+                      }}
+                    >
+                      <option value="">Sélectionnez un membre</option>
+                      {membres.map((membre) => (
+                        <option key={membre.id} value={membre.id}>
+                          {membre.nom_entreprise || membre.nom_contact || membre.name || `Membre ${membre.id}`}
+                        </option>
+                      ))}
+                    </Form.Select>
                   </Form.Group>
                 </Col>
                 <Col md={6}>
