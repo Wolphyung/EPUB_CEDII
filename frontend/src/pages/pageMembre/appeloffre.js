@@ -1,109 +1,180 @@
 import React, { useState, useEffect } from "react";
 import { Card, Button, Modal, Form, Row, Col, Badge, Alert } from "react-bootstrap";
-import MembreSidebar from "../../components/MembreSidebar";
+// Assurez-vous que le chemin vers MembreSidebar est correct
+import MembreSidebar from "../../components/MembreSidebar"; 
+import axios from "axios";
+
+// 🔗 URL de base de ton API Laravel
+const API_URL = "http://127.0.0.1:8000/api/appeloffres";
 
 const AppelOffreMembre = () => {
+  // ⚙️ États de l'application
+  const [offres, setOffres] = useState([]); 
+  // ❌ SUPPRESSION de l'état 'loading' pour un chargement invisible
+  const [error, setError] = useState(null);
+  
   const [showModal, setShowModal] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [alert, setAlert] = useState({ show: false, message: "", type: "" });
   const [editMode, setEditMode] = useState(false);
   const [currentOffre, setCurrentOffre] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Ajout pour désactiver le bouton pendant l'envoi
 
-  // Liste des offres
-  const [offres, setOffres] = useState([
-    { 
-      id: 1, 
-      titre: "Développeur Full Stack Senior", 
-      entreprise: "TechCorp Madagascar", 
-      date: "2025-10-15",
-      description: "Nous recherchons un développeur full stack expérimenté pour rejoindre notre équipe technique. Technologies : React, Node.js, MongoDB, AWS.",
-      type: "CDI",
-      salaire: "À négocier",
-      localisation: "Antananarivo",
-      statut: "active",
-      candidatures: 12,
-      urgent: true
-    },
-    { 
-      id: 2, 
-      titre: "Stage en Marketing Digital", 
-      entreprise: "MarketPlus", 
-      date: "2025-09-30",
-      description: "Stage de 6 mois en marketing digital pour étudiants en dernière année. Gestion des réseaux sociaux, SEO, campagnes publicitaires.",
-      type: "Stage",
-      salaire: "Indemnité de stage",
-      localisation: "Antsirabe",
-      statut: "active",
-      candidatures: 8,
-      urgent: false
-    },
-    { 
-      id: 3, 
-      titre: "Chef de Projet IT", 
-      entreprise: "Innov Solutions", 
-      date: "2025-09-20",
-      description: "Poste de chef de projet pour piloter des projets digitaux innovants. Expérience en méthodologie Agile requise.",
-      type: "CDI",
-      salaire: "2 500 000 Ar",
-      localisation: "Fianarantsoa",
-      statut: "expirée",
-      candidatures: 15,
-      urgent: true
-    },
-    { 
-      id: 4, 
-      titre: "Data Analyst", 
-      entreprise: "DataTech MG", 
-      date: "2025-10-10",
-      description: "Analyste de données pour traiter et interpréter des données complexes. Maîtrise de Python, SQL et Power BI nécessaire.",
-      type: "CDD",
-      salaire: "1 800 000 Ar",
-      localisation: "Majunga",
-      statut: "active",
-      candidatures: 6,
-      urgent: false
-    }
-  ]);
-
+  // 🔄 État pour les données du formulaire, y compris les champs supplémentaires
   const [nouvelleOffre, setNouvelleOffre] = useState({
-    titre: "",
-    entreprise: "",
+    intitule: "", 
     description: "",
-    date: "",
-    type: "CDI",
-    salaire: "",
+    date_cloture: "", 
+    date_ouverture: "",
+    membre: "", 
+    fichier: null, 
+    statut: "en attente", // 🎯 Statut par défaut 'en attente'
+    
+    // Champs non persistants (pour l'affichage et l'UI seulement, pour l'instant)
+    type: "CDI", 
     localisation: "",
-    statut: "active",
-    candidatures: 0,
-    urgent: false
+    salaire: "",
+    urgent: false, 
   });
+
+  // --- Fonctions de l'API (CRUD) 🚀 ---
+
+  const fetchOffres = async () => {
+    // setLoading(true); // ❌ Retiré
+    setError(null);
+    try {
+      const response = await axios.get(API_URL);
+      setOffres(response.data);
+      // setLoading(false); // ❌ Retiré
+    } catch (err) {
+      console.error("Erreur lors de la récupération des offres:", err);
+      setError("Impossible de charger les appels d'offre. Veuillez vérifier la connexion à l'API.");
+      // setLoading(false); // ❌ Retiré
+    }
+  };
+
+  // 📝 Fonction unifiée pour l'ajout et la modification
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    // 🛑 Validation simple côté client
+    if (!nouvelleOffre.intitule || !nouvelleOffre.date_cloture || !nouvelleOffre.description) {
+      showAlert("Veuillez remplir les champs Intitulé, Description et Date de clôture.", "warning");
+      setIsSubmitting(false);
+      return;
+    }
+    
+    const formData = new FormData();
+
+    // Ajout des champs PERSISTANTS (ceux gérés par Laravel)
+    formData.append('intitule', nouvelleOffre.intitule);
+    formData.append('description', nouvelleOffre.description);
+    formData.append('date_cloture', nouvelleOffre.date_cloture || '');
+    formData.append('date_ouverture', nouvelleOffre.date_ouverture || '');
+    formData.append('membre', nouvelleOffre.membre || "Utilisateur Membre");
+    formData.append('statut', nouvelleOffre.statut);
+    
+    // Ajout des champs NON PERSISTANTS (pour la validation côté contrôleur)
+    formData.append('type', nouvelleOffre.type);
+    formData.append('localisation', nouvelleOffre.localisation);
+    formData.append('salaire', nouvelleOffre.salaire);
+    formData.append('urgent', nouvelleOffre.urgent ? 1 : 0); // Envoi comme 1 ou 0 pour le boolean Laravel
+
+    if (nouvelleOffre.fichier instanceof File) {
+      formData.append('fichier', nouvelleOffre.fichier);
+    }
+
+    try {
+      if (editMode && currentOffre) {
+        // Mode modification : Requête POST avec _method=PUT
+        formData.append('_method', 'PUT'); 
+        await axios.post(`${API_URL}/${currentOffre.id}`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        showAlert("Appel d'offre modifié avec succès !", "success");
+      } else {
+        // Mode création : Requête POST
+        await axios.post(API_URL, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        showAlert("Appel d'offre créé avec succès et mis 'en attente'!", "success");
+      }
+      
+      handleClose();
+      fetchOffres(); // Recharger les données
+
+    } catch (err) {
+      console.error("Erreur lors de l'enregistrement de l'offre:", err.response ? err.response.data : err);
+      const errorMsg = err.response && err.response.data && err.response.data.message 
+                     ? err.response.data.message 
+                     : (editMode ? "Échec de la modification." : "Échec de la création.");
+      showAlert(`Erreur API : ${errorMsg}`, "danger");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 🗑️ Supprimer une offre
+  const handleDelete = async (id) => {
+    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette offre ?")) {
+      try {
+        await axios.delete(`${API_URL}/${id}`);
+        showAlert("Offre supprimée avec succès !", "success");
+        fetchOffres(); // Recharger la liste
+      } catch (err) {
+        console.error("Erreur lors de la suppression:", err);
+        showAlert("Échec de la suppression de l'offre.", "danger");
+      }
+    }
+  };
+
+  // 🔄 Charger les données au montage du composant
+  useEffect(() => {
+    fetchOffres();
+  }, []);
+
+  // --- Fonctions de gestion de l'interface utilisateur (UI) ---
 
   // Gérer l'état de la sidebar
   const handleSidebarCollapse = (isCollapsed) => {
-    setSidebarCollapsed(isCollapsed);
+     setSidebarCollapsed(isCollapsed);
   };
-
+ 
   // Afficher une alerte
   const showAlert = (message, type) => {
-    setAlert({ show: true, message, type });
-    setTimeout(() => setAlert({ ...alert, show: false }), 4000);
+     setAlert({ show: true, message, type });
+     setTimeout(() => setAlert({ ...alert, show: false }), 4000);
   };
-
-  // Ouvrir modal d'ajout
+ 
+  // Fermer modal
+  const handleClose = () => {
+     setShowModal(false);
+     setEditMode(false);
+     setCurrentOffre(null);
+  };
+  
+  // Ouvrir modal d'ajout (Réinitialise l'état avec les valeurs par défaut)
   const handleShowAdd = () => {
     setEditMode(false);
     setCurrentOffre(null);
     setNouvelleOffre({
-      titre: "",
-      entreprise: "",
+      intitule: "",
       description: "",
-      date: "",
-      type: "CDI",
-      salaire: "",
+      date_cloture: "",
+      date_ouverture: "",
+      membre: "",
+      fichier: null,
+      statut: "en attente", // Statut par défaut 'en attente'
+      // Champs pour l'UI
+      type: "CDI", 
       localisation: "",
-      statut: "active",
-      candidatures: 0,
-      urgent: false
+      salaire: "",
+      urgent: false, 
     });
     setShowModal(true);
   };
@@ -112,65 +183,39 @@ const AppelOffreMembre = () => {
   const handleShowEdit = (offre) => {
     setEditMode(true);
     setCurrentOffre(offre);
-    setNouvelleOffre(offre);
+    // Charger les données existantes, en utilisant des valeurs par défaut pour les champs non persistants
+    // (car ils ne seront pas retournés par l'API Laravel)
+    setNouvelleOffre({
+      intitule: offre.intitule,
+      description: offre.description,
+      date_cloture: offre.date_cloture,
+      date_ouverture: offre.date_ouverture,
+      membre: offre.membre,
+      fichier: null, 
+      statut: offre.statut,
+      
+      // Assigner des valeurs par défaut
+      type: offre.type || "CDI", 
+      localisation: offre.localisation || "",
+      salaire: offre.salaire || "",
+      urgent: offre.urgent || false, 
+    });
     setShowModal(true);
   };
-
-  // Fermer modal
-  const handleClose = () => {
-    setShowModal(false);
-    setEditMode(false);
-    setCurrentOffre(null);
-  };
-
+  
   // Gérer les changements de formulaire
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setNouvelleOffre(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-
-  // Ajouter une offre
-  const handleAdd = () => {
-    if (!nouvelleOffre.titre || !nouvelleOffre.entreprise || !nouvelleOffre.date) {
-      showAlert("Veuillez remplir tous les champs obligatoires", "warning");
-      return;
-    }
-
-    const nouvelleOffreObj = {
-      ...nouvelleOffre,
-      id: offres.length + 1,
-      candidatures: 0
-    };
-
-    setOffres([nouvelleOffreObj, ...offres]);
-    showAlert("Offre créée avec succès !", "success");
-    handleClose();
-  };
-
-  // Modifier une offre
-  const handleEdit = () => {
-    if (!nouvelleOffre.titre || !nouvelleOffre.entreprise || !nouvelleOffre.date) {
-      showAlert("Veuillez remplir tous les champs obligatoires", "warning");
-      return;
-    }
-
-    const updatedOffres = offres.map(offre =>
-      offre.id === currentOffre.id ? nouvelleOffre : offre
-    );
-
-    setOffres(updatedOffres);
-    showAlert("Offre modifiée avec succès !", "success");
-    handleClose();
-  };
-
-  // Supprimer une offre
-  const handleDelete = (id) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette offre ?")) {
-      setOffres(offres.filter(offre => offre.id !== id));
-      showAlert("Offre supprimée avec succès !", "success");
+    const { name, value, type, checked, files } = e.target;
+    
+    if (type === 'file') {
+      setNouvelleOffre(prev => ({ ...prev, [name]: files[0] }));
+    } else if (type === 'checkbox') {
+      setNouvelleOffre(prev => ({ ...prev, [name]: checked }));
+    } else {
+      setNouvelleOffre(prev => ({
+        ...prev,
+        [name]: value
+      }));
     }
   };
 
@@ -179,10 +224,11 @@ const AppelOffreMembre = () => {
     const statusConfig = {
       active: { variant: "success", text: "Active", icon: "fa-play-circle" },
       expirée: { variant: "secondary", text: "Expirée", icon: "fa-times-circle" },
-      suspendue: { variant: "warning", text: "Suspendue", icon: "fa-pause-circle" }
+      suspendue: { variant: "warning", text: "Suspendue", icon: "fa-pause-circle" },
+      'en attente': { variant: "info", text: "En Attente", icon: "fa-hourglass-half" } 
     };
     
-    const config = statusConfig[statut] || statusConfig.active;
+    const config = statusConfig[statut] || statusConfig['en attente'];
     return (
       <Badge 
         bg={config.variant} 
@@ -194,7 +240,7 @@ const AppelOffreMembre = () => {
       </Badge>
     );
   };
-
+  
   // Badge de type
   const getTypeBadge = (type) => {
     const typeColors = {
@@ -218,18 +264,45 @@ const AppelOffreMembre = () => {
 
   // Formater la date
   const formatDate = (dateString) => {
+    if (!dateString) return "Date NC";
     const options = { day: 'numeric', month: 'long', year: 'numeric' };
     return new Date(dateString).toLocaleDateString('fr-FR', options);
   };
 
-  // Vérifier si une offre est urgente
-  const isUrgent = (dateString) => {
-    const today = new Date();
-    const offerDate = new Date(dateString);
-    const diffTime = offerDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 7;
+  // Vérifier si une offre est urgente (basé sur le champ 'urgent' du formulaire, ou la date)
+  const isUrgent = (offre) => {
+    // Utilise la propriété 'urgent' si elle est disponible (ou sa valeur par défaut)
+    if (offre.urgent) return true; 
+
+    if (offre.date_cloture) {
+        const today = new Date();
+        const offerDate = new Date(offre.date_cloture);
+        today.setHours(0, 0, 0, 0); 
+        offerDate.setHours(0, 0, 0, 0);
+        const diffTime = offerDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays >= 0 && diffDays <= 7;
+    }
+    return false;
   };
+  
+  // Affiche l'erreur API si elle existe
+  if (error) {
+    return (
+      <div className="d-flex justify-content-center align-items-center min-vh-100">
+        <Alert variant="danger" className="shadow-lg p-4" style={{ borderRadius: "15px" }}>
+          <i className="fas fa-exclamation-triangle me-2"></i>
+          <h4 className="alert-heading">Erreur de connexion API</h4>
+          <p>{error}</p>
+          <hr />
+          <p className="mb-0">Veuillez vous assurer que votre serveur Laravel est démarré (`php artisan serve`).</p>
+        </Alert>
+      </div>
+    );
+  }
+
+  // ❌ Le message de "Chargement" a été retiré, le composant s'affiche immédiatement
+  // et les données se mettent à jour une fois l'API répondue.
 
   return (
     <div className="d-flex min-vh-100" style={{ 
@@ -274,7 +347,7 @@ const AppelOffreMembre = () => {
               📢 Appels d'Offre
             </h1>
             <p className="text-muted mb-0" style={{ fontSize: "1.1rem" }}>
-              Gérez vos offres d'emploi et de stage
+              Géreez vos appels d'offre
             </p>
           </div>
           <Button 
@@ -289,7 +362,7 @@ const AppelOffreMembre = () => {
             }}
           >
             <i className="fas fa-plus-circle me-2"></i>
-            Nouvelle Offre
+            Nouvel Appel
           </Button>
         </div>
 
@@ -316,10 +389,10 @@ const AppelOffreMembre = () => {
           <Col xl={3} lg={6} className="mb-4">
             <Card className="shadow-lg border-0 text-center p-4" style={{ borderRadius: "20px" }}>
               <div className="bg-warning bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: "60px", height: "60px" }}>
-                <i className="fas fa-user-check text-warning fs-4"></i>
+                <i className="fas fa-hourglass-half text-warning fs-4"></i>
               </div>
-              <h3 className="fw-bold text-warning">{offres.reduce((acc, offre) => acc + offre.candidatures, 0)}</h3>
-              <p className="text-muted mb-0">Candidatures totales</p>
+              <h3 className="fw-bold text-warning">{offres.filter(o => o.statut === 'en attente').length}</h3>
+              <p className="text-muted mb-0">En attente de validation</p>
             </Card>
           </Col>
           <Col xl={3} lg={6} className="mb-4">
@@ -327,130 +400,159 @@ const AppelOffreMembre = () => {
               <div className="bg-danger bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: "60px", height: "60px" }}>
                 <i className="fas fa-clock text-danger fs-4"></i>
               </div>
-              <h3 className="fw-bold text-danger">{offres.filter(o => isUrgent(o.date)).length}</h3>
-              <p className="text-muted mb-0">Offres urgentes</p>
+              <h3 className="fw-bold text-danger">{offres.filter(o => isUrgent(o)).length}</h3>
+              <p className="text-muted mb-0">Clôture/Urgence proche</p>
             </Card>
           </Col>
         </Row>
 
         {/* Liste des offres */}
         <Row>
-          {offres.map((offre) => (
-            <Col xl={6} lg={6} className="mb-4" key={offre.id}>
-              <Card 
-                className="shadow-lg border-0 h-100"
-                style={{ 
-                  borderRadius: "20px",
-                  transition: "all 0.3s ease",
-                  overflow: "hidden",
-                  border: isUrgent(offre.date) ? "2px solid #ff6b6b" : "none"
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-8px)";
-                  e.currentTarget.style.boxShadow = "0 12px 35px rgba(0, 0, 0, 0.15)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.1)";
-                }}
-              >
-                <Card.Body className="p-4">
-                  {/* En-tête avec badges */}
-                  <div className="d-flex justify-content-between align-items-start mb-3">
-                    <div className="d-flex gap-2">
-                      {getTypeBadge(offre.type)}
-                      {isUrgent(offre.date) && (
-                        <Badge 
-                          bg="danger" 
-                          className="px-3 py-2"
-                          style={{ borderRadius: "15px", fontSize: "0.8rem" }}
-                        >
-                          <i className="fas fa-exclamation-triangle me-1"></i>
-                          Urgent
-                        </Badge>
-                      )}
+          {offres.length === 0 ? (
+            <Alert variant="info" className="text-center w-100">
+              <i className="fas fa-info-circle me-2"></i>
+              Aucun appel d'offre trouvé.
+            </Alert>
+          ) : (
+            offres.map((offre) => (
+              <Col xl={6} lg={6} className="mb-4" key={offre.id}>
+                <Card 
+                  className="shadow-lg border-0 h-100"
+                  style={{ 
+                    borderRadius: "20px",
+                    transition: "all 0.3s ease",
+                    overflow: "hidden",
+                    border: isUrgent(offre) ? "2px solid #ff6b6b" : "none"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-8px)";
+                    e.currentTarget.style.boxShadow = "0 12px 35px rgba(0, 0, 0, 0.15)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.1)";
+                  }}
+                >
+                  <Card.Body className="p-4">
+                    {/* En-tête avec badges */}
+                    <div className="d-flex justify-content-between align-items-start mb-3">
+                      <div className="d-flex gap-2">
+                        {/* Utilisation de "offre.type" même si non persistant, car la valeur par défaut est CDI à la création */}
+                        {getTypeBadge(offre.type || "CDI")} 
+                        {isUrgent(offre) && (
+                          <Badge 
+                            bg="danger" 
+                            className="px-3 py-2"
+                            style={{ borderRadius: "15px", fontSize: "0.8rem" }}
+                          >
+                            <i className="fas fa-exclamation-triangle me-1"></i>
+                            Urgent
+                          </Badge>
+                        )}
+                        {offre.fichier && (
+                            <Badge 
+                                bg="info" 
+                                className="px-3 py-2"
+                                style={{ borderRadius: "15px", fontSize: "0.8rem" }}
+                            >
+                                <i className="fas fa-file-alt me-1"></i>
+                                Fichier
+                            </Badge>
+                        )}
+                      </div>
+                      {getStatusBadge(offre.statut)}
                     </div>
-                    {getStatusBadge(offre.statut)}
-                  </div>
-                  
-                  {/* Titre */}
-                  <Card.Title 
-                    className="fw-bold mb-3"
-                    style={{ 
-                      color: "#2c3e50",
-                      fontSize: "1.3rem",
-                      lineHeight: "1.4"
-                    }}
-                  >
-                    {offre.titre}
-                  </Card.Title>
-                  
-                  {/* Informations entreprise et localisation */}
-                  <div className="mb-3">
-                    <div className="d-flex align-items-center mb-2">
-                      <i className="fas fa-building text-primary me-2"></i>
-                      <span className="fw-semibold">{offre.entreprise}</span>
-                    </div>
-                    <div className="d-flex align-items-center mb-2">
-                      <i className="fas fa-map-marker-alt text-danger me-2"></i>
-                      <span>{offre.localisation}</span>
-                    </div>
-                    <div className="d-flex align-items-center mb-2">
-                      <i className="fas fa-money-bill-wave text-success me-2"></i>
-                      <span className="fw-semibold">{offre.salaire}</span>
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <Card.Text 
-                    className="text-muted mb-4"
-                    style={{ 
-                      lineHeight: "1.6",
-                      fontSize: "0.95rem"
-                    }}
-                  >
-                    {offre.description.length > 120 ? `${offre.description.substring(0, 120)}...` : offre.description}
-                  </Card.Text>
-
-                  {/* Métriques et date */}
-                  <div className="d-flex justify-content-between align-items-center mb-3">
-                    <div className="d-flex align-items-center">
-                      <i className="fas fa-users text-info me-2"></i>
-                      <span className="fw-semibold">{offre.candidatures} candidatures</span>
-                    </div>
-                    <div className="text-end">
-                      <div className="fw-semibold" style={{ color: isUrgent(offre.date) ? "#ff6b6b" : "#6c757d" }}>
-                        <i className="fas fa-clock me-1"></i>
-                        {formatDate(offre.date)}
+                    
+                    {/* Titre (Utilise intitule) */}
+                    <Card.Title 
+                      className="fw-bold mb-3"
+                      style={{ 
+                        color: "#2c3e50",
+                        fontSize: "1.3rem",
+                        lineHeight: "1.4"
+                      }}
+                    >
+                      {offre.intitule}
+                    </Card.Title>
+                    
+                    {/* Informations membre et localisation */}
+                    <div className="mb-3">
+                      <div className="d-flex align-items-center mb-2">
+                        <i className="fas fa-user-tie text-primary me-2"></i>
+                        <span className="fw-semibold">Membre: {offre.membre || "NC"}</span>
+                      </div>
+                      <div className="d-flex align-items-center mb-2">
+                        <i className="fas fa-map-marker-alt text-danger me-2"></i>
+                        <span>{offre.localisation || "Non spécifié"}</span> 
+                      </div>
+                      <div className="d-flex align-items-center mb-2">
+                        <i className="fas fa-money-bill-wave text-success me-2"></i>
+                        <span className="fw-semibold">{offre.salaire || "À négocier"}</span> 
                       </div>
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="d-flex gap-2">
-                    <Button 
-                      variant="outline-primary" 
-                      size="sm"
-                      onClick={() => handleShowEdit(offre)}
-                      className="rounded-pill flex-grow-1"
+                    {/* Description */}
+                    <Card.Text 
+                      className="text-muted mb-4"
+                      style={{ 
+                        lineHeight: "1.6",
+                        fontSize: "0.95rem"
+                      }}
                     >
-                      <i className="fas fa-edit me-1"></i>
-                      Modifier
-                    </Button>
-                    <Button 
-                      variant="outline-danger" 
-                      size="sm"
-                      onClick={() => handleDelete(offre.id)}
-                      className="rounded-pill"
-                      style={{ width: "45px" }}
-                    >
-                      <i className="fas fa-trash"></i>
-                    </Button>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-          ))}
+                      {offre.description.length > 120 ? `${offre.description.substring(0, 120)}...` : offre.description}
+                    </Card.Text>
+
+                    {/* Date de clôture */}
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <div className="d-flex align-items-center">
+                        {offre.fichier && (
+                          <Button 
+                            variant="link" 
+                            size="sm"
+                            href={offre.fichier}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-0 text-decoration-none fw-semibold"
+                          >
+                            <i className="fas fa-download me-1"></i>
+                            Télécharger le fichier
+                          </Button>
+                        )}
+                      </div>
+                      <div className="text-end">
+                        <div className="fw-semibold" style={{ color: isUrgent(offre) ? "#ff6b6b" : "#6c757d" }}>
+                          <i className="fas fa-clock me-1"></i>
+                          Clôture: {formatDate(offre.date_cloture)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="d-flex gap-2">
+                      <Button 
+                        variant="outline-primary" 
+                        size="sm"
+                        onClick={() => handleShowEdit(offre)}
+                        className="rounded-pill flex-grow-1"
+                      >
+                        <i className="fas fa-edit me-1"></i>
+                        Modifier
+                      </Button>
+                      <Button 
+                        variant="outline-danger" 
+                        size="sm"
+                        onClick={() => handleDelete(offre.id)}
+                        className="rounded-pill"
+                        style={{ width: "45px" }}
+                      >
+                        <i className="fas fa-trash"></i>
+                      </Button>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+            ))
+          )}
         </Row>
 
         {/* Modal d'ajout/modification */}
@@ -472,7 +574,7 @@ const AppelOffreMembre = () => {
           >
             <Modal.Title className="fw-bold">
               <i className="fas fa-briefcase me-2"></i>
-              {editMode ? "Modifier l'offre" : "Créer une nouvelle offre"}
+              {editMode ? "Modifier l'appel d'offre" : "Créer un nouvel appel d'offre"}
             </Modal.Title>
             <Button 
               variant="link" 
@@ -485,22 +587,22 @@ const AppelOffreMembre = () => {
           </Modal.Header>
           
           <Modal.Body className="p-4">
-            <Form>
+            <Form onSubmit={handleSave}>
               <Row>
                 <Col md={8}>
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold">
                       <i className="fas fa-heading me-2 text-primary"></i>
-                      Titre du poste *
+                      Intitulé *
                     </Form.Label>
                     <Form.Control
                       type="text"
-                      name="titre"
-                      value={nouvelleOffre.titre}
+                      name="intitule"
+                      value={nouvelleOffre.intitule}
                       onChange={handleChange}
                       required
                       className="border-0 shadow-sm rounded-3 py-3"
-                      placeholder="Ex: Développeur Full Stack Senior"
+                      placeholder="Ex: Construction de la nouvelle école"
                       style={{ background: "#f8f9fa" }}
                     />
                   </Form.Group>
@@ -509,10 +611,10 @@ const AppelOffreMembre = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold">
                       <i className="fas fa-tag me-2 text-success"></i>
-                      Type de contrat
+                      Type de Contrat (UI SEULEMENT)
                     </Form.Label>
                     <Form.Select
-                      name="type"
+                      name="type" // 👈 Champ non persistant
                       value={nouvelleOffre.type}
                       onChange={handleChange}
                       className="border-0 shadow-sm rounded-3 py-3"
@@ -532,17 +634,16 @@ const AppelOffreMembre = () => {
                 <Col md={6}>
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold">
-                      <i className="fas fa-building me-2 text-info"></i>
-                      Entreprise *
+                      <i className="fas fa-user-tie me-2 text-info"></i>
+                      Membre émetteur
                     </Form.Label>
                     <Form.Control
                       type="text"
-                      name="entreprise"
-                      value={nouvelleOffre.entreprise}
+                      name="membre"
+                      value={nouvelleOffre.membre}
                       onChange={handleChange}
-                      required
                       className="border-0 shadow-sm rounded-3 py-3"
-                      placeholder="Nom de l'entreprise"
+                      placeholder="Ex: Ministère du Transport"
                       style={{ background: "#f8f9fa" }}
                     />
                   </Form.Group>
@@ -551,14 +652,13 @@ const AppelOffreMembre = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold">
                       <i className="fas fa-map-marker-alt me-2 text-danger"></i>
-                      Localisation *
+                      Localisation (UI SEULEMENT)
                     </Form.Label>
                     <Form.Control
                       type="text"
-                      name="localisation"
+                      name="localisation" // 👈 Champ non persistant
                       value={nouvelleOffre.localisation}
                       onChange={handleChange}
-                      required
                       className="border-0 shadow-sm rounded-3 py-3"
                       placeholder="Ville, Région"
                       style={{ background: "#f8f9fa" }}
@@ -566,17 +666,17 @@ const AppelOffreMembre = () => {
                   </Form.Group>
                 </Col>
               </Row>
-
+              
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold">
                       <i className="fas fa-money-bill-wave me-2 text-success"></i>
-                      Salaire / Rémunération
+                      Salaire/Rémunération (UI SEULEMENT)
                     </Form.Label>
                     <Form.Control
                       type="text"
-                      name="salaire"
+                      name="salaire" // 👈 Champ non persistant
                       value={nouvelleOffre.salaire}
                       onChange={handleChange}
                       className="border-0 shadow-sm rounded-3 py-3"
@@ -588,13 +688,52 @@ const AppelOffreMembre = () => {
                 <Col md={6}>
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold">
-                      <i className="fas fa-calendar me-2 text-warning"></i>
-                      Date limite *
+                      <i className="fas fa-file-upload me-2 text-warning"></i>
+                      Fichier (PDF, Doc, max 10Mo)
+                    </Form.Label>
+                    <Form.Control
+                      type="file"
+                      name="fichier"
+                      onChange={handleChange}
+                      className="border-0 shadow-sm rounded-3 py-3"
+                      style={{ background: "#f8f9fa" }}
+                    />
+                    {editMode && currentOffre?.fichier && !nouvelleOffre.fichier && (
+                      <Form.Text className="text-muted">
+                        Fichier actuel: <a href={currentOffre.fichier} target="_blank" rel="noopener noreferrer">Voir le fichier</a>
+                      </Form.Text>
+                    )}
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-4">
+                    <Form.Label className="fw-semibold">
+                      <i className="fas fa-calendar-alt me-2 text-info"></i>
+                      Date d'ouverture
                     </Form.Label>
                     <Form.Control
                       type="date"
-                      name="date"
-                      value={nouvelleOffre.date}
+                      name="date_ouverture"
+                      value={nouvelleOffre.date_ouverture}
+                      onChange={handleChange}
+                      className="border-0 shadow-sm rounded-3 py-3"
+                      style={{ background: "#f8f9fa" }}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-4">
+                    <Form.Label className="fw-semibold">
+                      <i className="fas fa-calendar-times me-2 text-danger"></i>
+                      Date de clôture *
+                    </Form.Label>
+                    <Form.Control
+                      type="date"
+                      name="date_cloture"
+                      value={nouvelleOffre.date_cloture}
                       onChange={handleChange}
                       required
                       className="border-0 shadow-sm rounded-3 py-3"
@@ -607,7 +746,7 @@ const AppelOffreMembre = () => {
               <Form.Group className="mb-4">
                 <Form.Label className="fw-semibold">
                   <i className="fas fa-align-left me-2 text-info"></i>
-                  Description du poste *
+                  Description *
                 </Form.Label>
                 <Form.Control
                   as="textarea"
@@ -617,82 +756,83 @@ const AppelOffreMembre = () => {
                   onChange={handleChange}
                   required
                   className="border-0 shadow-sm rounded-3 py-3"
-                  placeholder="Décrivez les missions, compétences requises, avantages..."
+                  placeholder="Décrivez les détails de l'appel d'offre, les spécifications, etc."
                   style={{ background: "#f8f9fa", resize: "none" }}
                 />
               </Form.Group>
-
+              
               <Form.Group className="mb-4">
                 <Form.Check
                   type="checkbox"
-                  name="urgent"
-                  label="Marquer comme offre urgente"
+                  name="urgent" // 👈 Champ non persistant
+                  label="Marquer comme appel urgent (UI SEULEMENT)"
                   checked={nouvelleOffre.urgent}
                   onChange={handleChange}
                   className="fw-semibold"
                 />
                 <Form.Text className="text-muted">
-                  Les offres urgentes seront mises en avant avec un badge spécial
+                  Les offres urgentes seront mises en avant. (Note: ce champ n'est pas sauvegardé dans la BDD pour l'instant)
                 </Form.Text>
               </Form.Group>
+              
+              <Modal.Footer className="border-0 p-0 pt-4">
+                <Button 
+                  variant="outline-secondary" 
+                  onClick={handleClose}
+                  className="rounded-pill px-4 py-2"
+                  style={{ fontWeight: "600" }}
+                  disabled={isSubmitting} // Désactiver pendant l'envoi
+                >
+                  <i className="fas fa-times me-2"></i>
+                  Annuler
+                </Button>
+                <Button 
+                  type="submit"
+                  variant="primary" 
+                  className="rounded-pill px-4 py-2"
+                  style={{
+                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    border: "none",
+                    fontWeight: "600"
+                  }}
+                  disabled={isSubmitting} // Désactiver pendant l'envoi
+                >
+                  <i className={`fas ${editMode ? 'fa-save' : 'fa-plus'} me-2`}></i>
+                  {isSubmitting ? 'Envoi...' : (editMode ? "Modifier l'appel" : "Créer l'appel")}
+                </Button>
+              </Modal.Footer>
             </Form>
           </Modal.Body>
-          
-          <Modal.Footer className="border-0">
-            <Button 
-              variant="outline-secondary" 
-              onClick={handleClose}
-              className="rounded-pill px-4 py-2"
-              style={{ fontWeight: "600" }}
-            >
-              <i className="fas fa-times me-2"></i>
-              Annuler
-            </Button>
-            <Button 
-              variant="primary" 
-              onClick={editMode ? handleEdit : handleAdd}
-              className="rounded-pill px-4 py-2"
-              style={{
-                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                border: "none",
-                fontWeight: "600"
-              }}
-            >
-              <i className={`fas ${editMode ? 'fa-save' : 'fa-plus'} me-2`}></i>
-              {editMode ? "Modifier" : "Créer l'offre"}
-            </Button>
-          </Modal.Footer>
         </Modal>
+        {/* Styles CSS inchangés */}
+        <style>
+          {`
+            .modern-modal .modal-content {
+              border-radius: 20px !important;
+              border: none !important;
+              box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2) !important;
+            }
+
+            .form-control:focus, .form-select:focus {
+              box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+              border-color: #667eea !important;
+              background: #fff !important;
+            }
+
+            .card {
+              transition: transform 0.3s ease, box-shadow 0.3s ease;
+            }
+
+            .btn {
+              transition: all 0.3s ease;
+            }
+
+            .btn:hover {
+              transform: translateY(-2px);
+            }
+          `}
+        </style>
       </div>
-
-      {/* Styles CSS supplémentaires */}
-      <style>
-        {`
-          .modern-modal .modal-content {
-            border-radius: 20px !important;
-            border: none !important;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2) !important;
-          }
-
-          .form-control:focus, .form-select:focus {
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
-            border-color: #667eea !important;
-            background: #fff !important;
-          }
-
-          .card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-          }
-
-          .btn {
-            transition: all 0.3s ease;
-          }
-
-          .btn:hover {
-            transform: translateY(-2px);
-          }
-        `}
-      </style>
     </div>
   );
 };

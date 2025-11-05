@@ -17,5 +17,16 @@ class AppelOffre extends Model
         'membre',
         'fichier',
         'statut',
+        
+        // ✅ Nouveaux champs ajoutés à fillable
+        'type',
+        'localisation',
+        'salaire',
+        'urgent',
+    ];
+    
+    // Si tu ajoutes plus tard le casting pour 'urgent'
+    protected $casts = [
+        'urgent' => 'boolean',
     ];
 }
