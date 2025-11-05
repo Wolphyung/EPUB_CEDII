@@ -27,6 +27,7 @@ const Evenement = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatut, setFilterStatut] = useState("Tous");
   const [filterType, setFilterType] = useState("Tous");
+  const [previewFile, setPreviewFile] = useState(null);
 
   const [newEvent, setNewEvent] = useState({
     titre: "",
@@ -91,13 +92,48 @@ const Evenement = () => {
       statut: "En attente",
       fichier: null,
     });
+    setPreviewFile(null);
   };
 
   const handleShowAddModal = () => setShowAddModal(true);
-  const handleCloseEditModal = () => setShowEditModal(false);
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setPreviewFile(null);
+  };
 
-  const handleFileChange = (e) => setNewEvent({ ...newEvent, fichier: e.target.files[0] });
-  const handleEditFileChange = (e) => setSelectedEvent({ ...selectedEvent, fichier: e.target.files[0] });
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    setNewEvent({ ...newEvent, fichier: file });
+    
+    // Prévisualisation du fichier
+    if (file) {
+      const fileURL = URL.createObjectURL(file);
+      setPreviewFile({
+        url: fileURL,
+        name: file.name,
+        type: file.type
+      });
+    } else {
+      setPreviewFile(null);
+    }
+  };
+
+  const handleEditFileChange = (e) => {
+    const file = e.target.files[0];
+    setSelectedEvent({ ...selectedEvent, fichier: file });
+    
+    // Prévisualisation du fichier
+    if (file) {
+      const fileURL = URL.createObjectURL(file);
+      setPreviewFile({
+        url: fileURL,
+        name: file.name,
+        type: file.type
+      });
+    } else {
+      setPreviewFile(null);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -192,6 +228,108 @@ const Evenement = () => {
   const handleShowEditModal = (event) => {
     setSelectedEvent({ ...event });
     setShowEditModal(true);
+    setPreviewFile(null);
+  };
+
+  // Fonction pour obtenir l'URL du fichier
+  const getFileUrl = (fichier) => {
+    if (!fichier) return null;
+    if (typeof fichier === 'string') {
+      // Si c'est une URL complète
+      if (fichier.startsWith('http')) return fichier;
+      // Si c'est un chemin relatif
+      return `${API_URL}/${fichier.replace(/^\//, '')}`;
+    }
+    return null;
+  };
+
+  // Fonction pour télécharger le fichier
+  const handleDownloadFile = async (fichier, fileName) => {
+    try {
+      const fileUrl = getFileUrl(fichier);
+      if (!fileUrl) {
+        showNotification("error", "❌ Fichier non disponible");
+        return;
+      }
+
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName || 'fichier';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      showNotification("success", "✅ Téléchargement commencé");
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      showNotification("error", "❌ Erreur lors du téléchargement");
+    }
+  };
+
+  // Fonction pour obtenir l'icône du fichier
+  const getFileIcon = (fileName) => {
+    if (!fileName) return 'fa-file';
+    
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return 'fa-file-pdf';
+      case 'doc':
+      case 'docx':
+        return 'fa-file-word';
+      case 'xls':
+      case 'xlsx':
+        return 'fa-file-excel';
+      case 'ppt':
+      case 'pptx':
+        return 'fa-file-powerpoint';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'bmp':
+        return 'fa-file-image';
+      case 'mp4':
+      case 'avi':
+      case 'mov':
+        return 'fa-file-video';
+      case 'mp3':
+      case 'wav':
+        return 'fa-file-audio';
+      case 'zip':
+      case 'rar':
+        return 'fa-file-archive';
+      default:
+        return 'fa-file';
+    }
+  };
+
+  // Fonction pour obtenir la couleur du badge fichier
+  const getFileBadgeVariant = (fileName) => {
+    if (!fileName) return 'secondary';
+    
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return 'danger';
+      case 'doc':
+      case 'docx':
+        return 'primary';
+      case 'xls':
+      case 'xlsx':
+        return 'success';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return 'info';
+      default:
+        return 'secondary';
+    }
   };
 
   const getStatusVariant = (statut) => {
@@ -243,6 +381,59 @@ const Evenement = () => {
   const isUpcoming = (dateTimeString) => {
     if (!dateTimeString) return false;
     return new Date(dateTimeString) > new Date();
+  };
+
+  // Composant pour afficher la prévisualisation du fichier
+  const FilePreview = ({ file }) => {
+    if (!file) return null;
+
+    const isImage = file.type.startsWith('image/');
+    const isPDF = file.type === 'application/pdf';
+
+    return (
+      <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
+        <h6 className="mb-3">
+          <i className="fas fa-eye me-2"></i>
+          Aperçu du fichier
+        </h6>
+        
+        {isImage ? (
+          <div className="text-center">
+            <img 
+              src={file.url} 
+              alt="Aperçu" 
+              style={{ 
+                maxWidth: '100%', 
+                maxHeight: '200px', 
+                objectFit: 'contain',
+                borderRadius: '8px'
+              }}
+            />
+            <p className="mt-2 mb-0 small text-muted">{file.name}</p>
+          </div>
+        ) : isPDF ? (
+          <div className="text-center">
+            <iframe 
+              src={file.url} 
+              title="Aperçu PDF"
+              style={{ 
+                width: '100%', 
+                height: '300px', 
+                border: 'none',
+                borderRadius: '8px'
+              }}
+            />
+            <p className="mt-2 mb-0 small text-muted">{file.name}</p>
+          </div>
+        ) : (
+          <div className="text-center">
+            <i className={`fas ${getFileIcon(file.name)} fa-3x text-${getFileBadgeVariant(file.name)} mb-2`}></i>
+            <p className="mb-0 small text-muted">{file.name}</p>
+            <p className="small text-muted">Aperçu non disponible pour ce type de fichier</p>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -333,9 +524,9 @@ const Evenement = () => {
               color: "linear-gradient(135deg, #4facfe, #00f2fe)"
             },
             { 
-              title: "En attente", 
-              count: evenements.filter((ev) => ev.statut === "En attente").length, 
-              icon: "fa-hourglass-half", 
+              title: "Avec Fichiers", 
+              count: evenements.filter((ev) => ev.fichier).length, 
+              icon: "fa-paperclip", 
               color: "linear-gradient(135deg, #f093fb, #f5576c)"
             }
           ].map((stat, index) => (
@@ -542,17 +733,52 @@ const Evenement = () => {
                         <span>{ev.type}</span>
                       </div>
 
+                      {/* Section Fichier avec aperçu et téléchargement */}
                       {ev.fichier && (
-                        <div className="d-flex align-items-center">
-                          <i className="fas fa-paperclip text-primary me-2" style={{ width: "16px" }}></i>
-                          <a 
-                            href={ev.fichier} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="text-decoration-none text-primary small"
-                          >
-                            {getFileName(ev.fichier)}
-                          </a>
+                        <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
+                          <div className="d-flex justify-content-between align-items-center mb-2">
+                            <div className="d-flex align-items-center">
+                              <i className={`fas ${getFileIcon(getFileName(ev.fichier))} text-${getFileBadgeVariant(getFileName(ev.fichier))} me-2`}></i>
+                              <span className="small fw-semibold">Fichier joint:</span>
+                            </div>
+                            <Button
+                              variant="outline-primary"
+                              size="sm"
+                              onClick={() => handleDownloadFile(ev.fichier, getFileName(ev.fichier))}
+                              className="d-flex align-items-center"
+                              style={{ borderRadius: "6px", fontSize: "0.7rem" }}
+                            >
+                              <i className="fas fa-download me-1"></i>
+                              Télécharger
+                            </Button>
+                          </div>
+                          <p className="small text-muted mb-2">{getFileName(ev.fichier)}</p>
+                          
+                          {/* Aperçu du fichier existant */}
+                          {typeof ev.fichier === 'string' && (
+                            <div className="text-center">
+                              {getFileName(ev.fichier).match(/\.(jpg|jpeg|png|gif)$/i) ? (
+                                <img 
+                                  src={getFileUrl(ev.fichier)} 
+                                  alt="Aperçu" 
+                                  style={{ 
+                                    maxWidth: '100%', 
+                                    maxHeight: '100px', 
+                                    objectFit: 'contain',
+                                    borderRadius: '6px'
+                                  }}
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div className="py-2">
+                                  <i className={`fas ${getFileIcon(getFileName(ev.fichier))} fa-2x text-${getFileBadgeVariant(getFileName(ev.fichier))} mb-2`}></i>
+                                  <p className="small text-muted mb-0">Cliquez sur "Télécharger" pour voir le fichier</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -802,11 +1028,14 @@ const Evenement = () => {
                     />
                     <Form.Text className="text-muted">
                       <i className="fas fa-info-circle me-1"></i>
-                      Formats acceptés: PDF, DOC, Images. Taille max: 10MB
+                      Formats acceptés: PDF, DOC, Images, Vidéos. Taille max: 10MB
                     </Form.Text>
                   </Form.Group>
                 </Col>
               </Row>
+
+              {/* Aperçu du fichier sélectionné */}
+              <FilePreview file={previewFile} />
             </Form>
           </Modal.Body>
           <Modal.Footer className="border-0">
@@ -974,17 +1203,30 @@ const Evenement = () => {
                         onChange={handleEditFileChange} 
                         style={{ borderRadius: "10px", padding: "12px" }}
                       />
-                      {selectedEvent.fichier && (
+                      {selectedEvent.fichier && !previewFile && (
                         <div className="mt-2">
                           <small className="text-muted d-block">
                             <i className="fas fa-file me-1"></i>
                             Fichier actuel: {getFileName(selectedEvent.fichier)}
                           </small>
+                          <Button
+                            variant="outline-primary"
+                            size="sm"
+                            onClick={() => handleDownloadFile(selectedEvent.fichier, getFileName(selectedEvent.fichier))}
+                            className="d-flex align-items-center mt-1"
+                            style={{ borderRadius: "6px", fontSize: "0.7rem" }}
+                          >
+                            <i className="fas fa-download me-1"></i>
+                            Télécharger
+                          </Button>
                         </div>
                       )}
                     </Form.Group>
                   </Col>
                 </Row>
+
+                {/* Aperçu du fichier sélectionné */}
+                <FilePreview file={previewFile} />
               </Form>
             </Modal.Body>
             <Modal.Footer className="border-0">

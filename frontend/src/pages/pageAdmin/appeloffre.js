@@ -23,6 +23,8 @@ const AppelOffre = () => {
   const [search, setSearch] = useState("");
   const [filterStatut, setFilterStatut] = useState("Tous");
   const [loading, setLoading] = useState(false);
+  const [previewFile, setPreviewFile] = useState(null);
+
   const [newOffre, setNewOffre] = useState({
     intitule: "",
     description: "",
@@ -72,13 +74,27 @@ const AppelOffre = () => {
       fichier: null,
       statut: "En attente"
     });
+    setPreviewFile(null);
   };
 
   // Changement de valeur des inputs
   const handleChange = (e) => {
     const { name, value, files } = e.target;
     if (name === "fichier") {
-      setNewOffre({ ...newOffre, fichier: files[0] });
+      const file = files[0];
+      setNewOffre({ ...newOffre, fichier: file });
+      
+      // Prévisualisation du fichier
+      if (file) {
+        const fileURL = URL.createObjectURL(file);
+        setPreviewFile({
+          url: fileURL,
+          name: file.name,
+          type: file.type
+        });
+      } else {
+        setPreviewFile(null);
+      }
     } else {
       setNewOffre({ ...newOffre, [name]: value });
     }
@@ -170,6 +186,159 @@ const AppelOffre = () => {
       console.error("Erreur suppression:", err);
       showNotification("error", "❌ Erreur lors de la suppression");
     }
+  };
+
+  // Fonction pour obtenir l'URL du fichier
+  const getFileUrl = (fichier) => {
+    if (!fichier) return null;
+    if (typeof fichier === 'string') {
+      // Si c'est une URL complète
+      if (fichier.startsWith('http')) return fichier;
+      // Si c'est un chemin relatif
+      return `${API_URL}/${fichier.replace(/^\//, '')}`;
+    }
+    return null;
+  };
+
+  // Fonction pour télécharger le fichier
+  const handleDownloadFile = async (fichier, fileName) => {
+    try {
+      const fileUrl = getFileUrl(fichier);
+      if (!fileUrl) {
+        showNotification("error", "❌ Fichier non disponible");
+        return;
+      }
+
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName || 'document-appel-offre';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      showNotification("success", "✅ Téléchargement commencé");
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      showNotification("error", "❌ Erreur lors du téléchargement");
+    }
+  };
+
+  // Fonction pour obtenir l'icône du fichier
+  const getFileIcon = (fileName) => {
+    if (!fileName) return 'fa-file';
+    
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return 'fa-file-pdf';
+      case 'doc':
+      case 'docx':
+        return 'fa-file-word';
+      case 'xls':
+      case 'xlsx':
+        return 'fa-file-excel';
+      case 'ppt':
+      case 'pptx':
+        return 'fa-file-powerpoint';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'bmp':
+        return 'fa-file-image';
+      case 'zip':
+      case 'rar':
+      case '7z':
+        return 'fa-file-archive';
+      case 'txt':
+        return 'fa-file-alt';
+      default:
+        return 'fa-file';
+    }
+  };
+
+  // Fonction pour obtenir la couleur du badge fichier
+  const getFileBadgeVariant = (fileName) => {
+    if (!fileName) return 'secondary';
+    
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return 'danger';
+      case 'doc':
+      case 'docx':
+        return 'primary';
+      case 'xls':
+      case 'xlsx':
+        return 'success';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return 'info';
+      case 'zip':
+      case 'rar':
+        return 'warning';
+      default:
+        return 'secondary';
+    }
+  };
+
+  // Composant pour afficher la prévisualisation du fichier
+  const FilePreview = ({ file }) => {
+    if (!file) return null;
+
+    const isImage = file.type.startsWith('image/');
+    const isPDF = file.type === 'application/pdf';
+
+    return (
+      <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
+        <h6 className="mb-3">
+          <i className="fas fa-eye me-2"></i>
+          Aperçu du fichier
+        </h6>
+        
+        {isImage ? (
+          <div className="text-center">
+            <img 
+              src={file.url} 
+              alt="Aperçu" 
+              style={{ 
+                maxWidth: '100%', 
+                maxHeight: '200px', 
+                objectFit: 'contain',
+                borderRadius: '8px'
+              }}
+            />
+            <p className="mt-2 mb-0 small text-muted">{file.name}</p>
+          </div>
+        ) : isPDF ? (
+          <div className="text-center">
+            <iframe 
+              src={file.url} 
+              title="Aperçu PDF"
+              style={{ 
+                width: '100%', 
+                height: '300px', 
+                border: 'none',
+                borderRadius: '8px'
+              }}
+            />
+            <p className="mt-2 mb-0 small text-muted">{file.name}</p>
+          </div>
+        ) : (
+          <div className="text-center">
+            <i className={`fas ${getFileIcon(file.name)} fa-3x text-${getFileBadgeVariant(file.name)} mb-2`}></i>
+            <p className="mb-0 small text-muted">{file.name}</p>
+            <p className="small text-muted">Aperçu non disponible pour ce type de fichier</p>
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Filtrer les appels d'offre
@@ -317,9 +486,9 @@ const AppelOffre = () => {
               color: "linear-gradient(135deg, #4facfe, #00f2fe)"
             },
             { 
-              title: "Rejetés", 
-              count: appelOffres.filter((offre) => offre.statut === "Rejeté").length, 
-              icon: "fa-times-circle", 
+              title: "Avec Fichiers", 
+              count: appelOffres.filter((offre) => offre.fichier).length, 
+              icon: "fa-paperclip", 
               color: "linear-gradient(135deg, #f093fb, #f5576c)"
             }
           ].map((stat, index) => (
@@ -527,17 +696,52 @@ const AppelOffre = () => {
                         </span>
                       </div>
 
+                      {/* Section Fichier avec aperçu et téléchargement */}
                       {offre.fichier && (
-                        <div className="d-flex align-items-center">
-                          <i className="fas fa-paperclip text-primary me-2" style={{ width: "16px" }}></i>
-                          <a 
-                            href={offre.fichier} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="text-decoration-none text-primary small"
-                          >
-                            {getFileName(offre.fichier)}
-                          </a>
+                        <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
+                          <div className="d-flex justify-content-between align-items-center mb-2">
+                            <div className="d-flex align-items-center">
+                              <i className={`fas ${getFileIcon(getFileName(offre.fichier))} text-${getFileBadgeVariant(getFileName(offre.fichier))} me-2`}></i>
+                              <span className="small fw-semibold">Document:</span>
+                            </div>
+                            <Button
+                              variant="outline-primary"
+                              size="sm"
+                              onClick={() => handleDownloadFile(offre.fichier, getFileName(offre.fichier))}
+                              className="d-flex align-items-center"
+                              style={{ borderRadius: "6px", fontSize: "0.7rem" }}
+                            >
+                              <i className="fas fa-download me-1"></i>
+                              Télécharger
+                            </Button>
+                          </div>
+                          <p className="small text-muted mb-2">{getFileName(offre.fichier)}</p>
+                          
+                          {/* Aperçu du fichier existant */}
+                          {typeof offre.fichier === 'string' && (
+                            <div className="text-center">
+                              {getFileName(offre.fichier).match(/\.(jpg|jpeg|png|gif)$/i) ? (
+                                <img 
+                                  src={getFileUrl(offre.fichier)} 
+                                  alt="Aperçu" 
+                                  style={{ 
+                                    maxWidth: '100%', 
+                                    maxHeight: '100px', 
+                                    objectFit: 'contain',
+                                    borderRadius: '6px'
+                                  }}
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div className="py-2">
+                                  <i className={`fas ${getFileIcon(getFileName(offre.fichier))} fa-2x text-${getFileBadgeVariant(getFileName(offre.fichier))} mb-2`}></i>
+                                  <p className="small text-muted mb-0">Cliquez sur "Télécharger" pour voir le document</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -764,11 +968,14 @@ const AppelOffre = () => {
                     />
                     <Form.Text className="text-muted">
                       <i className="fas fa-info-circle me-1"></i>
-                      Formats acceptés: PDF, DOC, ZIP. Taille max: 10MB
+                      Formats acceptés: PDF, DOC, ZIP, Images. Taille max: 10MB
                     </Form.Text>
                   </Form.Group>
                 </Col>
               </Row>
+
+              {/* Aperçu du fichier sélectionné */}
+              <FilePreview file={previewFile} />
             </Form>
           </Modal.Body>
           <Modal.Footer className="border-0">
