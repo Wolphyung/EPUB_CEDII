@@ -9,15 +9,37 @@ use App\Http\Controllers\LoginController;
 use App\Http\Controllers\EvenementController;
 use App\Http\Controllers\AppelOffreController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\NotificationController;
 
 
-
+Route::middleware('auth:sanctum')->group(function () {
+    // Routes pour les notifications
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::post('/', [NotificationController::class, 'store']);
+        Route::put('/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::put('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+        Route::delete('/clear', [NotificationController::class, 'clearAll']);
+        Route::delete('/{id}', [NotificationController::class, 'destroy']);
+    });
+    
+    // Vos autres routes...
+});
 
 Route::apiResource('publications', PublicationController::class);
 Route::post('/publications/{id}/validate', [PublicationController::class, 'validatePublication']);
 Route::get('/publications/{id}/download', [PublicationController::class, 'downloadFile']);
 Route::apiResource('evenements', EvenementController::class);
 
+
+Route::prefix('admin/notifications')->group(function () {
+    Route::get('/', [NotificationController::class, 'index']);
+    Route::put('/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::put('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+    Route::delete('/clear', [NotificationController::class, 'clearAll']);
+    Route::delete('/{id}', [NotificationController::class, 'destroy']);
+    Route::post('/', [NotificationController::class, 'store']);
+});
 
 Route::post('/login', [LoginController::class, 'login']);
 

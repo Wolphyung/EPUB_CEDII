@@ -164,6 +164,7 @@ const Publication = () => {
     return 'document';
   };
 
+
   // Ajouter une publication
   const handleAddPublication = async () => {
     try {

@@ -1,7 +1,29 @@
 import axios from "axios";
 
 const API_URL = "http://127.0.0.1:8000/api";
+export const API_CONFIG = {
+  BASE_URL: "http://127.0.0.1:8000/api",
+  TIMEOUT: 10000,
+};
 
+// Instance axios configurée
+export const apiClient = axios.create({
+  baseURL: API_CONFIG.BASE_URL,
+  timeout: API_CONFIG.TIMEOUT,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+});
+
+// Intercepteur pour les erreurs
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', error);
+    return Promise.reject(error);
+  }
+);
 // --- Membres ---
 export const fetchMembres = () => axios.get(`${API_URL}/membres`);
 

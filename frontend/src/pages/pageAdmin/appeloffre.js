@@ -28,16 +28,40 @@ const AppelOffre = () => {
 
   const [newOffre, setNewOffre] = useState({
     intitule: "",
-    description: "",
+    type_contrat: "",
+    membre_emetteur: "",
+    localisation: "",
+    salaire_remuneration: "",
     date_ouverture: "",
     date_cloture: "",
-    membre: "",
+    description: "",
     fichier: null,
-    statut: "Validé" // Changé de "En attente" à "Validé" par défaut
+    statut: "Validé",
+    est_urgent: false
   });
+
+  // Données pour les listes déroulantes
+  const typesContrat = [
+    "CDI", "CDD", "Freelance", "Stage", "Alternance", 
+    "Consultant", "Prestation", "Service", "Travail temporaire"
+  ];
+
+  const villesMadagascar = [
+    "Antananarivo", "Toamasina", "Antsirabe", "Fianarantsoa", "Mahajanga",
+    "Toliara", "Antsiranana", "Ambositra", "Ambatondrazaka", "Moramanga",
+    "Taolagnaro", "Morondava", "Sambava", "Maroantsetra", "Maintirano"
+  ];
+
+  const regionsMadagascar = [
+    "Analamanga", "Vakinankaratra", "Itasy", "Bongolava", "Haute Matsiatra",
+    "Amoron'i Mania", "Vatovavy", "Fitovinany", "Atsimo-Atsinanana", "Ihorombe",
+    "Menabe", "Atsimo-Andrefana", "Androy", "Anosy", "Alaotra-Mangoro",
+    "Atsinanana", "Analanjirofo", "Sofia", "Boeny", "Betsiboka",
+    "Melaky", "Diana", "Sava"
+  ];
   
   // Afficher messages temporairement
-  const showNotification = (type, message) => {
+  const showNotification = ( type, message) => {
     setShowAlert({ show: true, type, message });
     setTimeout(() => {
       setShowAlert({ show: false, type: "", message: "" });
@@ -61,20 +85,20 @@ const AppelOffre = () => {
   // Charger les membres
   const fetchMembres = async () => {
     try {
-      const res = await axios.get(`${API_URL}/membres`); // Assurez-vous que cette route existe dans votre API
+      const res = await axios.get(`${API_URL}/membres`);
       setMembres(res.data.data || res.data || []);
     } catch (err) {
       console.error("Erreur chargement membres:", err);
-      // Si l'API membres n'existe pas, on utilise des données fictives
+      // Données fictives pour les membres émetteurs
       setMembres([
-        { id: 1, nom_entreprise: "Entreprise A", nom_contact: "Jean Dupont" },
-        { id: 2, nom_entreprise: "Société B", nom_contact: "Marie Martin" },
-        { id: 3, nom_entreprise: "Groupe C", nom_contact: "Pierre Lambert" },
-        { id: 4, nom_entreprise: "Compagnie D", nom_contact: "Sophie Bernard" },
-        { id: 5, nom_entreprise: "Industries E", nom_contact: "Luc Petit" },
-        { id: 6, nom_entreprise: "Services F", nom_contact: "Nathalie Moreau" },
-        { id: 7, nom_entreprise: "Solutions G", nom_contact: "David Leroy" },
-        { id: 8, nom_entreprise: "Technologies H", nom_contact: "Catherine Roux" }
+        { id: 1, nom_entreprise: "Ministère du Transport" },
+        { id: 2, nom_entreprise: "Ministère de l'Éducation" },
+        { id: 3, nom_entreprise: "Ministère de la Santé" },
+        { id: 4, nom_entreprise: "Ministère des Travaux Publics" },
+        { id: 5, nom_entreprise: "Commune Urbaine d'Antananarivo" },
+        { id: 6, nom_entreprise: "Société Nationale d'Eau" },
+        { id: 7, nom_entreprise: "Office des Routes" },
+        { id: 8, nom_entreprise: "Entreprise Publique d'Énergie" }
       ]);
     }
   };
@@ -90,20 +114,25 @@ const AppelOffre = () => {
     setShowModal(false);
     setNewOffre({
       intitule: "",
-      description: "",
+      type_contrat: "",
+      membre_emetteur: "",
+      localisation: "",
+      salaire_remuneration: "",
       date_ouverture: "",
       date_cloture: "",
-      membre: "",
+      description: "",
       fichier: null,
-      statut: "Validé" // Changé à "Validé" par défaut
+      statut: "Validé",
+      est_urgent: false
     });
     setPreviewFile(null);
   };
 
   // Changement de valeur des inputs
   const handleChange = (e) => {
-    const { name, value, files } = e.target;
-    if (name === "fichier") {
+    const { name, value, files, type, checked } = e.target;
+    
+    if (type === 'file') {
       const file = files[0];
       setNewOffre({ ...newOffre, fichier: file });
       
@@ -118,6 +147,8 @@ const AppelOffre = () => {
       } else {
         setPreviewFile(null);
       }
+    } else if (type === 'checkbox') {
+      setNewOffre({ ...newOffre, [name]: checked });
     } else {
       setNewOffre({ ...newOffre, [name]: value });
     }
@@ -130,11 +161,16 @@ const AppelOffre = () => {
     
     const formData = new FormData();
     formData.append("intitule", newOffre.intitule);
-    formData.append("description", newOffre.description);
+    formData.append("type_contrat", newOffre.type_contrat);
+    formData.append("membre_emetteur", newOffre.membre_emetteur);
+    formData.append("localisation", newOffre.localisation);
+    formData.append("salaire_remuneration", newOffre.salaire_remuneration);
     formData.append("date_ouverture", newOffre.date_ouverture);
     formData.append("date_cloture", newOffre.date_cloture);
-    formData.append("membre", newOffre.membre);
+    formData.append("description", newOffre.description);
     formData.append("statut", newOffre.statut);
+    formData.append("est_urgent", newOffre.est_urgent ? "1" : "0");
+    
     if (newOffre.fichier) {
       formData.append("fichier", newOffre.fichier);
     }
@@ -211,13 +247,12 @@ const AppelOffre = () => {
     }
   };
 
+
   // Fonction pour obtenir l'URL du fichier
   const getFileUrl = (fichier) => {
     if (!fichier) return null;
     if (typeof fichier === 'string') {
-      // Si c'est une URL complète
       if (fichier.startsWith('http')) return fichier;
-      // Si c'est un chemin relatif
       return `${API_URL}/${fichier.replace(/^\//, '')}`;
     }
     return null;
@@ -256,31 +291,14 @@ const AppelOffre = () => {
     
     const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
-      case 'pdf':
-        return 'fa-file-pdf';
-      case 'doc':
-      case 'docx':
-        return 'fa-file-word';
-      case 'xls':
-      case 'xlsx':
-        return 'fa-file-excel';
-      case 'ppt':
-      case 'pptx':
-        return 'fa-file-powerpoint';
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif':
-      case 'bmp':
-        return 'fa-file-image';
-      case 'zip':
-      case 'rar':
-      case '7z':
-        return 'fa-file-archive';
-      case 'txt':
-        return 'fa-file-alt';
-      default:
-        return 'fa-file';
+      case 'pdf': return 'fa-file-pdf';
+      case 'doc': case 'docx': return 'fa-file-word';
+      case 'xls': case 'xlsx': return 'fa-file-excel';
+      case 'ppt': case 'pptx': return 'fa-file-powerpoint';
+      case 'jpg': case 'jpeg': case 'png': case 'gif': case 'bmp': return 'fa-file-image';
+      case 'zip': case 'rar': case '7z': return 'fa-file-archive';
+      case 'txt': return 'fa-file-alt';
+      default: return 'fa-file';
     }
   };
 
@@ -290,24 +308,12 @@ const AppelOffre = () => {
     
     const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
-      case 'pdf':
-        return 'danger';
-      case 'doc':
-      case 'docx':
-        return 'primary';
-      case 'xls':
-      case 'xlsx':
-        return 'success';
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif':
-        return 'info';
-      case 'zip':
-      case 'rar':
-        return 'warning';
-      default:
-        return 'secondary';
+      case 'pdf': return 'danger';
+      case 'doc': case 'docx': return 'primary';
+      case 'xls': case 'xlsx': return 'success';
+      case 'jpg': case 'jpeg': case 'png': case 'gif': return 'info';
+      case 'zip': case 'rar': return 'warning';
+      default: return 'secondary';
     }
   };
 
@@ -518,9 +524,9 @@ const AppelOffre = () => {
               color: "linear-gradient(135deg, #4facfe, #00f2fe)"
             },
             { 
-              title: "Avec Fichiers", 
-              count: appelOffres.filter((offre) => offre.fichier).length, 
-              icon: "fa-paperclip", 
+              title: "Urgents", 
+              count: appelOffres.filter((offre) => offre.est_urgent).length, 
+              icon: "fa-exclamation-triangle", 
               color: "linear-gradient(135deg, #f093fb, #f5576c)"
             }
           ].map((stat, index) => (
@@ -662,6 +668,7 @@ const AppelOffre = () => {
                     borderRadius: "20px", 
                     transition: "transform 0.2s",
                     borderLeft: `4px solid ${
+                      offre.est_urgent ? "#ff6b6b" :
                       offre.statut === "Validé" ? "#28a745" :
                       offre.statut === "En attente" ? "#ffc107" :
                       offre.statut === "Rejeté" ? "#dc3545" :
@@ -672,15 +679,28 @@ const AppelOffre = () => {
                   <Card.Body className="d-flex flex-column p-4">
                     {/* En-tête avec intitulé et statut */}
                     <div className="d-flex justify-content-between align-items-start mb-3">
-                      <Card.Title 
-                        className="h5 fw-bold mb-0"
-                        style={{ 
-                          lineHeight: "1.3",
-                          color: "#2c3e50"
-                        }}
-                      >
-                        {offre.intitule}
-                      </Card.Title>
+                      <div className="flex-grow-1">
+                        <Card.Title 
+                          className="h5 fw-bold mb-1"
+                          style={{ 
+                            lineHeight: "1.3",
+                            color: "#2c3e50"
+                          }}
+                        >
+                          {offre.intitule}
+                          {offre.est_urgent && (
+                            <Badge bg="danger" className="ms-2">
+                              <i className="fas fa-exclamation-triangle me-1"></i>
+                              Urgent
+                            </Badge>
+                          )}
+                        </Card.Title>
+                        {offre.type_contrat && (
+                          <Badge bg="info" className="mb-2">
+                            {offre.type_contrat}
+                          </Badge>
+                        )}
+                      </div>
                       <Badge 
                         bg={getStatusVariant(offre.statut)} 
                         className="d-flex align-items-center"
@@ -708,8 +728,22 @@ const AppelOffre = () => {
                     <div className="small text-muted mb-3">
                       <div className="d-flex align-items-center mb-2">
                         <i className="fas fa-building text-primary me-2" style={{ width: "16px" }}></i>
-                        <span>{getMembreDisplayName(offre.membre)}</span>
+                        <span>{getMembreDisplayName(offre.membre_emetteur)}</span>
                       </div>
+                      
+                      {offre.localisation && (
+                        <div className="d-flex align-items-center mb-2">
+                          <i className="fas fa-map-marker-alt text-primary me-2" style={{ width: "16px" }}></i>
+                          <span>{offre.localisation}</span>
+                        </div>
+                      )}
+                      
+                      {offre.salaire_remuneration && (
+                        <div className="d-flex align-items-center mb-2">
+                          <i className="fas fa-money-bill-wave text-primary me-2" style={{ width: "16px" }}></i>
+                          <span>{offre.salaire_remuneration}</span>
+                        </div>
+                      )}
                       
                       <div className="d-flex align-items-center mb-2">
                         <i className="fas fa-calendar-plus text-primary me-2" style={{ width: "16px" }}></i>
@@ -862,7 +896,7 @@ const AppelOffre = () => {
         )}
 
         {/* Modal ajout appel d'offre */}
-        <Modal show={showModal} onHide={handleClose} size="lg" centered>
+        <Modal show={showModal} onHide={handleClose} size="lg" centered scrollable>
           <Modal.Header 
             closeButton 
             className="border-0"
@@ -878,25 +912,52 @@ const AppelOffre = () => {
           </Modal.Header>
           <Modal.Body className="p-4">
             <Form onSubmit={handleAddOffre}>
+              {/* Intitulé */}
+              <Form.Group className="mb-4">
+                <Form.Label className="fw-semibold text-muted">
+                  <i className="fas fa-heading me-2 text-primary"></i>
+                  Intitulé *
+                </Form.Label>
+                <Form.Control
+                  type="text"
+                  name="intitule"
+                  value={newOffre.intitule}
+                  onChange={handleChange}
+                  required
+                  style={{ borderRadius: "10px", padding: "12px" }}
+                  placeholder="Ex: Construction de la nouvelle école"
+                />
+              </Form.Group>
+
               <Row>
-                <Col md={8}>
+                {/* Type de Contrat */}
+                <Col md={6}>
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
-                      <i className="fas fa-heading me-2 text-primary"></i>
-                      Intitulé *
+                      <i className="fas fa-file-contract me-2 text-primary"></i>
+                      Type de Contrat (UI SEULEMENT)
                     </Form.Label>
-                    <Form.Control
-                      type="text"
-                      name="intitule"
-                      value={newOffre.intitule}
+                    <Form.Select
+                      name="type_contrat"
+                      value={newOffre.type_contrat}
                       onChange={handleChange}
-                      required
-                      style={{ borderRadius: "10px", padding: "12px" }}
-                      placeholder="Intitulé de l'appel d'offre"
-                    />
+                      style={{ 
+                        borderRadius: "10px", 
+                        padding: "12px",
+                        maxHeight: "200px",
+                        overflowY: "auto"
+                      }}
+                    >
+                      <option value="">Sélectionnez un type de contrat</option>
+                      {typesContrat.map((type, index) => (
+                        <option key={index} value={type}>{type}</option>
+                      ))}
+                    </Form.Select>
                   </Form.Group>
                 </Col>
-                <Col md={4}>
+
+                {/* Statut */}
+                <Col md={6}>
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-chart-line me-2 text-primary"></i>
@@ -917,40 +978,95 @@ const AppelOffre = () => {
                 </Col>
               </Row>
 
+              {/* Membre émetteur */}
               <Form.Group className="mb-4">
                 <Form.Label className="fw-semibold text-muted">
-                  <i className="fas fa-align-left me-2 text-primary"></i>
-                  Description *
+                  <i className="fas fa-building me-2 text-primary"></i>
+                  Membre émetteur *
                 </Form.Label>
                 <Form.Control
-                  as="textarea"
-                  rows={4}
-                  name="description"
-                  value={newOffre.description}
+                  type="text"
+                  name="membre_emetteur"
+                  value={newOffre.membre_emetteur}
                   onChange={handleChange}
                   required
                   style={{ borderRadius: "10px", padding: "12px" }}
-                  placeholder="Description détaillée de l'appel d'offre..."
+                  placeholder="Ex: Ministère du Transport"
                 />
               </Form.Group>
 
               <Row>
+                {/* Localisation */}
+                <Col md={6}>
+                  <Form.Group className="mb-4">
+                    <Form.Label className="fw-semibold text-muted">
+                      <i className="fas fa-map-marker-alt me-2 text-primary"></i>
+                      Localisation (UI SEULEMENT)
+                    </Form.Label>
+                    <Form.Select
+                      name="localisation"
+                      value={newOffre.localisation}
+                      onChange={handleChange}
+                      style={{ 
+                        borderRadius: "10px", 
+                        padding: "12px",
+                        maxHeight: "200px",
+                        overflowY: "auto"
+                      }}
+                    >
+                      <option value="">Sélectionnez une localisation</option>
+                      <optgroup label="Villes">
+                        {villesMadagascar.map((ville, index) => (
+                          <option key={`ville-${index}`} value={ville}>{ville}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Régions">
+                        {regionsMadagascar.map((region, index) => (
+                          <option key={`region-${index}`} value={region}>{region}</option>
+                        ))}
+                      </optgroup>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+
+                {/* Salaire/Rémunération */}
+                <Col md={6}>
+                  <Form.Group className="mb-4">
+                    <Form.Label className="fw-semibold text-muted">
+                      <i className="fas fa-money-bill-wave me-2 text-primary"></i>
+                      Salaire/Rémunération (UI SEULEMENT)
+                    </Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="salaire_remuneration"
+                      value={newOffre.salaire_remuneration}
+                      onChange={handleChange}
+                      style={{ borderRadius: "10px", padding: "12px" }}
+                      placeholder="Ex: 1 500 000 Ar, À négocier"
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Row>
+                {/* Date d'ouverture */}
                 <Col md={6}>
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-calendar-plus me-2 text-primary"></i>
-                      Date d'ouverture *
+                      Date d'ouverture
                     </Form.Label>
                     <Form.Control
                       type="date"
                       name="date_ouverture"
                       value={newOffre.date_ouverture}
                       onChange={handleChange}
-                      required
                       style={{ borderRadius: "10px", padding: "12px" }}
                     />
                   </Form.Group>
                 </Col>
+
+                {/* Date de clôture */}
                 <Col md={6}>
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
@@ -969,56 +1085,65 @@ const AppelOffre = () => {
                 </Col>
               </Row>
 
-              <Row>
-                <Col md={6}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold text-muted">
-                      <i className="fas fa-building me-2 text-primary"></i>
-                      Membre *
-                    </Form.Label>
-                    <Form.Select
-                      name="membre"
-                      value={newOffre.membre}
-                      onChange={handleChange}
-                      required
-                      style={{ 
-                        borderRadius: "10px", 
-                        padding: "12px",
-                        maxHeight: "200px",
-                        overflowY: "auto"
-                      }}
-                    >
-                      <option value="">Sélectionnez un membre</option>
-                      {membres.map((membre) => (
-                        <option key={membre.id} value={membre.id}>
-                          {membre.nom_entreprise || membre.nom_contact || membre.name || `Membre ${membre.id}`}
-                        </option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold text-muted">
-                      <i className="fas fa-paperclip me-2 text-primary"></i>
-                      Fichier joint
-                    </Form.Label>
-                    <Form.Control
-                      type="file"
-                      name="fichier"
-                      onChange={handleChange}
-                      style={{ borderRadius: "10px", padding: "12px" }}
-                    />
-                    <Form.Text className="text-muted">
-                      <i className="fas fa-info-circle me-1"></i>
-                      Formats acceptés: PDF, DOC, ZIP, Images. Taille max: 10MB
-                    </Form.Text>
-                  </Form.Group>
-                </Col>
-              </Row>
+              {/* Fichier */}
+              <Form.Group className="mb-4">
+                <Form.Label className="fw-semibold text-muted">
+                  <i className="fas fa-paperclip me-2 text-primary"></i>
+                  Fichier (PDF, Doc, max 10Mo)
+                </Form.Label>
+                <Form.Control
+                  type="file"
+                  name="fichier"
+                  onChange={handleChange}
+                  style={{ borderRadius: "10px", padding: "12px" }}
+                  accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png"
+                />
+                <Form.Text className="text-muted">
+                  <i className="fas fa-info-circle me-1"></i>
+                  Formats acceptés: PDF, DOC, ZIP, Images. Taille max: 10MB
+                </Form.Text>
+              </Form.Group>
 
               {/* Aperçu du fichier sélectionné */}
               <FilePreview file={previewFile} />
+
+              {/* Description */}
+              <Form.Group className="mb-4">
+                <Form.Label className="fw-semibold text-muted">
+                  <i className="fas fa-align-left me-2 text-primary"></i>
+                  Description *
+                </Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={5}
+                  name="description"
+                  value={newOffre.description}
+                  onChange={handleChange}
+                  required
+                  style={{ borderRadius: "10px", padding: "12px" }}
+                  placeholder="Décrivez les détails de l'appel d'offre, les spécifications, etc."
+                />
+              </Form.Group>
+
+              {/* Marquer comme urgent */}
+              <Form.Group className="mb-4">
+                <Form.Check
+                  type="checkbox"
+                  name="est_urgent"
+                  checked={newOffre.est_urgent}
+                  onChange={handleChange}
+                  label={
+                    <span className="fw-semibold">
+                      <i className="fas fa-exclamation-triangle me-2 text-warning"></i>
+                      Marquer comme appel urgent (UI SEULEMENT)
+                    </span>
+                  }
+                />
+                <Form.Text className="text-muted">
+                  <i className="fas fa-info-circle me-1"></i>
+                  Les offres urgentes seront mises en avant. (Note: ce champ n'est pas sauvegardé dans la BDD pour l'instant)
+                </Form.Text>
+              </Form.Group>
             </Form>
           </Modal.Body>
           <Modal.Footer className="border-0">
