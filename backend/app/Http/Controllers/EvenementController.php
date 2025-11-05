@@ -11,53 +11,38 @@ use Illuminate\Validation\Rule;
 
 class EvenementController extends Controller
 {
-    // 🔹 Liste des événements AVEC RECHERCHE ET FILTRES
-    public function index(Request $request) 
+    // 🔹 Liste avec recherche et filtres
+    public function index(Request $request)
     {
         try {
-            // Démarrer la construction de la requête
             $query = Evenement::query();
-            
-            // --- 1. LOGIQUE DE RECHERCHE PAR TEXTE ---
-            $searchTerm = $request->query('search');
-            if ($searchTerm) {
-                // Recherche dans le titre, la description ET le lieu
-                $query->where(function ($q) use ($searchTerm) {
-                    $q->where('titre', 'LIKE', "%{$searchTerm}%")
-                      ->orWhere('description', 'LIKE', "%{$searchTerm}%")
-                      ->orWhere('lieu', 'LIKE', "%{$searchTerm}%"); 
+
+            if ($request->has('search')) {
+                $search = $request->get('search');
+                $query->where(function ($q) use ($search) {
+                    $q->where('titre', 'LIKE', "%{$search}%")
+                      ->orWhere('description', 'LIKE', "%{$search}%")
+                      ->orWhere('lieu', 'LIKE', "%{$search}%");
                 });
             }
 
-            // --- 2. LOGIQUE DE FILTRE PAR STATUT ---
-            $statut = $request->query('statut');
-            if ($statut) {
-                // Filtre par statut exact (ex: "Validé" ou "En attente")
-                $query->where('statut', $statut);
+            if ($request->has('statut') && $request->statut != 'Tous') {
+                $query->where('statut', $request->statut);
             }
 
-            // --- 3. LOGIQUE DE FILTRE PAR TYPE ---
-            $type = $request->query('type');
-            if ($type) {
-                // Filtre par type exact (ex: "Présentiel", "En ligne", "Hybride")
-                $query->where('type', $type);
+            if ($request->has('type') && $request->type != 'Tous') {
+                $query->where('type', $request->type);
             }
-            
-            // Exécuter la requête finale
-            $evenements = $query->get();
-            
-            return response()->json($evenements, 200);
 
+            return response()->json($query->latest()->get(), 200);
         } catch (\Exception $e) {
-            // Retourne l'erreur exacte du serveur (utile pour le débogage)
-            return response()->json(['error' => $e->getMessage()], 500); 
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
     // 🔹 Création
     public function store(Request $request)
     {
-        // Validation qui correspond aux champs dans le Modèle et la DB
         $validated = $request->validate([
             'titre' => 'required|string|max:255',
             'description' => 'required|string',
@@ -73,7 +58,6 @@ class EvenementController extends Controller
         }
 
         $evenement = Evenement::create($validated);
-
         return new EvenementResource($evenement);
     }
 
@@ -83,31 +67,34 @@ class EvenementController extends Controller
         return new EvenementResource($evenement);
     }
 
-    // 🔹 Mise à jour
+    // 🔹 Mise à jour (ajustée pour accepter MAJ partielle)
     public function update(Request $request, Evenement $evenement)
     {
+        // ⚙️ Validation assouplie pour la mise à jour partielle
         $validated = $request->validate([
-            'titre' => 'required|string|max:255',
-            'description' => 'required|string',
-            'date_heure' => 'required|date',
-            'lieu' => 'required|string|max:255',
-            'type' => ['required', Rule::in(['Présentiel', 'En ligne', 'Hybride'])],
-            'statut' => ['required', Rule::in(['En attente', 'Validé', 'Rejeté'])],
+            'titre' => 'sometimes|required|string|max:255',
+            'description' => 'sometimes|required|string',
+            'date_heure' => 'sometimes|required|date',
+            'lieu' => 'sometimes|required|string|max:255',
+            'type' => ['sometimes', 'required', Rule::in(['Présentiel', 'En ligne', 'Hybride'])],
+            'statut' => ['sometimes', 'required', Rule::in(['En attente', 'Validé', 'Rejeté'])],
             'fichier' => 'nullable|file|mimes:pdf,doc,docx,jpg,png,jpeg|max:5120',
         ]);
 
+        // 📎 Gestion du fichier s’il existe
         if ($request->hasFile('fichier')) {
-            // Supprimer l'ancien fichier
             if ($evenement->fichier && Storage::disk('public')->exists($evenement->fichier)) {
                 Storage::disk('public')->delete($evenement->fichier);
             }
             $validated['fichier'] = $request->file('fichier')->store('evenements', 'public');
         }
 
+        // 🔁 Mise à jour des champs présents uniquement
         $evenement->update($validated);
 
         return new EvenementResource($evenement);
     }
+
 
     // 🔹 Suppression
     public function destroy(Evenement $evenement)
@@ -115,8 +102,8 @@ class EvenementController extends Controller
         if ($evenement->fichier && Storage::disk('public')->exists($evenement->fichier)) {
             Storage::disk('public')->delete($evenement->fichier);
         }
-        $evenement->delete();
 
+        $evenement->delete();
         return response()->json(['message' => 'Événement supprimé avec succès']);
     }
 }

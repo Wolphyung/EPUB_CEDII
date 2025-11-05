@@ -10,8 +10,8 @@ class Evenement extends Model
     use HasFactory;
 
     // Le nom de la table est déjà correct
-    protected $table = 'evenements'; 
-    
+    protected $table = 'evenements';
+
     // ✅ Mise à jour de $fillable pour correspondre aux colonnes de la DB et du Controller
     protected $fillable = [
         'titre',

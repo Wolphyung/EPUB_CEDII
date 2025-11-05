@@ -14,10 +14,10 @@ return new class extends Migration {
             $table->dateTime('date_heure');
             $table->string('lieu');
             $table->enum('type', ['Présentiel', 'En ligne', 'Hybride'])->default('Présentiel');
-            
+
             // ✅ AJOUT DE LA COLONNE STATUT :
             $table->enum('statut', ['En attente', 'Validé', 'Rejeté'])->default('En attente');
-            
+
             $table->string('fichier')->nullable();
             $table->timestamps();
         });

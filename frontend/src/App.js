@@ -1,21 +1,10 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-// -------------------------------------
-// IMPORTS DES LAYOUTS
-// -------------------------------------
-import PublicLayout from "./components/PublicLayout"; 
-
-// -------------------------------------
-// IMPORTS DES PAGES
-// -------------------------------------
-// Pages Publiques / Générales
 import Signup from "./pages/signup";
 import PublicationsList from "./pages/Publications/PublicationsList";
 import MembresList from "./pages/MembresList";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-
-// Pages Admin (Gardez les dans un futur AdminLayout)
 import DashAdmin from "./pages/pageAdmin/dashAdmin"
 import PubAdmin from "./pages/pageAdmin/publicstions"
 import AppeloffreAdmin from "./pages/pageAdmin/appeloffre"
@@ -25,7 +14,7 @@ import MessageAdmin from "./pages/pageAdmin/message"
 import NotificationgeAdmin from "./pages/pageAdmin/notification"
 import AdminEv from "./pages/pageAdmin/Evenement"
 
-// Pages Membre (Gardez les dans un futur MembreLayout)
+
 import DashMembre from "./pages/pageMembre/dashMembre"
 import PubMembre from "./pages/pageMembre/pubmembre"
 import AppeloffreMembre from "./pages/pageMembre/appeloffre"
@@ -39,34 +28,29 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        
-        {/* ROUTES PUBLIQUES (enveloppées par PublicLayout) */}
-        <Route path="/signup" element={<PublicLayout><Signup /></PublicLayout>} />
-        <Route path="/" element={<PublicLayout><Dashboard /></PublicLayout>} /> 
-        <Route path="/publications" element={<PublicLayout><PublicationsList /></PublicLayout>} />
-        <Route path="/membres" element={<PublicLayout><MembresList /></PublicLayout>} />
-        <Route path="/login" element={<PublicLayout><Login /></PublicLayout>} />
-        <Route path="/dashboard" element={<PublicLayout><Dashboard /></PublicLayout>} />
-        
-        {/* PAGES ADMIN (À ENVELOPPER dans un futur AdminLayout) */}
+         <Route path="/signup" element={<Signup />} />
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/publications" element={<PublicationsList />} />
+        <Route path="/membres" element={<MembresList />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashAdmin" element={<DashAdmin />} />
-        <Route path="/adminEv" element={<AdminEv />} />
-        <Route path="/pubAdmin" element={<PubAdmin />} />
-        <Route path="/appeloffreAdmin" element={<AppeloffreAdmin />} />
-        <Route path="/membreAdmin" element={<MembreAdmin />} />
-        <Route path="/parametreAdmin" element={<ParametreAdmin />} />
-        <Route path="/messageAdmin" element={<MessageAdmin />} />
-        <Route path="/notificationAdmin" element={<NotificationgeAdmin />} />
+         <Route path="/adminEv" element={<AdminEv />} />
+         <Route path="/pubAdmin" element={<PubAdmin />} />
+         <Route path="/appeloffreAdmin" element={<AppeloffreAdmin />} />
+         <Route path="/membreAdmin" element={<MembreAdmin />} />
+         <Route path="/parametreAdmin" element={<ParametreAdmin />} />
+         <Route path="/messageAdmin" element={<MessageAdmin />} />
+         <Route path="/notificationAdmin" element={<NotificationgeAdmin />} />
 
-        {/* PAGES MEMBRE (À ENVELOPPER dans un futur MembreLayout) */}
-        <Route path="/dashMembre" element={<DashMembre />} />
-        <Route path="/pubMembre" element={<PubMembre />} />
-        <Route path="/appeloffreMembre" element={<AppeloffreMembre />} />
-        <Route path="/evenementMembre" element={<EvenementMembre />} />
-        <Route path="/messageMembre" element={<MessageMembre />} />
-        <Route path="/profilMembre" element={<ProfilMembre />} />
-        <Route path="/parametreMembre" element={<ParametreMembre />} />
-        <Route path="/notificationMembre" element={<NoticficationMembre />} />
+         <Route path="/dashMembre" element={<DashMembre />} />
+            <Route path="/pubMembre" element={<PubMembre />} />
+            <Route path="/appeloffreMembre" element={<AppeloffreMembre />} />
+            <Route path="/evenementMembre" element={<EvenementMembre />} />
+            <Route path="/messageMembre" element={<MessageMembre />} />
+            <Route path="/profilMembre" element={<ProfilMembre />} />
+            <Route path="/parametreMembre" element={<ParametreMembre />} />
+            <Route path="/notificationMembre" element={<NoticficationMembre />} />
       </Routes>
     </BrowserRouter>
   );
