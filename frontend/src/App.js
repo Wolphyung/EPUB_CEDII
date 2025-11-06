@@ -15,6 +15,7 @@ import NotificationgeAdmin from "./pages/pageAdmin/notification"
 import AdminEv from "./pages/pageAdmin/Evenement"
 
 
+
 import DashMembre from "./pages/pageMembre/dashMembre"
 import PubMembre from "./pages/pageMembre/pubmembre"
 import AppeloffreMembre from "./pages/pageMembre/appeloffre"
@@ -28,6 +29,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+
+
          <Route path="/signup" element={<Signup />} />
         <Route path="/" element={<Dashboard />} />
         <Route path="/publications" element={<PublicationsList />} />
@@ -55,5 +58,6 @@ function App() {
     </BrowserRouter>
   );
 }
+
 
 export default App;

@@ -191,11 +191,11 @@ const AppelOffre = () => {
     }
   };
 
-  // Valider un appel d'offre
-  const handleValidate = async (id) => {
+  // Changer statut (comme dans le composant Événements)
+  const handleChangeStatus = async (id, newStatus) => {
     try {
       const formData = new FormData();
-      formData.append("statut", "Validé");
+      formData.append("statut", newStatus);
       formData.append("_method", "PUT");
       
       const res = await axios.post(`${API_URL}/appeloffres/${id}`, formData, {
@@ -205,31 +205,10 @@ const AppelOffre = () => {
       setAppelOffres(prev => prev.map(offre => 
         offre.id === id ? (res.data.data || res.data) : offre
       ));
-      showNotification("success", "✅ Appel d'offre validé avec succès !");
+      showNotification("success", `✅ Statut changé en "${newStatus}" avec succès !`);
     } catch (err) {
-      console.error("Erreur validation:", err);
-      showNotification("error", "❌ Erreur lors de la validation");
-    }
-  };
-
-  // Rejeter un appel d'offre
-  const handleReject = async (id) => {
-    try {
-      const formData = new FormData();
-      formData.append("statut", "Rejeté");
-      formData.append("_method", "PUT");
-      
-      const res = await axios.post(`${API_URL}/appeloffres/${id}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      
-      setAppelOffres(prev => prev.map(offre => 
-        offre.id === id ? (res.data.data || res.data) : offre
-      ));
-      showNotification("success", "✅ Appel d'offre rejeté avec succès !");
-    } catch (err) {
-      console.error("Erreur rejet:", err);
-      showNotification("error", "❌ Erreur lors du rejet");
+      console.error("Erreur changement statut:", err);
+      showNotification("error", "❌ Erreur lors du changement de statut");
     }
   };
 
@@ -246,7 +225,6 @@ const AppelOffre = () => {
       showNotification("error", "❌ Erreur lors de la suppression");
     }
   };
-
 
   // Fonction pour obtenir l'URL du fichier
   const getFileUrl = (fichier) => {
@@ -812,7 +790,7 @@ const AppelOffre = () => {
                       )}
                     </div>
 
-                    {/* Actions */}
+                    {/* Actions - BOUTONS VALIDER/REJETER COMME DANS ÉVÉNEMENTS */}
                     <div className="mt-auto pt-3 border-top">
                       <div className="d-flex justify-content-between align-items-center">
                         <div className="d-flex gap-1">
@@ -821,7 +799,7 @@ const AppelOffre = () => {
                               <Button 
                                 variant="outline-success" 
                                 size="sm" 
-                                onClick={() => handleValidate(offre.id)}
+                                onClick={() => handleChangeStatus(offre.id, "Validé")}
                                 className="d-flex align-items-center"
                                 style={{ borderRadius: "8px" }}
                                 title="Valider"
@@ -831,7 +809,7 @@ const AppelOffre = () => {
                               <Button 
                                 variant="outline-danger" 
                                 size="sm" 
-                                onClick={() => handleReject(offre.id)}
+                                onClick={() => handleChangeStatus(offre.id, "Rejeté")}
                                 className="d-flex align-items-center"
                                 style={{ borderRadius: "8px" }}
                                 title="Rejeter"
@@ -840,16 +818,28 @@ const AppelOffre = () => {
                               </Button>
                             </>
                           )}
-                          {(offre.statut === "Validé" || offre.statut === "Rejeté") && (
+                          {offre.statut === "Validé" && (
                             <Button 
-                              variant="outline-warning" 
+                              variant="outline-danger" 
                               size="sm" 
-                              onClick={() => handleValidate(offre.id)}
+                              onClick={() => handleChangeStatus(offre.id, "Rejeté")}
                               className="d-flex align-items-center"
                               style={{ borderRadius: "8px" }}
-                              title="Remettre en attente"
+                              title="Rejeter"
                             >
-                              <i className="fas fa-redo"></i>
+                              <i className="fas fa-times"></i>
+                            </Button>
+                          )}
+                          {offre.statut === "Rejeté" && (
+                            <Button 
+                              variant="outline-success" 
+                              size="sm" 
+                              onClick={() => handleChangeStatus(offre.id, "Validé")}
+                              className="d-flex align-items-center"
+                              style={{ borderRadius: "8px" }}
+                              title="Valider"
+                            >
+                              <i className="fas fa-check"></i>
                             </Button>
                           )}
                         </div>
@@ -971,6 +961,7 @@ const AppelOffre = () => {
                     >
                       <option value="Validé">Validé</option>
                       <option value="En attente">En attente</option>
+                      <option value="Rejeté">Rejeté</option>
                       <option value="Actif">Actif</option>
                       <option value="Clôturé">Clôturé</option>
                     </Form.Select>

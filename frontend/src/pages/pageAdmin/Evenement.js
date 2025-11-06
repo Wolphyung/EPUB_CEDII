@@ -332,59 +332,76 @@ const Evenement = () => {
     }
   };
 
-  const getStatusVariant = (statut) => {
-    switch(statut) {
-      case "Validé": return "success";
-      case "En attente": return "warning";
-      case "Rejeté": return "danger";
-      default: return "secondary";
-    }
+  // Composant pour afficher la prévisualisation du fichier dans les cartes
+  const FilePreviewCard = ({ fichier, fileName }) => {
+    if (!fichier) return null;
+
+    const fileUrl = getFileUrl(fichier);
+    const isImage = fileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i);
+    const isPDF = fileName?.match(/\.pdf$/i);
+
+    return (
+      <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <div className="d-flex align-items-center">
+            <i className={`fas ${getFileIcon(fileName)} text-${getFileBadgeVariant(fileName)} me-2`}></i>
+            <span className="small fw-semibold">Document joint:</span>
+          </div>
+          <Button
+            variant="outline-primary"
+            size="sm"
+            onClick={() => handleDownloadFile(fichier, fileName)}
+            className="d-flex align-items-center"
+            style={{ borderRadius: "6px", fontSize: "0.7rem" }}
+          >
+            <i className="fas fa-download me-1"></i>
+            Télécharger
+          </Button>
+        </div>
+        <p className="small text-muted mb-2">{fileName}</p>
+        
+        {/* Aperçu du fichier existant - COMME DANS APPEL D'OFFRE */}
+        {fileUrl && (
+          <div className="text-center">
+            {isImage ? (
+              <img 
+                src={fileUrl} 
+                alt="Aperçu" 
+                style={{ 
+                  maxWidth: '100%', 
+                  maxHeight: '150px', 
+                  objectFit: 'contain',
+                  borderRadius: '6px',
+                  border: '1px solid #dee2e6'
+                }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  // Afficher l'icône si l'image ne charge pas
+                  e.target.nextSibling.style.display = 'block';
+                }}
+              />
+            ) : (
+              <div className="py-2">
+                <i className={`fas ${getFileIcon(fileName)} fa-3x text-${getFileBadgeVariant(fileName)} mb-2`}></i>
+                <p className="small text-muted mb-0">Cliquez sur "Télécharger" pour voir le document</p>
+              </div>
+            )}
+            
+            {/* Fallback pour les images qui ne chargent pas */}
+            {isImage && (
+              <div className="py-2" style={{ display: 'none' }}>
+                <i className={`fas ${getFileIcon(fileName)} fa-3x text-${getFileBadgeVariant(fileName)} mb-2`}></i>
+                <p className="small text-muted mb-0">Image non disponible</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
-  const getStatusIcon = (statut) => {
-    switch(statut) {
-      case "Validé": return "fa-check-circle";
-      case "En attente": return "fa-clock";
-      case "Rejeté": return "fa-times-circle";
-      default: return "fa-question-circle";
-    }
-  };
-
-  const getTypeIcon = (type) => {
-    switch(type) {
-      case "Présentiel": return "fa-building";
-      case "En ligne": return "fa-video";
-      case "Hybride": return "fa-blender-phone";
-      default: return "fa-calendar";
-    }
-  };
-
-  const formatDateTime = (dateTimeString) => {
-    if (!dateTimeString) return '';
-    const date = new Date(dateTimeString);
-    return date.toLocaleString('fr-FR', { 
-      day: '2-digit', 
-      month:'2-digit', 
-      year:'numeric', 
-      hour:'2-digit', 
-      minute:'2-digit' 
-    });
-  };
-
-  const getFileName = (fichier) => {
-    if (!fichier) return '';
-    if (typeof fichier === 'string') return fichier.split('/').pop() || 'Fichier joint';
-    if (fichier instanceof File) return fichier.name;
-    return 'Fichier joint';
-  };
-
-  const isUpcoming = (dateTimeString) => {
-    if (!dateTimeString) return false;
-    return new Date(dateTimeString) > new Date();
-  };
-
-  // Composant pour afficher la prévisualisation du fichier
-  const FilePreview = ({ file }) => {
+  // Composant pour afficher la prévisualisation du fichier dans les modals
+  const FilePreviewModal = ({ file }) => {
     if (!file) return null;
 
     const isImage = file.type.startsWith('image/');
@@ -434,6 +451,57 @@ const Evenement = () => {
         )}
       </div>
     );
+  };
+
+  const getStatusVariant = (statut) => {
+    switch(statut) {
+      case "Validé": return "success";
+      case "En attente": return "warning";
+      case "Rejeté": return "danger";
+      default: return "secondary";
+    }
+  };
+
+  const getStatusIcon = (statut) => {
+    switch(statut) {
+      case "Validé": return "fa-check-circle";
+      case "En attente": return "fa-clock";
+      case "Rejeté": return "fa-times-circle";
+      default: return "fa-question-circle";
+    }
+  };
+
+  const getTypeIcon = (type) => {
+    switch(type) {
+      case "Présentiel": return "fa-building";
+      case "En ligne": return "fa-video";
+      case "Hybride": return "fa-blender-phone";
+      default: return "fa-calendar";
+    }
+  };
+
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return '';
+    const date = new Date(dateTimeString);
+    return date.toLocaleString('fr-FR', { 
+      day: '2-digit', 
+      month:'2-digit', 
+      year:'numeric', 
+      hour:'2-digit', 
+      minute:'2-digit' 
+    });
+  };
+
+  const getFileName = (fichier) => {
+    if (!fichier) return '';
+    if (typeof fichier === 'string') return fichier.split('/').pop() || 'Fichier joint';
+    if (fichier instanceof File) return fichier.name;
+    return 'Fichier joint';
+  };
+
+  const isUpcoming = (dateTimeString) => {
+    if (!dateTimeString) return false;
+    return new Date(dateTimeString) > new Date();
   };
 
   return (
@@ -733,53 +801,12 @@ const Evenement = () => {
                         <span>{ev.type}</span>
                       </div>
 
-                      {/* Section Fichier avec aperçu et téléchargement */}
+                      {/* Section Fichier avec aperçu VISUEL - COMME DANS APPEL D'OFFRE */}
                       {ev.fichier && (
-                        <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
-                          <div className="d-flex justify-content-between align-items-center mb-2">
-                            <div className="d-flex align-items-center">
-                              <i className={`fas ${getFileIcon(getFileName(ev.fichier))} text-${getFileBadgeVariant(getFileName(ev.fichier))} me-2`}></i>
-                              <span className="small fw-semibold">Fichier joint:</span>
-                            </div>
-                            <Button
-                              variant="outline-primary"
-                              size="sm"
-                              onClick={() => handleDownloadFile(ev.fichier, getFileName(ev.fichier))}
-                              className="d-flex align-items-center"
-                              style={{ borderRadius: "6px", fontSize: "0.7rem" }}
-                            >
-                              <i className="fas fa-download me-1"></i>
-                              Télécharger
-                            </Button>
-                          </div>
-                          <p className="small text-muted mb-2">{getFileName(ev.fichier)}</p>
-                          
-                          {/* Aperçu du fichier existant */}
-                          {typeof ev.fichier === 'string' && (
-                            <div className="text-center">
-                              {getFileName(ev.fichier).match(/\.(jpg|jpeg|png|gif)$/i) ? (
-                                <img 
-                                  src={getFileUrl(ev.fichier)} 
-                                  alt="Aperçu" 
-                                  style={{ 
-                                    maxWidth: '100%', 
-                                    maxHeight: '100px', 
-                                    objectFit: 'contain',
-                                    borderRadius: '6px'
-                                  }}
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                  }}
-                                />
-                              ) : (
-                                <div className="py-2">
-                                  <i className={`fas ${getFileIcon(getFileName(ev.fichier))} fa-2x text-${getFileBadgeVariant(getFileName(ev.fichier))} mb-2`}></i>
-                                  <p className="small text-muted mb-0">Cliquez sur "Télécharger" pour voir le fichier</p>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                        <FilePreviewCard 
+                          fichier={ev.fichier} 
+                          fileName={getFileName(ev.fichier)} 
+                        />
                       )}
                     </div>
 
@@ -1035,7 +1062,7 @@ const Evenement = () => {
               </Row>
 
               {/* Aperçu du fichier sélectionné */}
-              <FilePreview file={previewFile} />
+              <FilePreviewModal file={previewFile} />
             </Form>
           </Modal.Body>
           <Modal.Footer className="border-0">
@@ -1226,7 +1253,7 @@ const Evenement = () => {
                 </Row>
 
                 {/* Aperçu du fichier sélectionné */}
-                <FilePreview file={previewFile} />
+                <FilePreviewModal file={previewFile} />
               </Form>
             </Modal.Body>
             <Modal.Footer className="border-0">

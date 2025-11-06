@@ -28,13 +28,13 @@ const AppelOffreMembre = () => {
     date_ouverture: "",
     membre: "", 
     fichier: null, 
-    statut: "en attente", // 🎯 Statut par défaut 'en attente'
+    statut: "En attente", // 🎯 Statut par défaut 'En attente'
     
     // Champs non persistants (pour l'affichage et l'UI seulement, pour l'instant)
     type: "CDI", 
     localisation: "",
     salaire: "",
-    urgent: false, 
+    est_urgent: false, 
   });
 
   // --- Fonctions de l'API (CRUD) 🚀 ---
@@ -76,10 +76,10 @@ const AppelOffreMembre = () => {
     formData.append('statut', nouvelleOffre.statut);
     
     // Ajout des champs NON PERSISTANTS (pour la validation côté contrôleur)
-    formData.append('type', nouvelleOffre.type);
+    formData.append('type_contrat', nouvelleOffre.type);
     formData.append('localisation', nouvelleOffre.localisation);
-    formData.append('salaire', nouvelleOffre.salaire);
-    formData.append('urgent', nouvelleOffre.urgent ? 1 : 0); // Envoi comme 1 ou 0 pour le boolean Laravel
+    formData.append('salaire_remuneration', nouvelleOffre.salaire);
+    formData.append('est_urgent', nouvelleOffre.est_urgent ? 1 : 0); // Envoi comme 1 ou 0 pour le boolean Laravel
 
     if (nouvelleOffre.fichier instanceof File) {
       formData.append('fichier', nouvelleOffre.fichier);
@@ -169,12 +169,12 @@ const AppelOffreMembre = () => {
       date_ouverture: "",
       membre: "",
       fichier: null,
-      statut: "en attente", // Statut par défaut 'en attente'
+      statut: "En attente", // Statut par défaut 'En attente'
       // Champs pour l'UI
       type: "CDI", 
       localisation: "",
       salaire: "",
-      urgent: false, 
+      est_urgent: false, 
     });
     setShowModal(true);
   };
@@ -195,14 +195,14 @@ const AppelOffreMembre = () => {
       statut: offre.statut,
       
       // Assigner des valeurs par défaut
-      type: offre.type || "CDI", 
+      type: offre.type_contrat || "CDI", 
       localisation: offre.localisation || "",
-      salaire: offre.salaire || "",
-      urgent: offre.urgent || false, 
+      salaire: offre.salaire_remuneration || "",
+      est_urgent: offre.est_urgent || false, 
     });
     setShowModal(true);
   };
-  
+
   // Gérer les changements de formulaire
   const handleChange = (e) => {
     const { name, value, type, checked, files } = e.target;
@@ -219,24 +219,45 @@ const AppelOffreMembre = () => {
     }
   };
 
+  // Fonction pour obtenir la couleur du statut
+  const getStatusVariant = (statut) => {
+    switch(statut) {
+      case "Validé": return "success";
+      case "En attente": return "warning";
+      case "Rejeté": return "danger";
+      case "Actif": return "primary";
+      case "Clôturé": return "secondary";
+      default: return "secondary";
+    }
+  };
+
+  // Fonction pour obtenir l'icône du statut
+  const getStatusIcon = (statut) => {
+    switch(statut) {
+      case "Validé": return "fa-check-circle";
+      case "En attente": return "fa-clock";
+      case "Rejeté": return "fa-times-circle";
+      case "Actif": return "fa-play-circle";
+      case "Clôturé": return "fa-flag-checkered";
+      default: return "fa-question-circle";
+    }
+  };
+
   // Badge de statut
   const getStatusBadge = (statut) => {
-    const statusConfig = {
-      active: { variant: "success", text: "Active", icon: "fa-play-circle" },
-      expirée: { variant: "secondary", text: "Expirée", icon: "fa-times-circle" },
-      suspendue: { variant: "warning", text: "Suspendue", icon: "fa-pause-circle" },
-      'en attente': { variant: "info", text: "En Attente", icon: "fa-hourglass-half" } 
-    };
-    
-    const config = statusConfig[statut] || statusConfig['en attente'];
     return (
       <Badge 
-        bg={config.variant} 
-        className="d-inline-flex align-items-center px-3 py-2"
-        style={{ borderRadius: "15px", fontSize: "0.8rem" }}
+        bg={getStatusVariant(statut)} 
+        className="d-flex align-items-center"
+        style={{ 
+          borderRadius: "20px", 
+          padding: "6px 12px",
+          fontSize: "0.75rem",
+          fontWeight: "600"
+        }}
       >
-        <i className={`fas ${config.icon} me-1`}></i>
-        {config.text}
+        <i className={`fas ${getStatusIcon(statut)} me-1`}></i>
+        {statut}
       </Badge>
     );
   };
@@ -269,10 +290,10 @@ const AppelOffreMembre = () => {
     return new Date(dateString).toLocaleDateString('fr-FR', options);
   };
 
-  // Vérifier si une offre est urgente (basé sur le champ 'urgent' du formulaire, ou la date)
+  // Vérifier si une offre est urgente (basé sur le champ 'est_urgent' du formulaire, ou la date)
   const isUrgent = (offre) => {
-    // Utilise la propriété 'urgent' si elle est disponible (ou sa valeur par défaut)
-    if (offre.urgent) return true; 
+    // Utilise la propriété 'est_urgent' si elle est disponible (ou sa valeur par défaut)
+    if (offre.est_urgent) return true; 
 
     if (offre.date_cloture) {
         const today = new Date();
@@ -285,7 +306,7 @@ const AppelOffreMembre = () => {
     }
     return false;
   };
-  
+
   // Affiche l'erreur API si elle existe
   if (error) {
     return (
@@ -300,9 +321,6 @@ const AppelOffreMembre = () => {
       </div>
     );
   }
-
-  // ❌ Le message de "Chargement" a été retiré, le composant s'affiche immédiatement
-  // et les données se mettent à jour une fois l'API répondue.
 
   return (
     <div className="d-flex min-vh-100" style={{ 
@@ -347,7 +365,7 @@ const AppelOffreMembre = () => {
               📢 Appels d'Offre
             </h1>
             <p className="text-muted mb-0" style={{ fontSize: "1.1rem" }}>
-              Géreez vos appels d'offre
+              Gérez vos appels d'offre
             </p>
           </div>
           <Button 
@@ -380,28 +398,28 @@ const AppelOffreMembre = () => {
           <Col xl={3} lg={6} className="mb-4">
             <Card className="shadow-lg border-0 text-center p-4" style={{ borderRadius: "20px" }}>
               <div className="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: "60px", height: "60px" }}>
-                <i className="fas fa-play-circle text-success fs-4"></i>
+                <i className="fas fa-check-circle text-success fs-4"></i>
               </div>
-              <h3 className="fw-bold text-success">{offres.filter(o => o.statut === 'active').length}</h3>
-              <p className="text-muted mb-0">Offres actives</p>
+              <h3 className="fw-bold text-success">{offres.filter(o => o.statut === 'Validé').length}</h3>
+              <p className="text-muted mb-0">Offres validées</p>
             </Card>
           </Col>
           <Col xl={3} lg={6} className="mb-4">
             <Card className="shadow-lg border-0 text-center p-4" style={{ borderRadius: "20px" }}>
               <div className="bg-warning bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: "60px", height: "60px" }}>
-                <i className="fas fa-hourglass-half text-warning fs-4"></i>
+                <i className="fas fa-clock text-warning fs-4"></i>
               </div>
-              <h3 className="fw-bold text-warning">{offres.filter(o => o.statut === 'en attente').length}</h3>
-              <p className="text-muted mb-0">En attente de validation</p>
+              <h3 className="fw-bold text-warning">{offres.filter(o => o.statut === 'En attente').length}</h3>
+              <p className="text-muted mb-0">En attente</p>
             </Card>
           </Col>
           <Col xl={3} lg={6} className="mb-4">
             <Card className="shadow-lg border-0 text-center p-4" style={{ borderRadius: "20px" }}>
               <div className="bg-danger bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: "60px", height: "60px" }}>
-                <i className="fas fa-clock text-danger fs-4"></i>
+                <i className="fas fa-exclamation-triangle text-danger fs-4"></i>
               </div>
               <h3 className="fw-bold text-danger">{offres.filter(o => isUrgent(o)).length}</h3>
-              <p className="text-muted mb-0">Clôture/Urgence proche</p>
+              <p className="text-muted mb-0">Urgents</p>
             </Card>
           </Col>
         </Row>
@@ -422,7 +440,13 @@ const AppelOffreMembre = () => {
                     borderRadius: "20px",
                     transition: "all 0.3s ease",
                     overflow: "hidden",
-                    border: isUrgent(offre) ? "2px solid #ff6b6b" : "none"
+                    borderLeft: `4px solid ${
+                      offre.est_urgent ? "#ff6b6b" :
+                      offre.statut === "Validé" ? "#28a745" :
+                      offre.statut === "En attente" ? "#ffc107" :
+                      offre.statut === "Rejeté" ? "#dc3545" :
+                      "#6c757d"
+                    }`
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = "translateY(-8px)";
@@ -436,28 +460,26 @@ const AppelOffreMembre = () => {
                   <Card.Body className="p-4">
                     {/* En-tête avec badges */}
                     <div className="d-flex justify-content-between align-items-start mb-3">
-                      <div className="d-flex gap-2">
-                        {/* Utilisation de "offre.type" même si non persistant, car la valeur par défaut est CDI à la création */}
-                        {getTypeBadge(offre.type || "CDI")} 
-                        {isUrgent(offre) && (
-                          <Badge 
-                            bg="danger" 
-                            className="px-3 py-2"
-                            style={{ borderRadius: "15px", fontSize: "0.8rem" }}
-                          >
-                            <i className="fas fa-exclamation-triangle me-1"></i>
-                            Urgent
-                          </Badge>
-                        )}
-                        {offre.fichier && (
-                            <Badge 
-                                bg="info" 
-                                className="px-3 py-2"
-                                style={{ borderRadius: "15px", fontSize: "0.8rem" }}
-                            >
-                                <i className="fas fa-file-alt me-1"></i>
-                                Fichier
+                      <div className="flex-grow-1">
+                        <Card.Title 
+                          className="h5 fw-bold mb-1"
+                          style={{ 
+                            lineHeight: "1.3",
+                            color: "#2c3e50"
+                          }}
+                        >
+                          {offre.intitule}
+                          {offre.est_urgent && (
+                            <Badge bg="danger" className="ms-2">
+                              <i className="fas fa-exclamation-triangle me-1"></i>
+                              Urgent
                             </Badge>
+                          )}
+                        </Card.Title>
+                        {offre.type_contrat && (
+                          <Badge bg="info" className="mb-2">
+                            {offre.type_contrat}
+                          </Badge>
                         )}
                       </div>
                       {getStatusBadge(offre.statut)}
@@ -487,7 +509,7 @@ const AppelOffreMembre = () => {
                       </div>
                       <div className="d-flex align-items-center mb-2">
                         <i className="fas fa-money-bill-wave text-success me-2"></i>
-                        <span className="fw-semibold">{offre.salaire || "À négocier"}</span> 
+                        <span className="fw-semibold">{offre.salaire_remuneration || "À négocier"}</span> 
                       </div>
                     </div>
 
@@ -527,26 +549,51 @@ const AppelOffreMembre = () => {
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="d-flex gap-2">
-                      <Button 
-                        variant="outline-primary" 
-                        size="sm"
-                        onClick={() => handleShowEdit(offre)}
-                        className="rounded-pill flex-grow-1"
-                      >
-                        <i className="fas fa-edit me-1"></i>
-                        Modifier
-                      </Button>
-                      <Button 
-                        variant="outline-danger" 
-                        size="sm"
-                        onClick={() => handleDelete(offre.id)}
-                        className="rounded-pill"
-                        style={{ width: "45px" }}
-                      >
-                        <i className="fas fa-trash"></i>
-                      </Button>
+                    {/* Actions - BOUTONS VALIDER/REJETER COMME DANS ADMIN */}
+                    <div className="mt-auto pt-3 border-top">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <div className="d-flex gap-1">
+                          {offre.statut === "En attente" && (
+                            <>
+                              <Button 
+                                variant="outline-success" 
+                                size="sm" 
+                                onClick={() => handleShowEdit(offre)}
+                                className="d-flex align-items-center"
+                                style={{ borderRadius: "8px" }}
+                                title="Modifier"
+                              >
+                                <i className="fas fa-edit"></i>
+                              </Button>
+                            </>
+                          )}
+                          {(offre.statut === "Validé" || offre.statut === "Rejeté") && (
+                            <Button 
+                              variant="outline-primary" 
+                              size="sm" 
+                              onClick={() => handleShowEdit(offre)}
+                              className="d-flex align-items-center"
+                              style={{ borderRadius: "8px" }}
+                              title="Modifier"
+                            >
+                              <i className="fas fa-edit"></i>
+                            </Button>
+                          )}
+                        </div>
+                        
+                        <div className="d-flex gap-1">
+                          <Button 
+                            variant="outline-danger" 
+                            size="sm" 
+                            onClick={() => handleDelete(offre.id)}
+                            className="d-flex align-items-center"
+                            style={{ borderRadius: "8px" }}
+                            title="Supprimer"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </Card.Body>
                 </Card>
@@ -764,9 +811,9 @@ const AppelOffreMembre = () => {
               <Form.Group className="mb-4">
                 <Form.Check
                   type="checkbox"
-                  name="urgent" // 👈 Champ non persistant
+                  name="est_urgent" // 👈 Champ non persistant
                   label="Marquer comme appel urgent (UI SEULEMENT)"
-                  checked={nouvelleOffre.urgent}
+                  checked={nouvelleOffre.est_urgent}
                   onChange={handleChange}
                   className="fw-semibold"
                 />

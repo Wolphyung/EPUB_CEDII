@@ -13,6 +13,7 @@ const EvenementMembre = () => {
   const [editMode, setEditMode] = useState(false);
   const [currentEvent, setCurrentEvent] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [previewFile, setPreviewFile] = useState(null);
   
   const [evenements, setEvenements] = useState([]); 
 
@@ -35,6 +36,229 @@ const EvenementMembre = () => {
   const showAlert = (message, type) => {
     setAlert({ show: true, message, type });
     setTimeout(() => setAlert({ ...alert, show: false }), 4000);
+  };
+
+  // Fonction pour obtenir l'URL du fichier
+  const getFileUrl = (fichier) => {
+    if (!fichier) return null;
+    if (typeof fichier === 'string') {
+      // Si c'est une URL complète
+      if (fichier.startsWith('http')) return fichier;
+      // Si c'est un chemin relatif
+      return `${BASE_API_URL}/storage/${fichier.replace(/^\//, '')}`;
+    }
+    return null;
+  };
+
+  // Fonction pour télécharger le fichier
+  const handleDownloadFile = async (fichier, fileName) => {
+    try {
+      const fileUrl = getFileUrl(fichier);
+      if (!fileUrl) {
+        showAlert("❌ Fichier non disponible", "error");
+        return;
+      }
+
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName || 'fichier';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      showAlert("✅ Téléchargement commencé", "success");
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      showAlert("❌ Erreur lors du téléchargement", "error");
+    }
+  };
+
+  // Fonction pour obtenir l'icône du fichier
+  const getFileIcon = (fileName) => {
+    if (!fileName) return 'fa-file';
+    
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return 'fa-file-pdf';
+      case 'doc':
+      case 'docx':
+        return 'fa-file-word';
+      case 'xls':
+      case 'xlsx':
+        return 'fa-file-excel';
+      case 'ppt':
+      case 'pptx':
+        return 'fa-file-powerpoint';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'bmp':
+        return 'fa-file-image';
+      case 'mp4':
+      case 'avi':
+      case 'mov':
+        return 'fa-file-video';
+      case 'mp3':
+      case 'wav':
+        return 'fa-file-audio';
+      case 'zip':
+      case 'rar':
+        return 'fa-file-archive';
+      default:
+        return 'fa-file';
+    }
+  };
+
+  // Fonction pour obtenir la couleur du badge fichier
+  const getFileBadgeVariant = (fileName) => {
+    if (!fileName) return 'secondary';
+    
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return 'danger';
+      case 'doc':
+      case 'docx':
+        return 'primary';
+      case 'xls':
+      case 'xlsx':
+        return 'success';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return 'info';
+      default:
+        return 'secondary';
+    }
+  };
+
+  // Composant pour afficher la prévisualisation du fichier dans les cartes
+  const FilePreviewCard = ({ fichier, fileName }) => {
+    if (!fichier) return null;
+
+    const fileUrl = getFileUrl(fichier);
+    const isImage = fileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i);
+    const isPDF = fileName?.match(/\.pdf$/i);
+
+    return (
+      <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <div className="d-flex align-items-center">
+            <i className={`fas ${getFileIcon(fileName)} text-${getFileBadgeVariant(fileName)} me-2`}></i>
+            <span className="small fw-semibold">Document joint:</span>
+          </div>
+          <Button
+            variant="outline-primary"
+            size="sm"
+            onClick={() => handleDownloadFile(fichier, fileName)}
+            className="d-flex align-items-center"
+            style={{ borderRadius: "6px", fontSize: "0.7rem" }}
+          >
+            <i className="fas fa-download me-1"></i>
+            Télécharger
+          </Button>
+        </div>
+        <p className="small text-muted mb-2">{fileName}</p>
+        
+        {/* Aperçu du fichier existant - COMME DANS APPEL D'OFFRE */}
+        {fileUrl && (
+          <div className="text-center">
+            {isImage ? (
+              <img 
+                src={fileUrl} 
+                alt="Aperçu" 
+                style={{ 
+                  maxWidth: '100%', 
+                  maxHeight: '150px', 
+                  objectFit: 'contain',
+                  borderRadius: '6px',
+                  border: '1px solid #dee2e6'
+                }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  // Afficher l'icône si l'image ne charge pas
+                  const fallback = e.target.parentNode.querySelector('.file-fallback');
+                  if (fallback) fallback.style.display = 'block';
+                }}
+              />
+            ) : (
+              <div className="py-2">
+                <i className={`fas ${getFileIcon(fileName)} fa-3x text-${getFileBadgeVariant(fileName)} mb-2`}></i>
+                <p className="small text-muted mb-0">Cliquez sur "Télécharger" pour voir le document</p>
+              </div>
+            )}
+            
+            {/* Fallback pour les images qui ne chargent pas */}
+            {isImage && (
+              <div className="py-2 file-fallback" style={{ display: 'none' }}>
+                <i className={`fas ${getFileIcon(fileName)} fa-3x text-${getFileBadgeVariant(fileName)} mb-2`}></i>
+                <p className="small text-muted mb-0">Image non disponible</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Composant pour afficher la prévisualisation du fichier dans les modals
+  const FilePreviewModal = ({ file }) => {
+    if (!file) return null;
+
+    const isImage = file.type.startsWith('image/');
+    const isPDF = file.type === 'application/pdf';
+
+    return (
+      <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
+        <h6 className="mb-3">
+          <i className="fas fa-eye me-2"></i>
+          Aperçu du fichier
+        </h6>
+        
+        {isImage ? (
+          <div className="text-center">
+            <img 
+              src={file.url} 
+              alt="Aperçu" 
+              style={{ 
+                maxWidth: '100%', 
+                maxHeight: '200px', 
+                objectFit: 'contain',
+                borderRadius: '8px'
+              }}
+            />
+            <p className="mt-2 mb-0 small text-muted">{file.name}</p>
+          </div>
+        ) : isPDF ? (
+          <div className="text-center">
+            <iframe 
+              src={file.url} 
+              title="Aperçu PDF"
+              style={{ 
+                width: '100%', 
+                height: '300px', 
+                border: 'none',
+                borderRadius: '8px'
+              }}
+            />
+            <p className="mt-2 mb-0 small text-muted">{file.name}</p>
+          </div>
+        ) : (
+          <div className="text-center">
+            <i className={`fas ${getFileIcon(file.name)} fa-3x text-${getFileBadgeVariant(file.name)} mb-2`}></i>
+            <p className="mb-0 small text-muted">{file.name}</p>
+            <p className="small text-muted">Aperçu non disponible pour ce type de fichier</p>
+          </div>
+        )}
+      </div>
+    );
   };
 
   // --- Fonctions d'affichage (Badges, Formatage) ---
@@ -77,21 +301,25 @@ const EvenementMembre = () => {
   };
 
   const formatDate = (dateString) => {
-    // Utilisation de toLocaleDateString pour éviter les problèmes de fuseau horaire si possible
     try {
         const date = new Date(dateString);
-        // Si la date est valide et n'est pas l'epoch time (01/01/1970)
         if (date.getTime() > 0) { 
             return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
         }
     } catch (e) {
-        // En cas d'erreur de parsing, retourner la chaîne originale ou vide
         return dateString.split(' ')[0] || '';
     }
     return '';
   };
-  // --- Fin Fonctions d'affichage ---
 
+  const getFileName = (fichier) => {
+    if (!fichier) return '';
+    if (typeof fichier === 'string') return fichier.split('/').pop() || 'Fichier joint';
+    if (fichier instanceof File) return fichier.name;
+    return 'Fichier joint';
+  };
+
+  // --- Fin Fonctions d'affichage ---
 
   // 🔄 Fonction pour charger les événements
   const fetchEvenements = useCallback(async () => {
@@ -100,7 +328,6 @@ const EvenementMembre = () => {
       const response = await fetch(EVENEMENTS_API_URL, {
         method: 'GET',
         headers: {
-          // 'Authorization': 'Bearer VOTRE_TOKEN_JWT', // À décommenter si besoin
           'Accept': 'application/json',
         }
       });
@@ -112,7 +339,6 @@ const EvenementMembre = () => {
       const data = await response.json();
       
       const formattedData = data.map(evt => {
-        // La date et l'heure sont séparées du champ date_heure pour le formulaire React
         const datePart = evt.date_heure ? evt.date_heure.split(' ')[0] : '';
         const timePart = evt.date_heure ? evt.date_heure.split(' ')[1]?.substring(0, 5) : '09:00';
 
@@ -146,6 +372,7 @@ const EvenementMembre = () => {
       titre: "", lieu: "", description: "", date: "", heure: "09:00", 
       type: "Présentiel", image: null
     });
+    setPreviewFile(null);
     setShowModal(true);
   };
 
@@ -157,6 +384,7 @@ const EvenementMembre = () => {
         ...event,
         image: null // Réinitialiser le champ fichier pour la modification
     });
+    setPreviewFile(null);
     setShowModal(true);
   };
 
@@ -165,13 +393,27 @@ const EvenementMembre = () => {
     setShowModal(false);
     setEditMode(false);
     setCurrentEvent(null);
+    setPreviewFile(null);
   };
 
   // Gérer les changements de formulaire
   const handleChange = (e) => {
     const { name, value, files } = e.target;
     if (name === "image") {
-      setNouvelEvenement({ ...nouvelEvenement, image: files[0] });
+      const file = files[0];
+      setNouvelEvenement({ ...nouvelEvenement, image: file });
+      
+      // Prévisualisation du fichier
+      if (file) {
+        const fileURL = URL.createObjectURL(file);
+        setPreviewFile({
+          url: fileURL,
+          name: file.name,
+          type: file.type
+        });
+      } else {
+        setPreviewFile(null);
+      }
     } else {
       setNouvelEvenement({ ...nouvelEvenement, [name]: value });
     }
@@ -205,7 +447,6 @@ const EvenementMembre = () => {
         const response = await fetch(EVENEMENTS_API_URL, { 
             method: 'POST',
             body: formData,
-            // Headers nécessaires pour l'authentification si vous en utilisez
         });
 
         const data = await response.json();
@@ -235,14 +476,14 @@ const EvenementMembre = () => {
     const dateHeure = `${nouvelEvenement.date} ${nouvelEvenement.heure}:00`;
 
     const formData = new FormData();
-    formData.append('_method', 'PUT'); // Indiquer à Laravel que c'est une requête PUT/PATCH
+    formData.append('_method', 'PUT');
     formData.append('titre', nouvelEvenement.titre);
     formData.append('description', nouvelEvenement.description);
     formData.append('date_heure', dateHeure); 
     formData.append('lieu', nouvelEvenement.lieu);
     formData.append('type', nouvelEvenement.type);
     
-    // 🔥 ESSENTIEL : Renvoyer le statut actuel (requis par la validation du backend pour update)
+    // 🔥 ESSENTIEL : Renvoyer le statut actuel
     formData.append('statut', currentEvent.statut); 
 
     if (nouvelEvenement.image) {
@@ -252,16 +493,15 @@ const EvenementMembre = () => {
     setLoading(true);
     try {
         const response = await fetch(`${EVENEMENTS_API_URL}/${currentEvent.id}`, { 
-            method: 'POST', // Utiliser POST avec _method=PUT pour FormData
+            method: 'POST',
             body: formData,
-            // Headers pour l'authentification
         });
 
         const data = await response.json();
 
         if (response.ok) {
             showAlert("Événement modifié avec succès !", "success");
-            fetchEvenements(); // Recharger la liste
+            fetchEvenements();
         } else {
             const errorMessages = data.errors ? Object.values(data.errors).flat().join(' ') : (data.message || 'La modification a échoué.');
             showAlert(`Erreur: ${errorMessages}`, "danger");
@@ -282,12 +522,11 @@ const EvenementMembre = () => {
     try {
         const response = await fetch(`${EVENEMENTS_API_URL}/${id}`, {
             method: 'DELETE',
-            // Headers pour l'authentification
         });
 
         if (response.ok || response.status === 204) {
             showAlert("Événement supprimé avec succès !", "success");
-            fetchEvenements(); // Recharger la liste
+            fetchEvenements();
         } else {
             const data = await response.json();
             showAlert(`Erreur: ${data.message || 'La suppression a échoué.'}`, "danger");
@@ -299,7 +538,6 @@ const EvenementMembre = () => {
         setLoading(false);
     }
   };
-
 
   return (
     <div className="d-flex min-vh-100" style={{ 
@@ -344,7 +582,7 @@ const EvenementMembre = () => {
               🎉 Mes Événements
             </h1>
             <p className="text-muted mb-0" style={{ fontSize: "1.1rem" }}>
-              Géerez et organisez vos événements (en attente de validation Admin)
+              Gérez et organisez vos événements (en attente de validation Admin)
             </p>
           </div>
           <Button 
@@ -430,7 +668,12 @@ const EvenementMembre = () => {
                     style={{ 
                       borderRadius: "20px",
                       transition: "all 0.3s ease",
-                      overflow: "hidden"
+                      overflow: "hidden",
+                      borderLeft: `4px solid ${
+                        evt.statut === "Validé" ? "#28a745" :
+                        evt.statut === "En attente" ? "#ffc107" :
+                        "#dc3545"
+                      }`
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = "translateY(-8px)";
@@ -441,21 +684,6 @@ const EvenementMembre = () => {
                       e.currentTarget.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.1)";
                     }}
                   >
-                    {/* Le chemin de l'image devra être ajusté pour pointer vers /storage */}
-                    {evt.fichier && ( 
-                      <Card.Img
-                        variant="top"
-                        // Assurez-vous que Laravel sert les fichiers depuis storage/app/public/evenements
-                        // Le chemin d'accès correct devrait être :
-                        src={`${BASE_API_URL}/storage/${evt.fichier}`} 
-                        style={{ 
-                          height: "200px", 
-                          objectFit: "cover",
-                          borderTopLeftRadius: "20px",
-                          borderTopRightRadius: "20px"
-                        }}
-                      />
-                    )}
                     <Card.Body className="p-4">
                       <div className="d-flex justify-content-between align-items-start mb-3">
                         {getTypeBadge(evt.type)}
@@ -495,8 +723,16 @@ const EvenementMembre = () => {
                           fontSize: "0.95rem"
                         }}
                       >
-                        {evt.description}
+                        {evt.description?.length > 120 ? `${evt.description.substring(0, 120)}...` : evt.description}
                       </Card.Text>
+
+                      {/* Section Fichier avec aperçu VISUEL - COMME DANS APPEL D'OFFRE */}
+                      {evt.fichier && (
+                        <FilePreviewCard 
+                          fichier={evt.fichier} 
+                          fileName={getFileName(evt.fichier)} 
+                        />
+                      )}
 
                       {/* Actions */}
                       <div className="d-flex gap-2">
@@ -505,7 +741,7 @@ const EvenementMembre = () => {
                           size="sm"
                           onClick={() => handleShowEdit(evt)}
                           className="rounded-pill flex-grow-1"
-                          disabled={evt.statut !== 'En attente' || loading} // ⚠️ Seul le statut 'En attente' est éditable par le membre
+                          disabled={evt.statut !== 'En attente' || loading}
                         >
                           <i className="fas fa-edit me-1"></i>
                           Modifier
@@ -687,6 +923,9 @@ const EvenementMembre = () => {
                   style={{ background: "#f8f9fa" }}
                 />
               </Form.Group>
+
+              {/* Aperçu du fichier sélectionné */}
+              <FilePreviewModal file={previewFile} />
             </Form>
           </Modal.Body>
           
