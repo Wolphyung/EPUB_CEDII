@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Form, Button, Card, Alert, InputGroup } from "react-bootstrap";
+import { Form, Button, Card, Alert, InputGroup, Spinner } from "react-bootstrap";
 import { FcGoogle } from "react-icons/fc";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -18,13 +19,15 @@ const SignUp = () => {
   const [showPw, setShowPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [strength, setStrength] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+    setApiError(""); // Effacer les erreurs API quand l'utilisateur tape
 
     if (name === "password") {
-      // Calcul de la force du mot de passe
       let score = 0;
       if (value.length >= 8) score += 1;
       if (/[A-Z]/.test(value)) score += 1;
@@ -36,22 +39,6 @@ const SignUp = () => {
 
   const toggleShowPw = () => setShowPw(!showPw);
   const toggleShowConfirmPw = () => setShowConfirmPw(!showConfirmPw);
-
-  const getStrengthColor = () => {
-    switch (strength) {
-      case 0:
-      case 1:
-        return "danger";
-      case 2:
-        return "warning";
-      case 3:
-        return "info";
-      case 4:
-        return "success";
-      default:
-        return "danger";
-    }
-  };
 
   const validate = () => {
     const newErrors = {};
@@ -73,20 +60,75 @@ const SignUp = () => {
     return newErrors;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const formErrors = validate();
-    if (Object.keys(formErrors).length > 0) setErrors(formErrors);
-    else {
-      setErrors({});
-      setSuccess("Inscription réussie !");
-      console.log("Données envoyées:", formData);
-      setTimeout(() => navigate("/login"), 2000);
+    
+    if (Object.keys(formErrors).length > 0) {
+      setErrors(formErrors);
+      return;
+    }
+
+    setLoading(true);
+    setErrors({});
+    setApiError("");
+
+    try {
+      const response = await axios.post("http://localhost:8000/api/register", {
+        nom: formData.nom,
+        prenom: formData.prenom,
+        email: formData.email,
+        password: formData.password,
+        password_confirmation: formData.confirmPassword,
+      });
+
+      // Si l'inscription réussit
+      setSuccess("Inscription réussie ! Redirection...");
+      
+      // Stocker le token et les infos utilisateur si l'API les retourne
+      if (response.data.token) {
+        localStorage.setItem("token", response.data.token);
+      }
+      if (response.data.user) {
+        localStorage.setItem("user", JSON.stringify(response.data.user));
+      }
+
+      // Rediriger vers le dashboard après 2 secondes
+      setTimeout(() => {
+        navigate("/dashMembre");
+      }, 2000);
+
+    } catch (error) {
+      console.error("Erreur d'inscription:", error);
+      
+      if (error.response) {
+        // Erreur du serveur avec réponse
+        const serverErrors = error.response.data.errors;
+        if (serverErrors) {
+          // Convertir les erreurs Laravel en format frontend
+          const formattedErrors = {};
+          Object.keys(serverErrors).forEach(key => {
+            formattedErrors[key] = serverErrors[key][0];
+          });
+          setErrors(formattedErrors);
+        } else {
+          setApiError(error.response.data.message || "Erreur lors de l'inscription");
+        }
+      } else if (error.request) {
+        // Pas de réponse du serveur
+        setApiError("Impossible de se connecter au serveur. Vérifiez votre connexion.");
+      } else {
+        // Autre erreur
+        setApiError("Une erreur inattendue s'est produite");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleGoogleSignUp = () => {
-    alert("Connexion avec Google (simulé) !");
+    // Redirection vers l'authentification Google
+    window.location.href = "http://localhost:8000/api/auth/google";
   };
 
   return (
@@ -105,6 +147,7 @@ const SignUp = () => {
         </h2>
 
         {success && <Alert variant="success">{success}</Alert>}
+        {apiError && <Alert variant="danger">{apiError}</Alert>}
 
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3">
@@ -116,6 +159,7 @@ const SignUp = () => {
               value={formData.nom}
               onChange={handleChange}
               isInvalid={!!errors.nom}
+              disabled={loading}
             />
             <Form.Control.Feedback type="invalid">{errors.nom}</Form.Control.Feedback>
           </Form.Group>
@@ -129,6 +173,7 @@ const SignUp = () => {
               value={formData.prenom}
               onChange={handleChange}
               isInvalid={!!errors.prenom}
+              disabled={loading}
             />
             <Form.Control.Feedback type="invalid">{errors.prenom}</Form.Control.Feedback>
           </Form.Group>
@@ -142,11 +187,11 @@ const SignUp = () => {
               value={formData.email}
               onChange={handleChange}
               isInvalid={!!errors.email}
+              disabled={loading}
             />
             <Form.Control.Feedback type="invalid">{errors.email}</Form.Control.Feedback>
           </Form.Group>
 
-          {/* Mot de passe avec visibilité */}
           <Form.Group className="mb-3">
             <Form.Label>Mot de passe</Form.Label>
             <InputGroup>
@@ -157,8 +202,13 @@ const SignUp = () => {
                 value={formData.password}
                 onChange={handleChange}
                 isInvalid={!!errors.password}
+                disabled={loading}
               />
-              <Button variant="outline-secondary" onClick={toggleShowPw}>
+              <Button 
+                variant="outline-secondary" 
+                onClick={toggleShowPw}
+                disabled={loading}
+              >
                 {showPw ? "🙈" : "👁"}
               </Button>
             </InputGroup>
@@ -195,7 +245,6 @@ const SignUp = () => {
             </div>
           </Form.Group>
 
-          {/* Confirmer mot de passe */}
           <Form.Group className="mb-3">
             <Form.Label>Confirmer le mot de passe</Form.Label>
             <InputGroup>
@@ -206,8 +255,13 @@ const SignUp = () => {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 isInvalid={!!errors.confirmPassword}
+                disabled={loading}
               />
-              <Button variant="outline-secondary" onClick={toggleShowConfirmPw}>
+              <Button 
+                variant="outline-secondary" 
+                onClick={toggleShowConfirmPw}
+                disabled={loading}
+              >
                 {showConfirmPw ? "🙈" : "👁"}
               </Button>
             </InputGroup>
@@ -218,8 +272,23 @@ const SignUp = () => {
             type="submit"
             className="w-100 mb-3"
             style={{ backgroundColor: "#6a11cb", border: "none" }}
+            disabled={loading}
           >
-            S'inscrire
+            {loading ? (
+              <>
+                <Spinner
+                  as="span"
+                  animation="border"
+                  size="sm"
+                  role="status"
+                  aria-hidden="true"
+                  className="me-2"
+                />
+                Inscription...
+              </>
+            ) : (
+              "S'inscrire"
+            )}
           </Button>
 
           <Button
@@ -228,6 +297,7 @@ const SignUp = () => {
             variant="light"
             onClick={handleGoogleSignUp}
             style={{ border: "1px solid #ddd" }}
+            disabled={loading}
           >
             <FcGoogle size={24} className="me-2" /> S'inscrire avec Google
           </Button>

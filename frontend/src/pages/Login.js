@@ -14,61 +14,38 @@ export default function Login() {
     setError("");
     setLoading(true);
 
-    console.log("🚀 Début de la tentative de connexion");
-    console.log("Email:", email);
-    console.log("URL API:", "http://127.0.0.1:8000/api/login");
-
     try {
       const res = await axios.post("http://127.0.0.1:8000/api/login", {
         email,
         password,
       });
 
-      console.log("✅ Réponse API reçue:", res.data);
+      console.log(res.data);
 
       if (res.data.message === "Connexion réussie ✅") {
         const user = res.data.user;
-        console.log("👤 Données utilisateur:", user);
-        
-        // Sauvegarde dans localStorage
         localStorage.setItem("user", JSON.stringify(user));
-        console.log("💾 Utilisateur sauvegardé dans localStorage");
 
-        // Vérification de la redirection
-        console.log("🔄 Type d'utilisateur:", user.type);
-        
         if (user.type === "admin") {
-          console.log("🎯 Redirection vers /dashAdmin");
-          navigate("/dashAdmin", { replace: true });
+          navigate("/dashAdmin");
         } else {
-          console.log("🎯 Redirection vers /dashMembre");
-          navigate("/dashMembre", { replace: true });
+          navigate("/dashMembre");
         }
       } else {
-        console.log("❌ Réponse inattendue");
         setError("Réponse inattendue du serveur");
       }
     } catch (err) {
-      console.error("💥 Erreur complète:", err);
-      console.error("📡 Réponse erreur:", err.response);
-      
       if (err.response) {
         setError(err.response.data.message || "Erreur de connexion");
       } else if (err.request) {
-        setError("Impossible de contacter le serveur. Vérifiez que le serveur Laravel est démarré.");
+        setError("Impossible de contacter le serveur");
       } else {
-        setError("Une erreur est survenue lors de la configuration de la requête");
+        setError("Une erreur est survenue");
       }
+      console.error("Erreur de connexion:", err);
     } finally {
       setLoading(false);
-      console.log("🏁 Fin de la tentative de connexion");
     }
-  };
-
-  // Testez aussi avec un compte de test
-  const fillTestAdmin = () => {
-    setEmail("admin@example.com");
-    setPassword("password123");
   };
 
   return (
@@ -109,14 +86,6 @@ export default function Login() {
               Connexion
             </h2>
             <p className="text-muted">Accédez à votre espace personnel</p>
-            
-            {/* Bouton de test (à retirer en production) */}
-            <button 
-              onClick={fillTestAdmin}
-              className="btn btn-sm btn-outline-secondary mb-3"
-            >
-              Remplir avec test admin
-            </button>
           </div>
 
           <form onSubmit={handleLogin}>
@@ -133,13 +102,21 @@ export default function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
-                placeholder="admin@example.com"
+                placeholder="votre@email.com"
                 style={{
                   border: "1px solid #e0e0e0",
                   borderRadius: "10px",
                   padding: "12px 15px",
                   fontSize: "16px",
                   transition: "all 0.3s ease"
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "#667eea";
+                  e.target.style.boxShadow = "0 0 0 0.2rem rgba(102, 126, 234, 0.25)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = "#e0e0e0";
+                  e.target.style.boxShadow = "none";
                 }}
               />
             </div>
@@ -157,13 +134,21 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
-                placeholder="password123"
+                placeholder="Votre mot de passe"
                 style={{
                   border: "1px solid #e0e0e0",
                   borderRadius: "10px",
                   padding: "12px 15px",
                   fontSize: "16px",
                   transition: "all 0.3s ease"
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "#667eea";
+                  e.target.style.boxShadow = "0 0 0 0.2rem rgba(102, 126, 234, 0.25)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = "#e0e0e0";
+                  e.target.style.boxShadow = "none";
                 }}
               />
             </div>
@@ -193,6 +178,16 @@ export default function Login() {
                 borderRadius: "10px",
                 fontSize: "16px",
                 transition: "all 0.3s ease",
+                position: "relative",
+                overflow: "hidden"
+              }}
+              onMouseOver={(e) => {
+                e.target.style.transform = "translateY(-2px)";
+                e.target.style.boxShadow = "0 8px 25px rgba(102, 126, 234, 0.4)";
+              }}
+              onMouseOut={(e) => {
+                e.target.style.transform = "translateY(0)";
+                e.target.style.boxShadow = "0 4px 15px rgba(102, 126, 234, 0.3)";
               }}
             >
               {loading ? (
@@ -226,14 +221,62 @@ export default function Login() {
                 padding: "10px 30px",
                 fontSize: "14px",
                 fontWeight: "600",
+                transition: "all 0.3s ease"
+              }}
+              onMouseOver={(e) => {
+                e.target.style.transform = "translateY(-2px)";
+                e.target.style.boxShadow = "0 4px 15px rgba(102, 126, 234, 0.3)";
+              }}
+              onMouseOut={(e) => {
+                e.target.style.transform = "translateY(0)";
+                e.target.style.boxShadow = "none";
               }}
             >
               <i className="fas fa-user-plus me-2"></i>
               S'inscrire
             </Link>
           </div>
+
+          {/* Lien mot de passe oublié */}
+          <div className="text-center mt-3">
+            <Link 
+              to="/forgot-password" 
+              className="text-decoration-none"
+              style={{ 
+                color: "#667eea",
+                fontSize: "14px",
+                transition: "color 0.3s ease"
+              }}
+              onMouseOver={(e) => e.target.style.color = "#764ba2"}
+              onMouseOut={(e) => e.target.style.color = "#667eea"}
+            >
+              <i className="fas fa-key me-1"></i>
+              Mot de passe oublié ?
+            </Link>
+          </div>
         </div>
       </div>
+
+      {/* Styles inline pour les icônes Font Awesome */}
+      <style>
+        {`
+          .btn:disabled {
+            opacity: 0.7;
+            transform: none !important;
+            box-shadow: none !important;
+          }
+          
+          .form-control:disabled {
+            background-color: #f8f9fa;
+            opacity: 0.7;
+          }
+          
+          .spinner-border {
+            width: 1rem;
+            height: 1rem;
+          }
+        `}
+      </style>
     </div>
   );
 }
