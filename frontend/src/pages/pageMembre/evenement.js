@@ -27,30 +27,24 @@ const EvenementMembre = () => {
     image: null 
   });
 
-  // Gérer l'état de la sidebar
   const handleSidebarCollapse = (isCollapsed) => {
     setSidebarCollapsed(isCollapsed);
   };
 
-  // Afficher une alerte
   const showAlert = (message, type) => {
     setAlert({ show: true, message, type });
     setTimeout(() => setAlert({ ...alert, show: false }), 4000);
   };
 
-  // Fonction pour obtenir l'URL du fichier
   const getFileUrl = (fichier) => {
     if (!fichier) return null;
     if (typeof fichier === 'string') {
-      // Si c'est une URL complète
       if (fichier.startsWith('http')) return fichier;
-      // Si c'est un chemin relatif
       return `${BASE_API_URL}/storage/${fichier.replace(/^\//, '')}`;
     }
     return null;
   };
 
-  // Fonction pour télécharger le fichier
   const handleDownloadFile = async (fichier, fileName) => {
     try {
       const fileUrl = getFileUrl(fichier);
@@ -58,7 +52,6 @@ const EvenementMembre = () => {
         showAlert("❌ Fichier non disponible", "error");
         return;
       }
-
       const response = await fetch(fileUrl);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -69,7 +62,6 @@ const EvenementMembre = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
       showAlert("✅ Téléchargement commencé", "success");
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
@@ -77,76 +69,55 @@ const EvenementMembre = () => {
     }
   };
 
-  // Fonction pour obtenir l'icône du fichier
   const getFileIcon = (fileName) => {
     if (!fileName) return 'fa-file';
-    
     const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
-      case 'pdf':
-        return 'fa-file-pdf';
+      case 'pdf': return 'fa-file-pdf';
       case 'doc':
-      case 'docx':
-        return 'fa-file-word';
+      case 'docx': return 'fa-file-word';
       case 'xls':
-      case 'xlsx':
-        return 'fa-file-excel';
+      case 'xlsx': return 'fa-file-excel';
       case 'ppt':
-      case 'pptx':
-        return 'fa-file-powerpoint';
+      case 'pptx': return 'fa-file-powerpoint';
       case 'jpg':
       case 'jpeg':
       case 'png':
       case 'gif':
-      case 'bmp':
-        return 'fa-file-image';
+      case 'bmp': return 'fa-file-image';
       case 'mp4':
       case 'avi':
-      case 'mov':
-        return 'fa-file-video';
+      case 'mov': return 'fa-file-video';
       case 'mp3':
-      case 'wav':
-        return 'fa-file-audio';
+      case 'wav': return 'fa-file-audio';
       case 'zip':
-      case 'rar':
-        return 'fa-file-archive';
-      default:
-        return 'fa-file';
+      case 'rar': return 'fa-file-archive';
+      default: return 'fa-file';
     }
   };
 
-  // Fonction pour obtenir la couleur du badge fichier
   const getFileBadgeVariant = (fileName) => {
     if (!fileName) return 'secondary';
-    
     const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
-      case 'pdf':
-        return 'danger';
+      case 'pdf': return 'danger';
       case 'doc':
-      case 'docx':
-        return 'primary';
+      case 'docx': return 'primary';
       case 'xls':
-      case 'xlsx':
-        return 'success';
+      case 'xlsx': return 'success';
       case 'jpg':
       case 'jpeg':
       case 'png':
-      case 'gif':
-        return 'info';
-      default:
-        return 'secondary';
+      case 'gif': return 'info';
+      default: return 'secondary';
     }
   };
 
-  // Composant pour afficher la prévisualisation du fichier dans les cartes
   const FilePreviewCard = ({ fichier, fileName }) => {
     if (!fichier) return null;
-
     const fileUrl = getFileUrl(fichier);
     const isImage = fileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i);
     const isPDF = fileName?.match(/\.pdf$/i);
-
     return (
       <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
         <div className="d-flex justify-content-between align-items-center mb-2">
@@ -166,40 +137,14 @@ const EvenementMembre = () => {
           </Button>
         </div>
         <p className="small text-muted mb-2">{fileName}</p>
-        
-        {/* Aperçu du fichier existant - COMME DANS APPEL D'OFFRE */}
         {fileUrl && (
           <div className="text-center">
             {isImage ? (
-              <img 
-                src={fileUrl} 
-                alt="Aperçu" 
-                style={{ 
-                  maxWidth: '100%', 
-                  maxHeight: '150px', 
-                  objectFit: 'contain',
-                  borderRadius: '6px',
-                  border: '1px solid #dee2e6'
-                }}
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  // Afficher l'icône si l'image ne charge pas
-                  const fallback = e.target.parentNode.querySelector('.file-fallback');
-                  if (fallback) fallback.style.display = 'block';
-                }}
-              />
+              <img src={fileUrl} alt="Aperçu" style={{ maxWidth:'100%', maxHeight:'150px', objectFit:'contain', borderRadius:'6px', border:'1px solid #dee2e6' }} />
             ) : (
               <div className="py-2">
                 <i className={`fas ${getFileIcon(fileName)} fa-3x text-${getFileBadgeVariant(fileName)} mb-2`}></i>
                 <p className="small text-muted mb-0">Cliquez sur "Télécharger" pour voir le document</p>
-              </div>
-            )}
-            
-            {/* Fallback pour les images qui ne chargent pas */}
-            {isImage && (
-              <div className="py-2 file-fallback" style={{ display: 'none' }}>
-                <i className={`fas ${getFileIcon(fileName)} fa-3x text-${getFileBadgeVariant(fileName)} mb-2`}></i>
-                <p className="small text-muted mb-0">Image non disponible</p>
               </div>
             )}
           </div>
@@ -208,46 +153,21 @@ const EvenementMembre = () => {
     );
   };
 
-  // Composant pour afficher la prévisualisation du fichier dans les modals
   const FilePreviewModal = ({ file }) => {
     if (!file) return null;
-
     const isImage = file.type.startsWith('image/');
     const isPDF = file.type === 'application/pdf';
-
     return (
       <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
-        <h6 className="mb-3">
-          <i className="fas fa-eye me-2"></i>
-          Aperçu du fichier
-        </h6>
-        
+        <h6 className="mb-3"><i className="fas fa-eye me-2"></i>Aperçu du fichier</h6>
         {isImage ? (
           <div className="text-center">
-            <img 
-              src={file.url} 
-              alt="Aperçu" 
-              style={{ 
-                maxWidth: '100%', 
-                maxHeight: '200px', 
-                objectFit: 'contain',
-                borderRadius: '8px'
-              }}
-            />
+            <img src={file.url} alt="Aperçu" style={{ maxWidth:'100%', maxHeight:'200px', objectFit:'contain', borderRadius:'8px' }} />
             <p className="mt-2 mb-0 small text-muted">{file.name}</p>
           </div>
         ) : isPDF ? (
           <div className="text-center">
-            <iframe 
-              src={file.url} 
-              title="Aperçu PDF"
-              style={{ 
-                width: '100%', 
-                height: '300px', 
-                border: 'none',
-                borderRadius: '8px'
-              }}
-            />
+            <iframe src={file.url} title="Aperçu PDF" style={{ width:'100%', height:'300px', border:'none', borderRadius:'8px' }} />
             <p className="mt-2 mb-0 small text-muted">{file.name}</p>
           </div>
         ) : (
@@ -261,7 +181,6 @@ const EvenementMembre = () => {
     );
   };
 
-  // --- Fonctions d'affichage (Badges, Formatage) ---
   const getStatusBadge = (statut) => {
     const statusConfig = {
       'Validé': { variant: "success", text: "Validé", icon: "fa-check-circle" },
@@ -269,47 +188,21 @@ const EvenementMembre = () => {
       'Rejeté': { variant: "danger", text: "Rejeté", icon: "fa-times-circle" }
     };
     const config = statusConfig[statut] || statusConfig['En attente'];
-    return (
-      <Badge bg={config.variant} className="d-inline-flex align-items-center px-3 py-2" style={{ borderRadius: "15px", fontSize: "0.8rem" }}>
-        <i className={`fas ${config.icon} me-1`}></i>
-        {config.text}
-      </Badge>
-    );
+    return <Badge bg={config.variant} className="d-inline-flex align-items-center px-3 py-2" style={{ borderRadius:"15px", fontSize:"0.8rem" }}><i className={`fas ${config.icon} me-1`}></i>{config.text}</Badge>;
   };
-  
+
   const getTypeIcon = (type) => {
-    const icons = {
-      "Présentiel": "fa-building",
-      "En ligne": "fa-globe",
-      "Hybride": "fa-exchange-alt",
-    };
+    const icons = {"Présentiel":"fa-building","En ligne":"fa-globe","Hybride":"fa-exchange-alt"};
     return icons[type] || "fa-calendar";
   };
-  
+
   const getTypeBadge = (type) => {
-    const typeColors = {
-      "Présentiel": "primary",
-      "En ligne": "info",
-      "Hybride": "warning",
-    };
-    return (
-      <Badge bg={typeColors[type] || "secondary"} className="px-3 py-2" style={{ borderRadius: "15px", fontSize: "0.8rem" }}>
-        <i className={`fas ${getTypeIcon(type)} me-1`}></i>
-        {type}
-      </Badge>
-    );
+    const typeColors = {"Présentiel":"primary","En ligne":"info","Hybride":"warning"};
+    return <Badge bg={typeColors[type]||"secondary"} className="px-3 py-2" style={{ borderRadius:"15px", fontSize:"0.8rem" }}><i className={`fas ${getTypeIcon(type)} me-1`}></i>{type}</Badge>;
   };
 
   const formatDate = (dateString) => {
-    try {
-        const date = new Date(dateString);
-        if (date.getTime() > 0) { 
-            return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
-        }
-    } catch (e) {
-        return dateString.split(' ')[0] || '';
-    }
-    return '';
+    try { const date = new Date(dateString); return date.getTime() > 0 ? date.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}) : dateString.split(' ')[0]; } catch(e){ return dateString.split(' ')[0] || ''; }
   };
 
   const getFileName = (fichier) => {
@@ -319,224 +212,87 @@ const EvenementMembre = () => {
     return 'Fichier joint';
   };
 
-  // --- Fin Fonctions d'affichage ---
-
-  // 🔄 Fonction pour charger les événements
   const fetchEvenements = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(EVENEMENTS_API_URL, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error("Échec du chargement des événements.");
-      }
-
+      const response = await fetch(EVENEMENTS_API_URL);
+      if (!response.ok) throw new Error("Échec du chargement des événements.");
       const data = await response.json();
-      
-      const formattedData = data.map(evt => {
-        const datePart = evt.date_heure ? evt.date_heure.split(' ')[0] : '';
-        const timePart = evt.date_heure ? evt.date_heure.split(' ')[1]?.substring(0, 5) : '09:00';
 
-        return {
-          ...evt,
-          date: datePart,
-          heure: timePart,
-        }
-      });
+      // ✅ Gestion sécurisée de la réponse
+      const eventsArray = Array.isArray(data) ? data : data.evenements || data.data || [];
+      const formattedData = eventsArray.map(evt => ({
+        ...evt,
+        date: evt.date_heure ? evt.date_heure.split(' ')[0] : '',
+        heure: evt.date_heure ? evt.date_heure.split(' ')[1]?.substring(0,5) : '09:00'
+      }));
 
       setEvenements(formattedData);
-
     } catch (error) {
       showAlert(`Erreur de chargement: ${error.message}`, "danger");
-      setEvenements([]); 
-    } finally {
-      setLoading(false);
-    }
-  }, []); 
+      setEvenements([]);
+    } finally { setLoading(false); }
+  }, []);
 
-  // 🚀 Charger les événements au montage
-  useEffect(() => {
-    fetchEvenements();
-  }, [fetchEvenements]);
-  
-  // Ouvrir modal d'ajout
-  const handleShowAdd = () => {
-    setEditMode(false);
-    setCurrentEvent(null);
-    setNouvelEvenement({
-      titre: "", lieu: "", description: "", date: "", heure: "09:00", 
-      type: "Présentiel", image: null
-    });
-    setPreviewFile(null);
-    setShowModal(true);
-  };
+  useEffect(() => { fetchEvenements(); }, [fetchEvenements]);
 
-  // Ouvrir modal d'édition
-  const handleShowEdit = (event) => {
-    setEditMode(true);
-    setCurrentEvent(event);
-    setNouvelEvenement({
-        ...event,
-        image: null // Réinitialiser le champ fichier pour la modification
-    });
-    setPreviewFile(null);
-    setShowModal(true);
-  };
+  const handleShowAdd = () => { setEditMode(false); setCurrentEvent(null); setNouvelEvenement({ titre:"", lieu:"", description:"", date:"", heure:"09:00", type:"Présentiel", image:null }); setPreviewFile(null); setShowModal(true); };
+  const handleShowEdit = (event) => { setEditMode(true); setCurrentEvent(event); setNouvelEvenement({ ...event, image:null }); setPreviewFile(null); setShowModal(true); };
+  const handleClose = () => { setShowModal(false); setEditMode(false); setCurrentEvent(null); setPreviewFile(null); };
+  const handleChange = (e) => { const { name,value,files }=e.target; if(name==="image"){ const file=files[0]; setNouvelEvenement({ ...nouvelEvenement, image:file }); if(file){ setPreviewFile({ url:URL.createObjectURL(file), name:file.name, type:file.type }); } else { setPreviewFile(null); } } else { setNouvelEvenement({ ...nouvelEvenement, [name]:value }); } };
 
-  // Fermer modal
-  const handleClose = () => {
-    setShowModal(false);
-    setEditMode(false);
-    setCurrentEvent(null);
-    setPreviewFile(null);
-  };
-
-  // Gérer les changements de formulaire
-  const handleChange = (e) => {
-    const { name, value, files } = e.target;
-    if (name === "image") {
-      const file = files[0];
-      setNouvelEvenement({ ...nouvelEvenement, image: file });
-      
-      // Prévisualisation du fichier
-      if (file) {
-        const fileURL = URL.createObjectURL(file);
-        setPreviewFile({
-          url: fileURL,
-          name: file.name,
-          type: file.type
-        });
-      } else {
-        setPreviewFile(null);
-      }
-    } else {
-      setNouvelEvenement({ ...nouvelEvenement, [name]: value });
-    }
-  };
-
-  // 🚀 API : Ajouter un événement (CORRECTION 422 APPLIQUÉE)
   const handleAdd = async () => {
-    if (!nouvelEvenement.titre || !nouvelEvenement.lieu || !nouvelEvenement.date || !nouvelEvenement.description) {
-      showAlert("Veuillez remplir tous les champs obligatoires", "warning");
-      return;
-    }
-
+    if(!nouvelEvenement.titre||!nouvelEvenement.lieu||!nouvelEvenement.date||!nouvelEvenement.description){ showAlert("Veuillez remplir tous les champs obligatoires","warning"); return; }
     const dateHeure = `${nouvelEvenement.date} ${nouvelEvenement.heure}:00`;
-
     const formData = new FormData();
     formData.append('titre', nouvelEvenement.titre);
     formData.append('description', nouvelEvenement.description);
-    formData.append('date_heure', dateHeure); 
+    formData.append('date_heure', dateHeure);
     formData.append('lieu', nouvelEvenement.lieu);
     formData.append('type', nouvelEvenement.type);
-    
-    // 🔥 CORRECTION : AJOUT DU STATUT PAR DÉFAUT REQUIS PAR LE BACKEND
-    formData.append('statut', 'En attente');
-    
-    if (nouvelEvenement.image) {
-      formData.append('fichier', nouvelEvenement.image); 
-    }
-    
+    formData.append('statut','En attente');
+    if(nouvelEvenement.image) formData.append('fichier', nouvelEvenement.image);
     setLoading(true);
-    try {
-        const response = await fetch(EVENEMENTS_API_URL, { 
-            method: 'POST',
-            body: formData,
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            showAlert(`Événement créé avec succès ! Statut: ${data.statut || 'En attente'}`, "success");
-            fetchEvenements(); 
-        } else {
-            const errorMessages = data.errors ? Object.values(data.errors).flat().join(' ') : (data.message || 'La création a échoué.');
-            showAlert(`Erreur: ${errorMessages}`, "danger");
-        }
-    } catch (error) {
-        showAlert("Erreur de connexion au serveur ou problème réseau.", "danger");
-    } finally {
-        setLoading(false);
-        handleClose();
-    }
+    try{
+      const response = await fetch(EVENEMENTS_API_URL,{ method:'POST', body:formData });
+      const data = await response.json();
+      if(response.ok){ showAlert(`Événement créé avec succès ! Statut: ${data.statut||'En attente'}`,"success"); fetchEvenements(); } 
+      else { const errorMessages = data.errors ? Object.values(data.errors).flat().join(' ') : (data.message || 'La création a échoué.'); showAlert(`Erreur: ${errorMessages}`,"danger"); }
+    } catch(error){ showAlert("Erreur de connexion au serveur ou problème réseau.","danger"); } 
+    finally{ setLoading(false); handleClose(); }
   };
 
-  // 🚀 API : Modifier un événement (Statut actuel envoyé, requis par le backend)
   const handleEdit = async () => {
-    if (!nouvelEvenement.titre || !nouvelEvenement.lieu || !nouvelEvenement.date || !nouvelEvenement.description) {
-      showAlert("Veuillez remplir tous les champs obligatoires", "warning");
-      return;
-    }
-    
+    if(!nouvelEvenement.titre||!nouvelEvenement.lieu||!nouvelEvenement.date||!nouvelEvenement.description){ showAlert("Veuillez remplir tous les champs obligatoires","warning"); return; }
     const dateHeure = `${nouvelEvenement.date} ${nouvelEvenement.heure}:00`;
-
     const formData = new FormData();
-    formData.append('_method', 'PUT');
+    formData.append('_method','PUT');
     formData.append('titre', nouvelEvenement.titre);
     formData.append('description', nouvelEvenement.description);
-    formData.append('date_heure', dateHeure); 
+    formData.append('date_heure', dateHeure);
     formData.append('lieu', nouvelEvenement.lieu);
     formData.append('type', nouvelEvenement.type);
-    
-    // 🔥 ESSENTIEL : Renvoyer le statut actuel
-    formData.append('statut', currentEvent.statut); 
-
-    if (nouvelEvenement.image) {
-      formData.append('fichier', nouvelEvenement.image); 
-    }
-    
+    formData.append('statut', currentEvent.statut);
+    if(nouvelEvenement.image) formData.append('fichier', nouvelEvenement.image);
     setLoading(true);
-    try {
-        const response = await fetch(`${EVENEMENTS_API_URL}/${currentEvent.id}`, { 
-            method: 'POST',
-            body: formData,
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            showAlert("Événement modifié avec succès !", "success");
-            fetchEvenements();
-        } else {
-            const errorMessages = data.errors ? Object.values(data.errors).flat().join(' ') : (data.message || 'La modification a échoué.');
-            showAlert(`Erreur: ${errorMessages}`, "danger");
-        }
-    } catch (error) {
-        showAlert("Erreur de connexion au serveur ou problème réseau.", "danger");
-    } finally {
-        setLoading(false);
-        handleClose();
-    }
+    try{
+      const response = await fetch(`${EVENEMENTS_API_URL}/${currentEvent.id}`,{ method:'POST', body:formData });
+      const data = await response.json();
+      if(response.ok){ showAlert("Événement modifié avec succès !","success"); fetchEvenements(); } 
+      else { const errorMessages = data.errors ? Object.values(data.errors).flat().join(' ') : (data.message || 'La modification a échoué.'); showAlert(`Erreur: ${errorMessages}`,"danger"); }
+    } catch(error){ showAlert("Erreur de connexion au serveur ou problème réseau.","danger"); } 
+    finally{ setLoading(false); handleClose(); }
   };
 
-  // 🚀 API : Supprimer un événement
   const handleDelete = async (id) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet événement ?")) return;
-
+    if(!window.confirm("Êtes-vous sûr de vouloir supprimer cet événement ?")) return;
     setLoading(true);
-    try {
-        const response = await fetch(`${EVENEMENTS_API_URL}/${id}`, {
-            method: 'DELETE',
-        });
-
-        if (response.ok || response.status === 204) {
-            showAlert("Événement supprimé avec succès !", "success");
-            fetchEvenements();
-        } else {
-            const data = await response.json();
-            showAlert(`Erreur: ${data.message || 'La suppression a échoué.'}`, "danger");
-        }
-
-    } catch (error) {
-        showAlert("Erreur de connexion au serveur ou problème réseau.", "danger");
-    } finally {
-        setLoading(false);
-    }
+    try{
+      const response = await fetch(`${EVENEMENTS_API_URL}/${id}`, { method:'DELETE' });
+      if(response.ok || response.status===204){ showAlert("Événement supprimé avec succès !","success"); fetchEvenements(); } 
+      else { const data = await response.json(); showAlert(`Erreur: ${data.message||'La suppression a échoué.'}`,"danger"); }
+    } catch(error){ showAlert("Erreur de connexion au serveur ou problème réseau.","danger"); } 
+    finally{ setLoading(false); }
   };
 
   return (
