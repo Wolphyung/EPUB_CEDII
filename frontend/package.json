@@ -10,6 +10,7 @@
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.13.1",
     "bootstrap": "^5.3.8",
+    "emoji-picker-react": "^4.15.0",
     "i18next": "^25.6.0",
     "i18next-browser-languagedetector": "^8.2.0",
     "react": "^19.2.0",

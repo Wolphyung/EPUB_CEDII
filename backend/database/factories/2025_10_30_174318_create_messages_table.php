@@ -12,6 +12,7 @@ return new class extends Migration {
             // Créer la table messages si elle n'existe pas
             Schema::create('messages', function (Blueprint $table) {
                 $table->id();
+                $table->foreignId('membre_id')->nullable()->constrained('membres')->onDelete('cascade');
                 $table->string('sender');
                 $table->string('email');
                 $table->text('content');

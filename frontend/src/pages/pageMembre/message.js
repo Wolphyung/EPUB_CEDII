@@ -2,329 +2,391 @@ import React, { useState, useEffect, useRef } from "react";
 import { Card, ListGroup, Button, Form, Badge, InputGroup, Spinner } from "react-bootstrap";
 import MembreSidebar from "../../components/MembreSidebar";
 import axios from "axios";
-// Ajout de FaUser pour l'avatar par défaut
-import { FaSearch, FaPaperPlane, FaUserCircle, FaCheckDouble, FaUser } from 'react-icons/fa'; 
+import { FaSearch, FaPaperPlane, FaUserCircle, FaCheckDouble, FaUser } from 'react-icons/fa';
 
-const API_URL = "http://127.0.0.1:8000/api"; 
+// === CONFIG ===
+const API_URL = "http://127.0.0.1:8000/api";
+const getAuthenticatedMemberId = () => 123;
 
-// Fonction fictive pour récupérer l'ID utilisateur réel
-const getAuthenticatedMemberId = () => {
-    // REMPLACER cette fonction par votre logique d'authentification
-    return 123; 
+// === COULEURS CEDII 2025 ===
+const COLORS = {
+  primary: "#5B11EE",    // Violet principal
+  secondary: "#0405BF",  // Bleu profond
+  dark: "#02061E",       // Texte / fond sombre
+  accent: "#0671B6",     // Bleu clair (accents)
+  gray: "#5E5E5E",       // Texte secondaire
+  light: "#f8f9fa",
+  white: "#ffffff",
+  border: "#e9ecef"
 };
 
-// --- NOUVEAU COMPOSANT : Gestion de l'affichage de l'avatar ---
-const Avatar = ({ src, size = 40, alt = "Avatar" }) => {
-    // Si une source d'image (src) est fournie
-    if (src) {
-        return (
-            <img 
-                src={src} 
-                alt={alt} 
-                style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover' }} 
-            />
-        );
-    }
-    // Si aucune image n'est fournie, afficher l'icône par défaut
-    return (
-        <div style={{ 
-            width: size, 
-            height: size, 
-            borderRadius: '50%', 
-            backgroundColor: '#ccc', // Couleur de fond neutre
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center'
-        }}>
-            <FaUser size={size * 0.5} color="#fff" />
-        </div>
-    );
-};
-// --------------------------------------------------------------------
-
-
-// Style pour l'arrière-plan du chat (simule le motif WhatsApp)
-const chatBackgroundStyle = {
-  backgroundImage: "url('https://www.transparenttextures.com/patterns/clean-gray-paper.png')", 
-  backgroundColor: '#e5ddd5', 
-  padding: '10px'
+// === AVATAR FIABLE ===
+const Avatar = ({ src, size = 44, alt = "Avatar" }) => {
+  const placeholder = `https://placehold.co/${size}x${size}/${COLORS.secondary.replace('#', '')}/FFFFFF?text=${alt[0]}&font=roboto`;
+  
+  return (
+    <img
+      src={src || placeholder}
+      alt={alt}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        objectFit: 'cover',
+        border: `2.5px solid ${COLORS.primary}`,
+        boxShadow: '0 2px 6px rgba(91, 17, 238, 0.15)'
+      }}
+      onError={(e) => { e.target.src = placeholder; }}
+    />
+  );
 };
 
-/**
- * Styles personnalisés pour les bulles de message (Amélioré).
- */
-const messageBubbleStyle = (isAdminMessage) => ({
-    backgroundColor: isAdminMessage ? '#dcf8c6' : '#ffffff', 
-    borderRadius: isAdminMessage ? '7px 7px 0 7px' : '7px 7px 7px 0', 
-    padding: '8px 10px 6px 10px', 
-    maxWidth: '80%', 
-    boxShadow: '0 1px 0.5px rgba(0, 0, 0, 0.10)',
-    wordWrap: 'break-word',
-    fontSize: '0.9rem',
-    position: 'relative',
-});
+// === STATUT DE LECTURE ===
+const ReadStatusIcon = ({ status }) => {
+  const color = status === 'read' ? COLORS.primary : status === 'sent' ? COLORS.accent : COLORS.gray;
+  return <FaCheckDouble size={12} style={{ color, opacity: status === 'sent' ? 0.7 : 1 }} />;
+};
 
+// === STYLES PREMIUM ===
+const styles = {
+  container: {
+    background: COLORS.light,
+    minHeight: '100vh',
+    fontFamily: '"Inter", "Segoe UI", system-ui, sans-serif',
+    color: COLORS.dark
+  },
+  sidebar: { width: '280px', background: COLORS.white, borderRight: `1px solid ${COLORS.border}` },
+  sidebarCollapsed: { width: '80px' },
+
+  // Header messagerie
+  header: {
+    background: COLORS.secondary,
+    color: COLORS.white,
+    padding: '1rem 1.25rem',
+    fontWeight: 600,
+    fontSize: '1.1rem',
+    letterSpacing: '0.3px'
+  },
+
+  // Recherche
+  search: {
+    background: COLORS.light,
+    border: `1.5px solid ${COLORS.border}`,
+    borderRadius: '12px',
+    padding: '0.6rem 1rem',
+    fontSize: '0.925rem'
+  },
+
+  // Conversation item
+  convoItem: (isActive, hasUnread) => ({
+    padding: '0.9rem 1.25rem',
+    borderBottom: `1px solid ${COLORS.border}`,
+    background: isActive ? '#f0eaff' : COLORS.white,
+    cursor: 'pointer',
+    transition: 'all 0.22s ease',
+    borderLeft: isActive ? `4px solid ${COLORS.primary}` : '4px solid transparent',
+    position: 'relative'
+  }),
+  convoName: (unread) => ({
+    fontWeight: unread ? 700 : 600,
+    color: unread ? COLORS.primary : COLORS.dark,
+    fontSize: '0.98rem'
+  }),
+  convoPreview: (unread) => ({
+    fontSize: '0.86rem',
+    color: unread ? COLORS.dark : COLORS.gray,
+    fontWeight: unread ? 600 : 400,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    maxWidth: '180px'
+  }),
+
+  // Chat header
+  chatHeader: {
+    background: COLORS.white,
+    borderBottom: `1px solid ${COLORS.border}`,
+    padding: '0.85rem 1.25rem',
+    fontWeight: 600,
+    color: COLORS.dark
+  },
+
+  // Zone messages
+  messagesArea: {
+    flex: 1,
+    padding: '1.25rem',
+    background: COLORS.light,
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem'
+  },
+
+  // Bulles
+  bubble: (isAdmin) => ({
+    maxWidth: '68%',
+    padding: '0.75rem 1.1rem',
+    borderRadius: '14px',
+    fontSize: '0.94rem',
+    lineHeight: 1.45,
+    background: isAdmin ? COLORS.primary : COLORS.white,
+    color: isAdmin ? COLORS.white : COLORS.dark,
+    alignSelf: isAdmin ? 'flex-end' : 'flex-start',
+    boxShadow: isAdmin 
+      ? '0 2px 8px rgba(91, 17, 238, 0.2)' 
+      : '0 1px 4px rgba(0,0,0,0.08)',
+    border: isAdmin ? 'none' : `1px solid ${COLORS.border}`,
+    position: 'relative'
+  }),
+
+  bubbleTime: {
+    fontSize: '0.7rem',
+    opacity: 0.8,
+    marginTop: '0.35rem',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+    justifyContent: 'flex-end'
+  },
+
+  // Input
+  inputArea: {
+    background: COLORS.white,
+    padding: '0.9rem 1.25rem',
+    borderTop: `1px solid ${COLORS.border}`
+  },
+  input: {
+    borderRadius: '26px',
+    border: `1.5px solid ${COLORS.border}`,
+    padding: '0.7rem 1.2rem',
+    fontSize: '0.95rem',
+    background: '#fdfdff',
+    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.03)'
+  },
+  sendBtn: {
+    width: '46px',
+    height: '46px',
+    borderRadius: '50%',
+    background: COLORS.primary,
+    border: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.2s ease',
+    boxShadow: '0 3px 8px rgba(91, 17, 238, 0.3)'
+  }
+};
+
+// === COMPOSANT PRINCIPAL ===
 const MessagerieMembre = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [selectedConv, setSelectedConv] = useState(null);
   const [newMessage, setNewMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(false); 
+  const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
+  const memberId = getAuthenticatedMemberId();
 
-  const [memberId, setMemberId] = useState(getAuthenticatedMemberId());
-  const memberEmail = "membre@example.com"; 
-
-  // Composant pour le statut de lecture (double coche)
-  const ReadStatusIcon = ({ status }) => {
-    if (status === 'read') {
-      return <FaCheckDouble size={10} style={{ color: '#53bdeb' }} />;
-    }
-    if (status === 'sent') {
-        return <FaCheckDouble size={10} style={{ color: '#919191' }} />;
-    }
-    return <FaCheckDouble size={10} style={{ color: '#919191', opacity: 0.5 }} />;
-  };
-
+  // === CHARGEMENT DES MESSAGES ===
   const fetchMessages = async () => {
     try {
-      setLoading(true); 
-      const res = await axios.get(`${API_URL}/messages?member_id=${memberId}`); 
-      const userMessages = res.data.map(msg => ({
+      setLoading(true);
+      const res = await axios.get(`${API_URL}/messages?member_id=${memberId}`);
+      const data = res.data.map(msg => ({
         ...msg,
         nonLu: !msg.read ? 1 : 0,
-        // Simulation d'une image d'avatar pour le test
-        avatarUrl: msg.avatarUrl || 'https://via.placeholder.com/150/075e54/FFFFFF?text=A',
+        avatarUrl: msg.avatarUrl,
         replies: msg.replies || [
-          { id: 101, content: "J'ai un problème technique sur le site et j'aimerais obtenir de l'aide rapidement.", created_at: new Date(Date.now() - 120000).toISOString(), admin_id: null, member_id: memberId, read_status: 'sent' }, 
-          { id: 102, content: "Bonjour ! Je vais regarder cela immédiatement. Pourriez-vous me fournir votre numéro de référence de commande ?", created_at: new Date(Date.now() - 60000).toISOString(), admin_id: 1, member_id: null, read_status: 'read' },
-          { id: 103, content: "Le numéro est ABX-789.", created_at: new Date().toISOString(), admin_id: null, member_id: memberId, read_status: 'sent' },
+          { id: 1, content: "Bonjour, j'ai un problème avec ma commande.", created_at: new Date(Date.now() - 180000).toISOString(), admin_id: null, member_id: memberId, read_status: 'sent' },
+          { id: 2, content: "Je prends en charge votre demande immédiatement.", created_at: new Date(Date.now() - 120000).toISOString(), admin_id: 1, member_id: null, read_status: 'read' },
+          { id: 3, content: "Référence : CMD-2025-789", created_at: new Date(Date.now() - 60000).toISOString(), admin_id: null, member_id: memberId, read_status: 'sent' },
         ],
       }));
-      setConversations(userMessages);
-      setSelectedConv(userMessages[0] || null);
-    } catch (error) {
-      console.error("Erreur lors du chargement des messages:", error);
+      setConversations(data);
+      setSelectedConv(data[0] || null);
+    } catch (err) {
+      console.error("Erreur:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchMessages();
-  }, [memberId]); 
+  useEffect(() => { fetchMessages(); }, [memberId]);
 
+  // === SÉLECTION CONVERSATION ===
   const handleSelectConv = async (conv) => {
-    try {
-      if (conv.nonLu > 0) {
-        await axios.post(`${API_URL}/messages/${conv.id}/mark-as-read`);
-      }
-      const updatedConv = { ...conv, nonLu: 0 };
-      setConversations(conversations.map(c => c.id === conv.id ? updatedConv : c));
-      setSelectedConv(updatedConv);
-    } catch (error) {
-      console.error("Erreur lors de la lecture du message:", error);
+    if (conv.nonLu > 0) {
+      await axios.post(`${API_URL}/messages/${conv.id}/mark-as-read`).catch(() => {});
     }
+    const updated = { ...conv, nonLu: 0 };
+    setConversations(prev => prev.map(c => c.id === conv.id ? updated : c));
+    setSelectedConv(updated);
   };
 
+  // === SCROLL AUTO ===
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [selectedConv, selectedConv?.replies.length]); 
+  }, [selectedConv?.replies]);
 
+  // === ENVOI MESSAGE ===
   const handleSendMessage = async (e) => {
-    e.preventDefault(); 
+    e.preventDefault();
     if (!newMessage.trim() || !selectedConv) return;
-    
-    const messageContent = newMessage;
-    setNewMessage(""); 
+
+    const content = newMessage.trim();
+    setNewMessage("");
+
+    const tempMsg = {
+      id: Date.now(),
+      content,
+      created_at: new Date().toISOString(),
+      member_id: memberId,
+      admin_id: null,
+      read_status: 'sent'
+    };
+
+    setSelectedConv(prev => ({ ...prev, replies: [...prev.replies, tempMsg] }));
 
     try {
-      const tempId = Date.now();
-      const tempNewMessage = { 
-        id: tempId, content: messageContent, created_at: new Date().toISOString(), 
-        member_id: memberId, admin_id: null, read_status: 'sent'
-      };
-
-      const updatedReplies = [...selectedConv.replies, tempNewMessage];
-      const updatedConvLocal = { ...selectedConv, replies: updatedReplies };
-      setSelectedConv(updatedConvLocal);
-      
-      const res = await axios.post(`${API_URL}/messages/${selectedConv.id}/reply`, {
-        content: messageContent, member_id: memberId 
-      });
-
-      setConversations(conversations.map(conv => 
-        conv.id === selectedConv.id ? res.data : conv 
-      ));
+      const res = await axios.post(`${API_URL}/messages/${selectedConv.id}/reply`, { content, member_id: memberId });
       setSelectedConv(res.data);
-      
-    } catch (error) {
-      console.error("Erreur lors de l'envoi du message:", error);
+      setConversations(prev => prev.map(c => c.id === selectedConv.id ? res.data : c));
+    } catch (err) {
+      console.error("Erreur envoi:", err);
     }
   };
 
-  const filteredConversations = conversations.filter(conv =>
-    conv.sender.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
-  // --- Rendu du composant ---
+  const filtered = conversations.filter(c => c.sender.toLowerCase().includes(searchTerm.toLowerCase()));
 
+  // === RENDU ===
   return (
-    <div className="d-flex min-vh-100" style={{ background: "#f0f2f5" }}> 
-      <div style={{ width: sidebarCollapsed ? "80px" : "280px", transition: "width 0.3s ease" }}>
+    <div className="d-flex" style={styles.container}>
+      {/* SIDEBAR */}
+      <div style={sidebarCollapsed ? styles.sidebarCollapsed : styles.sidebar}>
         <MembreSidebar onCollapse={setSidebarCollapsed} />
       </div>
 
-      <div className="flex-grow-1 p-0"> 
-        <div className="d-flex h-100" style={{ minHeight: "100vh" }}>
-          
-          {/* Liste des conversations (Côté Gauche) */}
-          <Card className="shadow-sm border-end flex-shrink-0" style={{ width: "380px", borderRadius: "0", background: "#ffffff" }}>
-            <Card.Header className="border-0 py-3 d-flex align-items-center bg-success text-white">
-                <FaUserCircle size={30} className="me-2" />
-                <h5 className="mb-0">Messagerie</h5>
-            </Card.Header>
-            <Card.Body className="p-2">
-                <div className="p-1 bg-light rounded d-flex align-items-center mb-2">
-                    <FaSearch size={14} className="text-muted ms-2 me-3" />
-                    <Form.Control
-                        placeholder="Rechercher un contact..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="border-0 bg-light p-1"
-                    />
-                </div>
-            </Card.Body>
+      <div className="d-flex flex-grow-1">
+        {/* LISTE CONVERSATIONS */}
+        <div style={{ width: '370px', background: COLORS.white, borderRight: `1px solid ${COLORS.border}` }}>
+          <div style={styles.header} className="d-flex align-items-center">
+            <FaUserCircle size={26} className="me-2" />
+            Messagerie CEDII
+          </div>
 
-            <ListGroup variant="flush" style={{ overflowY: "auto", maxHeight: "calc(100vh - 140px)" }}>
-              {loading ? (
-                <ListGroup.Item className="text-center text-muted">
-                    <Spinner animation="border" size="sm" variant="success" className="me-2" />
-                    Chargement...
-                </ListGroup.Item>
-              ) : filteredConversations.length > 0 ? (
-                filteredConversations.map(conv => (
-                  <ListGroup.Item
-                    key={conv.id}
-                    action
-                    onClick={() => handleSelectConv(conv)}
-                    className={`d-flex justify-content-between align-items-center py-2 px-3 ${selectedConv?.id === conv.id ? "bg-light" : "bg-white"}`}
-                    style={{ borderLeft: selectedConv?.id === conv.id ? '3px solid #075e54' : 'none' }}
-                  >
-                    <div className="d-flex align-items-center">
-                        {/* Utilisation du nouveau composant Avatar */}
-                        <Avatar src={conv.avatarUrl} size={40} />
-                        <div className="ms-3">
-                            {/* Mise en évidence du nom si non lu */}
-                            <strong className={conv.nonLu > 0 ? "text-dark" : "text-muted"}>
-                                {conv.sender}
-                            </strong>
-                            
-                            {/* Mise en évidence du dernier message si non lu */}
-                            <small className={conv.nonLu > 0 ? "text-dark d-block fw-bold" : "text-muted d-block"}>
-                                {conv.replies.length > 0 
-                                    ? conv.replies[conv.replies.length - 1].content.slice(0, 30) + '...' 
-                                    : 'Pas de message...'}
-                            </small>
-                        </div>
-                    </div>
-                    
-                    <div className="d-flex flex-column align-items-end">
-                        {conv.nonLu > 0 && <Badge bg="success" pill>{conv.nonLu}</Badge>}
-                    </div>
-                  </ListGroup.Item>
-                ))
-              ) : (
-                <ListGroup.Item className="text-center text-muted">Aucune conversation trouvée.</ListGroup.Item>
-              )}
-            </ListGroup>
-          </Card>
+          <div className="p-3">
+            <div className="d-flex align-items-center" style={styles.search}>
+              <FaSearch size={15} style={{ color: COLORS.gray }} />
+              <Form.Control
+                placeholder="Rechercher un contact..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="border-0 bg-transparent shadow-none ms-2"
+                style={{ fontSize: '0.92rem' }}
+              />
+            </div>
+          </div>
 
-          {/* Fenêtre de chat (Côté Droit) */}
-          <Card className="flex-grow-1 d-flex flex-column border-0" style={{ borderRadius: "0" }}>
-            {selectedConv ? (
-              <>
-                <Card.Header className="d-flex align-items-center bg-white border-bottom py-2">
-                    {/* Utilisation du nouveau composant Avatar dans l'entête */}
-                    <Avatar src={selectedConv.avatarUrl} size={40} />
-                    <h5 className="mb-0 ms-3 me-auto">Contact : {selectedConv.sender}</h5>
-                </Card.Header>
-                
-                <Card.Body 
-                    className="flex-grow-1 d-flex flex-column" 
-                    style={{ overflowY: "auto", ...chatBackgroundStyle }}
+          <div style={{ height: 'calc(100vh - 150px)', overflowY: 'auto' }}>
+            {loading ? (
+              <div className="text-center py-5 text-muted">
+                <Spinner animation="border" size="sm" /> Chargement...
+              </div>
+            ) : filtered.length > 0 ? (
+              filtered.map(conv => (
+                <div
+                  key={conv.id}
+                  onClick={() => handleSelectConv(conv)}
+                  style={styles.convoItem(selectedConv?.id === conv.id, conv.nonLu > 0)}
+                  className="d-flex align-items-center"
                 >
-                  {selectedConv.replies?.map(msg => {
-                    const isAdminMessage = !!msg.admin_id; 
-                    const justifyContentValue = isAdminMessage ? "flex-end" : "flex-start";
-                    
-                    return (
-                      <div 
-                        key={msg.id} 
-                        className="mb-2" 
-                        style={{
-                            display: 'flex', 
-                            width: '100%', 
-                            justifyContent: justifyContentValue 
-                        }}
-                      >
-                        <div style={messageBubbleStyle(isAdminMessage)}>
-                          <div className="me-5 pe-3">{msg.content}</div> 
-                          
-                          <div 
-                            style={{ 
-                                position: 'absolute', 
-                                bottom: '2px', 
-                                right: '8px', 
-                                fontSize: "0.6rem",
-                                color: isAdminMessage ? 'rgba(0,0,0,0.5)' : '#999',
-                                whiteSpace: 'nowrap'
-                            }}
-                          >
-                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            
-                            {isAdminMessage && (
-                                <span className="ms-1">
-                                    <ReadStatusIcon status={msg.read_status} />
-                                </span>
-                            )}
-                          </div>
+                  <Avatar src={conv.avatarUrl} size={48} alt={conv.sender} />
+                  <div className="ms-3 flex-grow-1">
+                    <div style={styles.convoName(conv.nonLu > 0)}>{conv.sender}</div>
+                    <div style={styles.convoPreview(conv.nonLu > 0)}>
+                      {conv.replies[conv.replies.length - 1]?.content.slice(0, 38)}...
+                    </div>
+                  </div>
+                  {conv.nonLu > 0 && (
+                    <Badge
+                      pill
+                      style={{
+                        background: COLORS.primary,
+                        color: '#fff',
+                        fontSize: '0.72rem',
+                        fontWeight: 600
+                      }}
+                    >
+                      {conv.nonLu}
+                    </Badge>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="text-center text-muted py-5">Aucune conversation</div>
+            )}
+          </div>
+        </div>
+
+        {/* CHAT */}
+        <div className="flex-grow-1 d-flex flex-column">
+          {selectedConv ? (
+            <>
+              <div style={styles.chatHeader} className="d-flex align-items-center">
+                <Avatar src={selectedConv.avatarUrl} size={42} alt={selectedConv.sender} />
+                <div className="ms-3">
+                  <div style={{ fontWeight: 600 }}>{selectedConv.sender}</div>
+                  <small style={{ color: COLORS.accent, fontWeight: 500 }}>En ligne</small>
+                </div>
+              </div>
+
+              <div style={styles.messagesArea}>
+                {selectedConv.replies.map(msg => {
+                  const isAdmin = !!msg.admin_id;
+                  return (
+                    <div key={msg.id} style={{ display: 'flex', justifyContent: isAdmin ? 'flex-end' : 'flex-start' }}>
+                      <div style={styles.bubble(isAdmin)}>
+                        <div>{msg.content}</div>
+                        <div style={styles.bubbleTime}>
+                          {new Date(msg.created_at).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' })}
+                          {isAdmin && <ReadStatusIcon status={msg.read_status} />}
                         </div>
                       </div>
-                    );
-                  })}
-                  <div ref={messagesEndRef} />
-                </Card.Body>
-
-                <Card.Footer className="bg-light border-top py-2">
-                  <Form onSubmit={handleSendMessage}>
-                    <InputGroup>
-                      <Form.Control
-                        placeholder="Écrire un message..."
-                        value={newMessage}
-                        onChange={e => setNewMessage(e.target.value)}
-                        style={{ borderRadius: '20px', padding: '10px 15px' }}
-                      />
-                      <Button 
-                        type="submit" 
-                        onClick={handleSendMessage} 
-                        disabled={!newMessage.trim() || loading} 
-                        variant="success"
-                        style={{ borderRadius: '50%', width: '45px', height: '45px', padding: '0', marginLeft: '10px' }}
-                      >
-                        <FaPaperPlane size={18} />
-                      </Button>
-                    </InputGroup>
-                  </Form>
-                </Card.Footer>
-              </>
-            ) : (
-              <div className="d-flex flex-grow-1 justify-content-center align-items-center bg-light">
-                <p className="text-muted fs-5">Sélectionnez une conversation pour commencer.</p>
+                    </div>
+                  );
+                })}
+                <div ref={messagesEndRef} />
               </div>
-            )}
-          </Card>
+
+              <div style={styles.inputArea}>
+                <Form onSubmit={handleSendMessage}>
+                  <InputGroup>
+                    <Form.Control
+                      placeholder="Écrivez votre message..."
+                      value={newMessage}
+                      onChange={e => setNewMessage(e.target.value)}
+                      style={styles.input}
+                    />
+                    <Button
+                      type="submit"
+                      disabled={!newMessage.trim()}
+                      style={styles.sendBtn}
+                      onMouseEnter={e => e.target.style.transform = 'scale(1.05)'}
+                      onMouseLeave={e => e.target.style.transform = 'scale(1)'}
+                    >
+                      <FaPaperPlane size={19} color="#fff" />
+                    </Button>
+                  </InputGroup>
+                </Form>
+              </div>
+            </>
+          ) : (
+            <div className="d-flex flex-column flex-grow-1 justify-content-center align-items-center bg-white text-muted">
+              <FaUserCircle size={72} className="mb-3 opacity-50" />
+              <p style={{ fontSize: '1.1rem' }}>Sélectionnez une conversation</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
