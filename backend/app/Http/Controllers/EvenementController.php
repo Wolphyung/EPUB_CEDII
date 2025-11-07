@@ -34,7 +34,10 @@ class EvenementController extends Controller
                 $query->where('type', $request->type);
             }
 
-            return response()->json($query->latest()->get(), 200);
+            $evenements = $query->latest()->get();
+            
+            // Retourner les événements avec EvenementResource
+            return EvenementResource::collection($evenements);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -81,7 +84,7 @@ class EvenementController extends Controller
             'fichier' => 'nullable|file|mimes:pdf,doc,docx,jpg,png,jpeg|max:5120',
         ]);
 
-        // 📎 Gestion du fichier s’il existe
+        // 📎 Gestion du fichier s'il existe
         if ($request->hasFile('fichier')) {
             if ($evenement->fichier && Storage::disk('public')->exists($evenement->fichier)) {
                 Storage::disk('public')->delete($evenement->fichier);
@@ -94,7 +97,6 @@ class EvenementController extends Controller
 
         return new EvenementResource($evenement);
     }
-
 
     // 🔹 Suppression
     public function destroy(Evenement $evenement)
