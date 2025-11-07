@@ -1,503 +1,332 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Card, ListGroup, Button, Form, Badge, InputGroup } from "react-bootstrap";
+import { Card, ListGroup, Button, Form, Badge, InputGroup, Spinner } from "react-bootstrap";
 import MembreSidebar from "../../components/MembreSidebar";
+import axios from "axios";
+// Ajout de FaUser pour l'avatar par défaut
+import { FaSearch, FaPaperPlane, FaUserCircle, FaCheckDouble, FaUser } from 'react-icons/fa'; 
+
+const API_URL = "http://127.0.0.1:8000/api"; 
+
+// Fonction fictive pour récupérer l'ID utilisateur réel
+const getAuthenticatedMemberId = () => {
+    // REMPLACER cette fonction par votre logique d'authentification
+    return 123; 
+};
+
+// --- NOUVEAU COMPOSANT : Gestion de l'affichage de l'avatar ---
+const Avatar = ({ src, size = 40, alt = "Avatar" }) => {
+    // Si une source d'image (src) est fournie
+    if (src) {
+        return (
+            <img 
+                src={src} 
+                alt={alt} 
+                style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover' }} 
+            />
+        );
+    }
+    // Si aucune image n'est fournie, afficher l'icône par défaut
+    return (
+        <div style={{ 
+            width: size, 
+            height: size, 
+            borderRadius: '50%', 
+            backgroundColor: '#ccc', // Couleur de fond neutre
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center'
+        }}>
+            <FaUser size={size * 0.5} color="#fff" />
+        </div>
+    );
+};
+// --------------------------------------------------------------------
+
+
+// Style pour l'arrière-plan du chat (simule le motif WhatsApp)
+const chatBackgroundStyle = {
+  backgroundImage: "url('https://www.transparenttextures.com/patterns/clean-gray-paper.png')", 
+  backgroundColor: '#e5ddd5', 
+  padding: '10px'
+};
+
+/**
+ * Styles personnalisés pour les bulles de message (Amélioré).
+ */
+const messageBubbleStyle = (isAdminMessage) => ({
+    backgroundColor: isAdminMessage ? '#dcf8c6' : '#ffffff', 
+    borderRadius: isAdminMessage ? '7px 7px 0 7px' : '7px 7px 7px 0', 
+    padding: '8px 10px 6px 10px', 
+    maxWidth: '80%', 
+    boxShadow: '0 1px 0.5px rgba(0, 0, 0, 0.10)',
+    wordWrap: 'break-word',
+    fontSize: '0.9rem',
+    position: 'relative',
+});
 
 const MessagerieMembre = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [conversations, setConversations] = useState([
-    { 
-      id: 1, 
-      nom: "Jean Dupont", 
-      avatar: "👨‍💼",
-      statut: "en_ligne",
-      dernierMessage: "Salut, comment ça va ?", 
-      timestamp: "10:30",
-      nonLu: 2,
-      messages: [
-        { id: 1, texte: "Salut, comment ça va ?", envoyeur: "autre", heure: "10:25" },
-        { id: 2, texte: "Tout va bien ! Merci de demander. Et de ton côté ?", envoyeur: "moi", heure: "10:28" },
-        { id: 3, texte: "Super, je travaille sur le nouveau projet. Tu as vu les dernières mises à jour ?", envoyeur: "autre", heure: "10:30" }
-      ] 
-    },
-    { 
-      id: 2, 
-      nom: "Marie Martin", 
-      avatar: "👩‍💻",
-      statut: "hors_ligne",
-      dernierMessage: "As-tu reçu le document que je t'ai envoyé ?", 
-      timestamp: "Hier",
-      nonLu: 0,
-      messages: [
-        { id: 1, texte: "As-tu reçu le document que je t'ai envoyé ?", envoyeur: "autre", heure: "16:45" },
-        { id: 2, texte: "Oui, je l'ai reçu. Je le regarde cet après-midi.", envoyeur: "moi", heure: "16:50" }
-      ] 
-    },
-    { 
-      id: 3, 
-      nom: "Admin CEDII", 
-      avatar: "🏢",
-      statut: "en_ligne",
-      dernierMessage: "Nouvelle offre d'emploi disponible !", 
-      timestamp: "09:15",
-      nonLu: 1,
-      messages: [
-        { id: 1, texte: "Nouvelle offre d'emploi disponible ! Consultez-la sur votre tableau de bord.", envoyeur: "autre", heure: "09:15" }
-      ] 
-    },
-    { 
-      id: 4, 
-      nom: "Pierre Lambert", 
-      avatar: "👨‍🎓",
-      statut: "absent",
-      dernierMessage: "Merci pour ton aide sur le projet", 
-      timestamp: "23/09",
-      nonLu: 0,
-      messages: [
-        { id: 1, texte: "Merci pour ton aide sur le projet, c'était super !", envoyeur: "autre", heure: "14:20" },
-        { id: 2, texte: "Avec plaisir ! N'hésite pas si tu as besoin d'aide à nouveau.", envoyeur: "moi", heure: "14:25" }
-      ] 
-    }
-  ]);
-
-  const [selectedConv, setSelectedConv] = useState(conversations[0]);
+  const [conversations, setConversations] = useState([]);
+  const [selectedConv, setSelectedConv] = useState(null);
   const [newMessage, setNewMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false); 
   const messagesEndRef = useRef(null);
 
-  // Gérer l'état de la sidebar
-  const handleSidebarCollapse = (isCollapsed) => {
-    setSidebarCollapsed(isCollapsed);
+  const [memberId, setMemberId] = useState(getAuthenticatedMemberId());
+  const memberEmail = "membre@example.com"; 
+
+  // Composant pour le statut de lecture (double coche)
+  const ReadStatusIcon = ({ status }) => {
+    if (status === 'read') {
+      return <FaCheckDouble size={10} style={{ color: '#53bdeb' }} />;
+    }
+    if (status === 'sent') {
+        return <FaCheckDouble size={10} style={{ color: '#919191' }} />;
+    }
+    return <FaCheckDouble size={10} style={{ color: '#919191', opacity: 0.5 }} />;
   };
 
-  // Filtrer les conversations
-  const filteredConversations = conversations.filter(conv =>
-    conv.nom.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Sélectionner une conversation
-  const handleSelectConv = (conv) => {
-    // Marquer les messages comme lus
-    const updatedConv = { ...conv, nonLu: 0 };
-    setConversations(conversations.map(c => 
-      c.id === conv.id ? updatedConv : c
-    ));
-    setSelectedConv(updatedConv);
+  const fetchMessages = async () => {
+    try {
+      setLoading(true); 
+      const res = await axios.get(`${API_URL}/messages?member_id=${memberId}`); 
+      const userMessages = res.data.map(msg => ({
+        ...msg,
+        nonLu: !msg.read ? 1 : 0,
+        // Simulation d'une image d'avatar pour le test
+        avatarUrl: msg.avatarUrl || 'https://via.placeholder.com/150/075e54/FFFFFF?text=A',
+        replies: msg.replies || [
+          { id: 101, content: "J'ai un problème technique sur le site et j'aimerais obtenir de l'aide rapidement.", created_at: new Date(Date.now() - 120000).toISOString(), admin_id: null, member_id: memberId, read_status: 'sent' }, 
+          { id: 102, content: "Bonjour ! Je vais regarder cela immédiatement. Pourriez-vous me fournir votre numéro de référence de commande ?", created_at: new Date(Date.now() - 60000).toISOString(), admin_id: 1, member_id: null, read_status: 'read' },
+          { id: 103, content: "Le numéro est ABX-789.", created_at: new Date().toISOString(), admin_id: null, member_id: memberId, read_status: 'sent' },
+        ],
+      }));
+      setConversations(userMessages);
+      setSelectedConv(userMessages[0] || null);
+    } catch (error) {
+      console.error("Erreur lors du chargement des messages:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Envoyer un message
-  const handleSendMessage = () => {
-    if (newMessage.trim() === "") return;
+  useEffect(() => {
+    fetchMessages();
+  }, [memberId]); 
 
-    const nouveauMessage = {
-      id: selectedConv.messages.length + 1,
-      texte: newMessage,
-      envoyeur: "moi",
-      heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-    };
-
-    const updatedConv = {
-      ...selectedConv,
-      messages: [...selectedConv.messages, nouveauMessage],
-      dernierMessage: newMessage,
-      timestamp: "Maintenant",
-      nonLu: 0
-    };
-
-    setConversations(
-      conversations.map((conv) =>
-        conv.id === selectedConv.id ? updatedConv : conv
-      )
-    );
-
-    setSelectedConv(updatedConv);
-    setNewMessage("");
+  const handleSelectConv = async (conv) => {
+    try {
+      if (conv.nonLu > 0) {
+        await axios.post(`${API_URL}/messages/${conv.id}/mark-as-read`);
+      }
+      const updatedConv = { ...conv, nonLu: 0 };
+      setConversations(conversations.map(c => c.id === conv.id ? updatedConv : c));
+      setSelectedConv(updatedConv);
+    } catch (error) {
+      console.error("Erreur lors de la lecture du message:", error);
+    }
   };
 
-  // Auto-scroll vers le dernier message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [selectedConv.messages]);
+  }, [selectedConv, selectedConv?.replies.length]); 
 
-  // Statut badge
-  const getStatusBadge = (statut) => {
-    const statusConfig = {
-      en_ligne: { color: "#00d664", text: "En ligne" },
-      hors_ligne: { color: "#6c757d", text: "Hors ligne" },
-      absent: { color: "#ffc107", text: "Absent" }
-    };
+  const handleSendMessage = async (e) => {
+    e.preventDefault(); 
+    if (!newMessage.trim() || !selectedConv) return;
     
-    const config = statusConfig[statut] || statusConfig.hors_ligne;
-    return (
-      <div className="d-flex align-items-center">
-        <div 
-          className="rounded-circle me-1"
-          style={{
-            width: "8px",
-            height: "8px",
-            backgroundColor: config.color
-          }}
-        ></div>
-        <small style={{ color: config.color, fontSize: "0.75rem" }}>
-          {config.text}
-        </small>
-      </div>
-    );
+    const messageContent = newMessage;
+    setNewMessage(""); 
+
+    try {
+      const tempId = Date.now();
+      const tempNewMessage = { 
+        id: tempId, content: messageContent, created_at: new Date().toISOString(), 
+        member_id: memberId, admin_id: null, read_status: 'sent'
+      };
+
+      const updatedReplies = [...selectedConv.replies, tempNewMessage];
+      const updatedConvLocal = { ...selectedConv, replies: updatedReplies };
+      setSelectedConv(updatedConvLocal);
+      
+      const res = await axios.post(`${API_URL}/messages/${selectedConv.id}/reply`, {
+        content: messageContent, member_id: memberId 
+      });
+
+      setConversations(conversations.map(conv => 
+        conv.id === selectedConv.id ? res.data : conv 
+      ));
+      setSelectedConv(res.data);
+      
+    } catch (error) {
+      console.error("Erreur lors de l'envoi du message:", error);
+    }
   };
 
+  const filteredConversations = conversations.filter(conv =>
+    conv.sender.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  // --- Rendu du composant ---
+
   return (
-    <div className="d-flex min-vh-100" style={{ 
-      background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)"
-    }}>
-      {/* Sidebar */}
-      <div style={{ 
-        width: sidebarCollapsed ? "80px" : "280px",
-        transition: "width 0.3s ease",
-        flexShrink: 0
-      }}>
-        <MembreSidebar onCollapse={handleSidebarCollapse} />
+    <div className="d-flex min-vh-100" style={{ background: "#f0f2f5" }}> 
+      <div style={{ width: sidebarCollapsed ? "80px" : "280px", transition: "width 0.3s ease" }}>
+        <MembreSidebar onCollapse={setSidebarCollapsed} />
       </div>
 
-      {/* Contenu Principal */}
-      <div className="flex-grow-1" style={{ 
-        padding: "20px",
-        marginLeft: "0",
-        transition: "all 0.3s ease"
-      }}>
-        <div className="d-flex h-100" style={{ gap: "20px", minHeight: "80vh" }}>
-          {/* Liste des conversations */}
-          <Card 
-            className="shadow-lg border-0 flex-shrink-0"
-            style={{ 
-              width: "350px",
-              borderRadius: "20px",
-              background: "rgba(255, 255, 255, 0.95)",
-              backdropFilter: "blur(10px)"
-            }}
-          >
-            <Card.Header 
-              className="border-0 bg-transparent py-4"
-              style={{ borderBottom: "1px solid rgba(0, 0, 0, 0.05)" }}
-            >
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <h4 className="fw-bold mb-0" style={{ color: "#2c3e50" }}>
-                  <i className="fas fa-comments me-2 text-primary"></i>
-                  Messages
-                </h4>
-                <Badge 
-                  bg="primary" 
-                  className="px-3 py-2"
-                  style={{ borderRadius: "15px", fontSize: "0.8rem" }}
-                >
-                  {conversations.reduce((acc, conv) => acc + conv.nonLu, 0)}
-                </Badge>
-              </div>
-              
-              {/* Barre de recherche */}
-              <InputGroup className="mb-3">
-                <InputGroup.Text 
-                  className="border-0 bg-light"
-                  style={{ borderTopLeftRadius: "15px", borderBottomLeftRadius: "15px" }}
-                >
-                  <i className="fas fa-search text-muted"></i>
-                </InputGroup.Text>
-                <Form.Control
-                  type="text"
-                  placeholder="Rechercher une conversation..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="border-0 bg-light"
-                  style={{ borderTopRightRadius: "15px", borderBottomRightRadius: "15px" }}
-                />
-              </InputGroup>
+      <div className="flex-grow-1 p-0"> 
+        <div className="d-flex h-100" style={{ minHeight: "100vh" }}>
+          
+          {/* Liste des conversations (Côté Gauche) */}
+          <Card className="shadow-sm border-end flex-shrink-0" style={{ width: "380px", borderRadius: "0", background: "#ffffff" }}>
+            <Card.Header className="border-0 py-3 d-flex align-items-center bg-success text-white">
+                <FaUserCircle size={30} className="me-2" />
+                <h5 className="mb-0">Messagerie</h5>
             </Card.Header>
+            <Card.Body className="p-2">
+                <div className="p-1 bg-light rounded d-flex align-items-center mb-2">
+                    <FaSearch size={14} className="text-muted ms-2 me-3" />
+                    <Form.Control
+                        placeholder="Rechercher un contact..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="border-0 bg-light p-1"
+                    />
+                </div>
+            </Card.Body>
 
-            <ListGroup 
-              variant="flush"
-              className="flex-grow-1"
-              style={{ overflowY: "auto" }}
-            >
-              {filteredConversations.map((conv) => (
-                <ListGroup.Item
-                  key={conv.id}
-                  action
-                  className="border-0 py-3 px-4"
-                  style={{ 
-                    background: selectedConv.id === conv.id ? 
-                      "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" : "transparent",
-                    color: selectedConv.id === conv.id ? "white" : "inherit",
-                    borderLeft: selectedConv.id === conv.id ? "4px solid #667eea" : "4px solid transparent",
-                    transition: "all 0.3s ease",
-                    cursor: "pointer"
-                  }}
-                  onClick={() => handleSelectConv(conv)}
-                >
-                  <div className="d-flex align-items-start">
-                    {/* Avatar */}
-                    <div 
-                      className="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
-                      style={{
-                        width: "50px",
-                        height: "50px",
-                        background: selectedConv.id === conv.id ? 
-                          "rgba(255, 255, 255, 0.2)" : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                        fontSize: "1.2rem"
-                      }}
-                    >
-                      {conv.avatar}
-                    </div>
-
-                    {/* Contenu */}
-                    <div className="flex-grow-1" style={{ minWidth: 0 }}>
-                      <div className="d-flex justify-content-between align-items-start mb-1">
-                        <h6 
-                          className="fw-bold mb-0"
-                          style={{ 
-                            fontSize: "0.95rem",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis"
-                          }}
-                        >
-                          {conv.nom}
-                        </h6>
-                        <small className={selectedConv.id === conv.id ? "text-white-50" : "text-muted"}>
-                          {conv.timestamp}
-                        </small>
-                      </div>
-
-                      <div className="d-flex justify-content-between align-items-center">
-                        <p 
-                          className="mb-0"
-                          style={{ 
-                            fontSize: "0.85rem",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            opacity: selectedConv.id === conv.id ? 0.9 : 0.7
-                          }}
-                        >
-                          {conv.dernierMessage}
-                        </p>
-                        
-                        {conv.nonLu > 0 && selectedConv.id !== conv.id && (
-                          <Badge 
-                            bg="danger" 
-                            className="ms-2 flex-shrink-0"
-                            style={{ borderRadius: "10px", fontSize: "0.7rem" }}
-                          >
-                            {conv.nonLu}
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Statut */}
-                      {selectedConv.id !== conv.id && (
-                        <div className="mt-1">
-                          {getStatusBadge(conv.statut)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+            <ListGroup variant="flush" style={{ overflowY: "auto", maxHeight: "calc(100vh - 140px)" }}>
+              {loading ? (
+                <ListGroup.Item className="text-center text-muted">
+                    <Spinner animation="border" size="sm" variant="success" className="me-2" />
+                    Chargement...
                 </ListGroup.Item>
-              ))}
+              ) : filteredConversations.length > 0 ? (
+                filteredConversations.map(conv => (
+                  <ListGroup.Item
+                    key={conv.id}
+                    action
+                    onClick={() => handleSelectConv(conv)}
+                    className={`d-flex justify-content-between align-items-center py-2 px-3 ${selectedConv?.id === conv.id ? "bg-light" : "bg-white"}`}
+                    style={{ borderLeft: selectedConv?.id === conv.id ? '3px solid #075e54' : 'none' }}
+                  >
+                    <div className="d-flex align-items-center">
+                        {/* Utilisation du nouveau composant Avatar */}
+                        <Avatar src={conv.avatarUrl} size={40} />
+                        <div className="ms-3">
+                            {/* Mise en évidence du nom si non lu */}
+                            <strong className={conv.nonLu > 0 ? "text-dark" : "text-muted"}>
+                                {conv.sender}
+                            </strong>
+                            
+                            {/* Mise en évidence du dernier message si non lu */}
+                            <small className={conv.nonLu > 0 ? "text-dark d-block fw-bold" : "text-muted d-block"}>
+                                {conv.replies.length > 0 
+                                    ? conv.replies[conv.replies.length - 1].content.slice(0, 30) + '...' 
+                                    : 'Pas de message...'}
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div className="d-flex flex-column align-items-end">
+                        {conv.nonLu > 0 && <Badge bg="success" pill>{conv.nonLu}</Badge>}
+                    </div>
+                  </ListGroup.Item>
+                ))
+              ) : (
+                <ListGroup.Item className="text-center text-muted">Aucune conversation trouvée.</ListGroup.Item>
+              )}
             </ListGroup>
           </Card>
 
-          {/* Fenêtre de chat */}
-          <Card 
-            className="shadow-lg border-0 flex-grow-1 d-flex flex-column"
-            style={{ 
-              borderRadius: "20px",
-              background: "rgba(255, 255, 255, 0.95)",
-              backdropFilter: "blur(10px)"
-            }}
-          >
-            {/* En-tête du chat */}
-            <Card.Header 
-              className="border-0 bg-transparent py-4"
-              style={{ borderBottom: "1px solid rgba(0, 0, 0, 0.05)" }}
-            >
-              <div className="d-flex align-items-center">
-                <div 
-                  className="rounded-circle d-flex align-items-center justify-content-center me-3"
-                  style={{
-                    width: "50px",
-                    height: "50px",
-                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                    fontSize: "1.2rem",
-                    color: "white"
-                  }}
+          {/* Fenêtre de chat (Côté Droit) */}
+          <Card className="flex-grow-1 d-flex flex-column border-0" style={{ borderRadius: "0" }}>
+            {selectedConv ? (
+              <>
+                <Card.Header className="d-flex align-items-center bg-white border-bottom py-2">
+                    {/* Utilisation du nouveau composant Avatar dans l'entête */}
+                    <Avatar src={selectedConv.avatarUrl} size={40} />
+                    <h5 className="mb-0 ms-3 me-auto">Contact : {selectedConv.sender}</h5>
+                </Card.Header>
+                
+                <Card.Body 
+                    className="flex-grow-1 d-flex flex-column" 
+                    style={{ overflowY: "auto", ...chatBackgroundStyle }}
                 >
-                  {selectedConv.avatar}
-                </div>
-                <div className="flex-grow-1">
-                  <h5 className="fw-bold mb-1" style={{ color: "#2c3e50" }}>
-                    {selectedConv.nom}
-                  </h5>
-                  {getStatusBadge(selectedConv.statut)}
-                </div>
-                <div className="d-flex gap-2">
-                  <Button 
-                    variant="outline-primary" 
-                    size="sm"
-                    className="rounded-circle"
-                    style={{ width: "40px", height: "40px" }}
-                  >
-                    <i className="fas fa-phone"></i>
-                  </Button>
-                  <Button 
-                    variant="outline-primary" 
-                    size="sm"
-                    className="rounded-circle"
-                    style={{ width: "40px", height: "40px" }}
-                  >
-                    <i className="fas fa-video"></i>
-                  </Button>
-                  <Button 
-                    variant="outline-primary" 
-                    size="sm"
-                    className="rounded-circle"
-                    style={{ width: "40px", height: "40px" }}
-                  >
-                    <i className="fas fa-ellipsis-v"></i>
-                  </Button>
-                </div>
-              </div>
-            </Card.Header>
-
-            {/* Corps du chat */}
-            <Card.Body 
-              className="flex-grow-1 p-4"
-              style={{ 
-                overflowY: "auto",
-                background: "linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%)"
-              }}
-            >
-              <div className="d-flex flex-column" style={{ gap: "16px" }}>
-                {selectedConv.messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`d-flex ${msg.envoyeur === "moi" ? "justify-content-end" : "justify-content-start"}`}
-                  >
-                    <div
-                      className={`p-3 rounded-4 position-relative ${
-                        msg.envoyeur === "moi" 
-                          ? "text-white" 
-                          : "bg-light text-dark"
-                      }`}
-                      style={{
-                        maxWidth: "70%",
-                        background: msg.envoyeur === "moi" 
-                          ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-                          : "white",
-                        boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
-                        borderBottomLeftRadius: msg.envoyeur === "moi" ? "20px" : "4px",
-                        borderBottomRightRadius: msg.envoyeur === "moi" ? "4px" : "20px"
-                      }}
-                    >
-                      <div className="mb-1">{msg.texte}</div>
-                      <small 
-                        className={`d-block text-end ${
-                          msg.envoyeur === "moi" ? "text-white-50" : "text-muted"
-                        }`}
-                        style={{ fontSize: "0.75rem" }}
+                  {selectedConv.replies?.map(msg => {
+                    const isAdminMessage = !!msg.admin_id; 
+                    const justifyContentValue = isAdminMessage ? "flex-end" : "flex-start";
+                    
+                    return (
+                      <div 
+                        key={msg.id} 
+                        className="mb-2" 
+                        style={{
+                            display: 'flex', 
+                            width: '100%', 
+                            justifyContent: justifyContentValue 
+                        }}
                       >
-                        {msg.heure}
-                      </small>
-                    </div>
-                  </div>
-                ))}
-                <div ref={messagesEndRef} />
-              </div>
-            </Card.Body>
+                        <div style={messageBubbleStyle(isAdminMessage)}>
+                          <div className="me-5 pe-3">{msg.content}</div> 
+                          
+                          <div 
+                            style={{ 
+                                position: 'absolute', 
+                                bottom: '2px', 
+                                right: '8px', 
+                                fontSize: "0.6rem",
+                                color: isAdminMessage ? 'rgba(0,0,0,0.5)' : '#999',
+                                whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            
+                            {isAdminMessage && (
+                                <span className="ms-1">
+                                    <ReadStatusIcon status={msg.read_status} />
+                                </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </Card.Body>
 
-            {/* Pied du chat */}
-            <Card.Footer className="border-0 bg-transparent py-3">
-              <Form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSendMessage();
-                }}
-              >
-                <InputGroup>
-                  <Button 
-                    variant="outline-secondary" 
-                    className="border-0 rounded-pill me-2"
-                    style={{ width: "45px", height: "45px" }}
-                  >
-                    <i className="fas fa-paperclip"></i>
-                  </Button>
-                  <Form.Control
-                    type="text"
-                    placeholder="Écrire un message..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    className="border-0 rounded-pill bg-light"
-                    style={{ height: "45px" }}
-                  />
-                  <Button 
-                    type="submit" 
-                    variant="primary" 
-                    className="rounded-pill ms-2 px-4"
-                    disabled={!newMessage.trim()}
-                    style={{
-                      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                      border: "none",
-                      height: "45px"
-                    }}
-                  >
-                    <i className="fas fa-paper-plane"></i>
-                  </Button>
-                </InputGroup>
-              </Form>
-            </Card.Footer>
+                <Card.Footer className="bg-light border-top py-2">
+                  <Form onSubmit={handleSendMessage}>
+                    <InputGroup>
+                      <Form.Control
+                        placeholder="Écrire un message..."
+                        value={newMessage}
+                        onChange={e => setNewMessage(e.target.value)}
+                        style={{ borderRadius: '20px', padding: '10px 15px' }}
+                      />
+                      <Button 
+                        type="submit" 
+                        onClick={handleSendMessage} 
+                        disabled={!newMessage.trim() || loading} 
+                        variant="success"
+                        style={{ borderRadius: '50%', width: '45px', height: '45px', padding: '0', marginLeft: '10px' }}
+                      >
+                        <FaPaperPlane size={18} />
+                      </Button>
+                    </InputGroup>
+                  </Form>
+                </Card.Footer>
+              </>
+            ) : (
+              <div className="d-flex flex-grow-1 justify-content-center align-items-center bg-light">
+                <p className="text-muted fs-5">Sélectionnez une conversation pour commencer.</p>
+              </div>
+            )}
           </Card>
         </div>
       </div>
-
-      {/* Styles CSS supplémentaires */}
-      <style>
-        {`
-          .card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-          }
-          
-          .list-group-item {
-            transition: all 0.3s ease;
-          }
-          
-          .list-group-item:hover {
-            background: rgba(102, 126, 234, 0.05) !important;
-          }
-          
-          .btn {
-            transition: all 0.3s ease;
-          }
-          
-          .btn:hover {
-            transform: translateY(-1px);
-          }
-          
-          /* Scrollbar personnalisée */
-          ::-webkit-scrollbar {
-            width: 6px;
-          }
-          
-          ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.05);
-            border-radius: 10px;
-          }
-          
-          ::-webkit-scrollbar-thumb {
-            background: rgba(102, 126, 234, 0.3);
-            border-radius: 10px;
-          }
-          
-          ::-webkit-scrollbar-thumb:hover {
-            background: rgba(102, 126, 234, 0.5);
-          }
-        `}
-      </style>
     </div>
   );
 };
