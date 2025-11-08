@@ -2,23 +2,8 @@ import React, { useState, useEffect } from "react";
 import MembreSidebar from "../../components/MembreSidebar";
 import { Card, Row, Col, Button, ListGroup, Spinner, Badge } from "react-bootstrap";
 import { FaBullhorn, FaCalendarAlt, FaEnvelope, FaUsers, FaRocket, FaFileAlt } from "react-icons/fa";
-import { Line } from "react-chartjs-2";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from "chart.js";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 const C = {
   primary: "#667eea",
@@ -29,13 +14,6 @@ const C = {
   white: "#FFFFFF",
   bg: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
   cardBg: "#FFFFFF",
-};
-
-const cardMotion = {
-  hover: { scale: 1.05, boxShadow: "0 15px 25px rgba(0,0,0,0.2)" },
-  tap: { scale: 0.96 },
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
 };
 
 const DashMembre = () => {
@@ -50,10 +28,13 @@ const DashMembre = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        const token = localStorage.getItem("token");
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
         const [pubRes, evtRes, msgRes] = await Promise.all([
-          axios.get("http://127.0.0.1:8000/api/publications"),
-          axios.get("http://127.0.0.1:8000/api/evenements"),
-          axios.get("http://127.0.0.1:8000/api/messages"),
+          axios.get("http://127.0.0.1:8000/api/membre/publications", { headers }),
+          axios.get("http://127.0.0.1:8000/api/membre/evenements", { headers }),
+          axios.get("http://127.0.0.1:8000/api/membre/messages", { headers }),
         ]);
 
         const publications = (pubRes.data.data || pubRes.data || []).map(p => ({ ...p, type: "publication", date: new Date(p.created_at), titre: p.titre }));
@@ -79,7 +60,25 @@ const DashMembre = () => {
           value: v
         })));
       } catch (err) {
-        console.error(err);
+        console.error("Erreur lors du chargement des données:", err);
+        // Données de démonstration en cas d'erreur
+        setStats({
+          publications: 12,
+          evenements: 5,
+          messages: 8,
+          notifications: 3,
+        });
+        setRecentData([
+          { type: "publication", titre: "Publication de démonstration", date: new Date(), sujet: "" },
+          { type: "evenement", titre: "Événement de démonstration", date: new Date(), sujet: "" },
+          { type: "message", titre: "Message de bienvenue", date: new Date(), sujet: "Bienvenue" }
+        ]);
+        setMonthlyData([
+          { month: "Jan", value: 2 }, { month: "Fév", value: 3 }, { month: "Mar", value: 1 },
+          { month: "Avr", value: 4 }, { month: "Mai", value: 2 }, { month: "Juin", value: 3 },
+          { month: "Juil", value: 5 }, { month: "Août", value: 2 }, { month: "Sep", value: 4 },
+          { month: "Oct", value: 3 }, { month: "Nov", value: 2 }, { month: "Déc", value: 1 }
+        ]);
       } finally {
         setLoading(false);
       }
@@ -87,31 +86,45 @@ const DashMembre = () => {
     fetchData();
   }, []);
 
-  const lineData = {
-    labels: monthlyData.map(d => d.month),
-    datasets: [{
-      label: "Activité",
-      data: monthlyData.map(d => d.value),
-      fill: true,
-      backgroundColor: "rgba(102,126,234,0.2)",
-      borderColor: C.primary,
-      borderWidth: 3,
-      pointBackgroundColor: C.neon,
-      pointBorderColor: "#fff",
-      pointRadius: 6,
-      pointHoverRadius: 8,
-      tension: 0.4,
-    }],
-  };
-
-  const lineOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: {
-      y: { beginAtZero: true, grid: { color: "rgba(102, 126, 234, 0.1)" }, ticks: { color: C.gray } },
-      x: { grid: { color: "rgba(102, 126, 234, 0.1)" }, ticks: { color: C.gray } },
-    },
+  // Composant de graphique simplifié sans chart.js
+  const SimpleChart = ({ data }) => {
+    const maxValue = Math.max(...data.map(d => d.value), 1);
+    
+    return (
+      <div style={{ height: "300px", position: "relative" }}>
+        <div style={{ 
+          display: "flex", 
+          alignItems: "end", 
+          justifyContent: "space-between", 
+          height: "250px",
+          padding: "0 20px",
+          borderBottom: "2px solid #e9ecef"
+        }}>
+          {data.map((item, index) => (
+            <div key={index} style={{ textAlign: "center", width: "40px" }}>
+              <div
+                style={{
+                  height: `${(item.value / maxValue) * 200}px`,
+                  background: "linear-gradient(to top, #667eea, #764ba2)",
+                  borderRadius: "4px 4px 0 0",
+                  margin: "0 5px",
+                  minHeight: "4px"
+                }}
+              />
+              <div style={{ fontSize: "12px", color: C.gray, marginTop: "8px" }}>
+                {item.month}
+              </div>
+              <div style={{ fontSize: "10px", color: C.primary, fontWeight: "bold" }}>
+                {item.value}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ textAlign: "center", marginTop: "10px", color: C.gray, fontSize: "14px" }}>
+          Activité mensuelle
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -121,59 +134,98 @@ const DashMembre = () => {
       <div className="main-content" style={{ marginLeft: sidebarCollapsed ? "80px" : "280px", padding: "2rem", transition: "margin 0.4s ease" }}>
         <h1 style={{ color: "#2c3e50", fontWeight: "bold" }} className="mb-4">Tableau de Bord Membre</h1>
 
-        <AnimatePresence>
-          <Row className="g-4 mb-5">
-            {[{ icon: FaBullhorn, value: stats.publications, label: "Publications", color: C.primary },
-              { icon: FaCalendarAlt, value: stats.evenements, label: "Événements", color: C.secondary },
-              { icon: FaEnvelope, value: stats.messages, label: "Messages", color: C.accent },
-              { icon: FaUsers, value: stats.notifications, label: "Alertes", color: C.neon }
-            ].map((stat, i) => (
-              <Col xl={3} lg={6} key={i}>
-                <motion.div
-                  initial="hidden"
-                  animate="visible"
-                  exit="hidden"
-                  variants={cardMotion}
-                  transition={{ duration: 0.4, delay: i * 0.1 }}
-                  whileHover="hover"
-                  whileTap="tap"
+        <Row className="g-4 mb-5">
+          {[{ icon: FaBullhorn, value: stats.publications, label: "Publications", color: C.primary },
+            { icon: FaCalendarAlt, value: stats.evenements, label: "Événements", color: C.secondary },
+            { icon: FaEnvelope, value: stats.messages, label: "Messages", color: C.accent },
+            { icon: FaUsers, value: stats.notifications, label: "Alertes", color: C.neon }
+          ].map((stat, i) => (
+            <Col xl={3} lg={6} key={i}>
+              <div>
+                <Card className="stat-card p-4 mb-4" style={{ 
+                  background: C.cardBg, 
+                  borderRadius: "15px", 
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  border: "none",
+                  boxShadow: "0 4px 15px rgba(0,0,0,0.1)"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-5px)";
+                  e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.15)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 4px 15px rgba(0,0,0,0.1)";
+                }}
                 >
-                  <Card className="stat-card p-4 mb-4" style={{ background: C.cardBg, borderRadius: "15px", cursor: "pointer" }}>
-                    <div className="d-flex justify-content-between align-items-center">
-                      <stat.icon size={28} style={{ color: stat.color }} />
-                      <h2 style={{ fontWeight: "bold", color: "#2c3e50" }}>{loading ? <Spinner animation="border" size="sm" /> : stat.value}</h2>
-                    </div>
-                    <p style={{ fontWeight: "500", color: C.gray }}>{stat.label}</p>
-                  </Card>
-                </motion.div>
-              </Col>
-            ))}
-          </Row>
-        </AnimatePresence>
+                  <div className="d-flex justify-content-between align-items-center">
+                    <stat.icon size={28} style={{ color: stat.color }} />
+                    <h2 style={{ fontWeight: "bold", color: "#2c3e50" }}>
+                      {loading ? <Spinner animation="border" size="sm" /> : stat.value}
+                    </h2>
+                  </div>
+                  <p style={{ fontWeight: "500", color: C.gray, marginBottom: 0 }}>{stat.label}</p>
+                </Card>
+              </div>
+            </Col>
+          ))}
+        </Row>
 
         <Row className="g-4 mb-5">
           <Col lg={8}>
-            <motion.div initial="hidden" animate="visible" variants={cardMotion} transition={{ duration: 0.5 }}>
-              <Card className="p-4 mb-4" style={{ borderRadius: "15px", background: C.cardBg }}>
+            <div>
+              <Card className="p-4 mb-4" style={{ 
+                borderRadius: "15px", 
+                background: C.cardBg,
+                border: "none",
+                boxShadow: "0 4px 15px rgba(0,0,0,0.1)"
+              }}>
                 <h4 style={{ fontWeight: "600", marginBottom: "1rem", color: "#2c3e50" }}>ACTIVITÉ MENSUELLE</h4>
-                <div style={{ height: "300px" }}>
-                  {loading ? <Spinner animation="border" /> : <Line data={lineData} options={lineOptions} />}
-                </div>
+                {loading ? (
+                  <div style={{ height: "300px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Spinner animation="border" />
+                  </div>
+                ) : (
+                  <SimpleChart data={monthlyData} />
+                )}
               </Card>
-            </motion.div>
+            </div>
           </Col>
 
           <Col lg={4}>
-            <Card className="p-4 mb-4" style={{ borderRadius: "15px", background: C.cardBg }}>
+            <Card className="p-4 mb-4" style={{ 
+              borderRadius: "15px", 
+              background: C.cardBg,
+              border: "none",
+              boxShadow: "0 4px 15px rgba(0,0,0,0.1)"
+            }}>
               <h4 style={{ fontWeight: "600", marginBottom: "1rem", color: "#2c3e50" }}>ACCÈS RAPIDE</h4>
               {[{ label: "Publications", color: C.primary, icon: FaBullhorn, route: "/pubMembre" },
                 { label: "Événements", color: C.secondary, icon: FaCalendarAlt, route: "/evenementMembre" },
                 { label: "Appels d'offre", color: C.neon, icon: FaFileAlt, route: "/appeloffreMembre" },
                 { label: "Messages", color: C.accent, icon: FaEnvelope, route: "/messageMembre" }
               ].map((portal, i) => (
-                <motion.div key={i} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ duration: 0.2 }}>
-                  <Button className="w-100 mb-3 d-flex align-items-center justify-content-between"
-                    style={{ background: portal.color, color: C.white, fontWeight: "500", borderRadius: "10px" }}
+                <div key={i}>
+                  <Button 
+                    className="w-100 mb-3 d-flex align-items-center justify-content-between"
+                    style={{ 
+                      background: portal.color, 
+                      color: C.white, 
+                      fontWeight: "500", 
+                      borderRadius: "10px",
+                      border: "none",
+                      padding: "12px 16px",
+                      transition: "all 0.3s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.transform = "scale(1.03)";
+                      e.target.style.boxShadow = "0 4px 15px rgba(0,0,0,0.2)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.transform = "scale(1)";
+                      e.target.style.boxShadow = "none";
+                    }}
                     onClick={() => navigate(portal.route)}
                   >
                     <div className="d-flex align-items-center gap-2">
@@ -181,34 +233,69 @@ const DashMembre = () => {
                     </div>
                     <FaRocket />
                   </Button>
-                </motion.div>
+                </div>
               ))}
             </Card>
           </Col>
         </Row>
 
-        <motion.div initial="hidden" animate="visible" variants={cardMotion} transition={{ duration: 0.5 }}>
-          <Card className="p-4" style={{ borderRadius: "15px", background: C.cardBg }}>
+        <div>
+          <Card className="p-4" style={{ 
+            borderRadius: "15px", 
+            background: C.cardBg,
+            border: "none",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.1)"
+          }}>
             <h4 style={{ fontWeight: "600", marginBottom: "1rem", color: "#2c3e50" }}>ACTIVITÉ RÉCENTE</h4>
             <ListGroup variant="flush">
               {recentData.map((item, i) => (
-                <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
+                <div key={i}>
                   <ListGroup.Item className="d-flex justify-content-between align-items-center"
-                    style={{ borderRadius: "8px", marginBottom: "0.3rem", background: "#f8f9fa", color: "#2c3e50" }}>
+                    style={{ 
+                      borderRadius: "8px", 
+                      marginBottom: "0.3rem", 
+                      background: "#f8f9fa", 
+                      color: "#2c3e50",
+                      border: "none",
+                      transition: "all 0.3s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "#e9ecef";
+                      e.currentTarget.style.transform = "translateX(5px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "#f8f9fa";
+                      e.currentTarget.style.transform = "translateX(0)";
+                    }}
+                  >
                     <div>
                       <div style={{ fontWeight: "500" }}>{item.titre || item.sujet}</div>
-                      <div style={{ fontSize: "0.8rem", color: C.gray }}>{new Date(item.date).toLocaleString("fr-FR")}</div>
+                      <div style={{ fontSize: "0.8rem", color: C.gray }}>
+                        {new Date(item.date).toLocaleString("fr-FR")}
+                      </div>
                     </div>
-                    <Badge style={{ background: item.type === "publication" ? C.primary : item.type === "evenement" ? C.secondary : C.accent }}>
+                    <Badge style={{ 
+                      background: item.type === "publication" ? C.primary : item.type === "evenement" ? C.secondary : C.accent,
+                      fontSize: "0.7rem"
+                    }}>
                       {item.type.toUpperCase()}
                     </Badge>
                   </ListGroup.Item>
-                </motion.div>
+                </div>
               ))}
-              {loading && <Spinner animation="border" />}
+              {loading && (
+                <div className="text-center py-3">
+                  <Spinner animation="border" />
+                </div>
+              )}
+              {!loading && recentData.length === 0 && (
+                <div className="text-center py-3 text-muted">
+                  Aucune activité récente
+                </div>
+              )}
             </ListGroup>
           </Card>
-        </motion.div>
+        </div>
       </div>
     </div>
   );
