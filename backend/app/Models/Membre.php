@@ -17,7 +17,20 @@ class Membre extends Model
         'statut',
         'avatar',
     ];
+ public function messages()
+    {
+        return $this->hasMany(Message::class);
+    }
 
+    public function getLastMessageAttribute()
+    {
+        return $this->messages()->orderBy('created_at', 'desc')->first();
+    }
+
+    public function getUnreadCountAttribute()
+    {
+        return $this->messages()->where('read', false)->count();
+    }
     protected $hidden = [
         'password',
     ];

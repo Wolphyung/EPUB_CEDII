@@ -8,8 +8,7 @@ import {
   Col, 
   Badge, 
   InputGroup,
-  Alert,
-  Dropdown
+  Alert
 } from "react-bootstrap";
 import AdminSidebar from "../../components/AdminSidebar";
 import { 
@@ -19,8 +18,11 @@ import {
   deletePublication, 
   validatePublication 
 } from "../../services/api";
+import { useTranslation } from 'react-i18next';
 
 const Publication = () => {
+  const { t } = useTranslation();
+  
   const [showModal, setShowModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
   const [search, setSearch] = useState("");
@@ -91,7 +93,7 @@ const Publication = () => {
       setPublications(res.data.data || res.data);
     } catch (err) {
       console.error("Erreur chargement publications:", err);
-      showNotification("error", "Erreur lors du chargement des publications");
+      showNotification("error", t('error_load'));
     } finally {
       setLoading(false);
     }
@@ -106,7 +108,7 @@ const Publication = () => {
 
   // Fonction pour formater la date
   const formatDate = (dateString) => {
-    if (!dateString) return 'Date non définie';
+    if (!dateString) return t('date_not_defined');
     
     try {
       const dateOnly = dateString.split(' ')[0];
@@ -164,7 +166,6 @@ const Publication = () => {
     return 'document';
   };
 
-
   // Ajouter une publication
   const handleAddPublication = async () => {
     try {
@@ -186,10 +187,9 @@ const Publication = () => {
 
       const res = await addPublication(formData);
 
-      // CORRECTION : Créer l'objet publication avec TOUTES les données
+      // Créer l'objet publication avec TOUTES les données
       const addedPub = {
         ...res.data,
-        // Assurer que les propriétés essentielles existent
         titre: newPub.titre,
         contenu: newPub.contenu,
         type: newPub.type,
@@ -200,7 +200,6 @@ const Publication = () => {
         likes: 0,
         vues: 0,
         type_fichier: newPub.type_fichier,
-        // Créer l'URL temporaire pour l'affichage immédiat
         fichier_url: newPub.fichier ? URL.createObjectURL(newPub.fichier) : null,
         fichier: newPub.fichier ? newPub.fichier : null,
         nom_fichier_original: newPub.fichier ? newPub.fichier.name : null
@@ -225,23 +224,23 @@ const Publication = () => {
       });
       setPreviewFile(null);
       setShowModal(false);
-      showNotification("success", "✅ Publication ajoutée avec succès !");
+      showNotification("success", t('success_add'));
     } catch (err) {
       console.error("Erreur ajout publication:", err.response?.data || err.message);
-      showNotification("error", "❌ Erreur lors de l'ajout : " + (err.response?.data?.message || err.message));
+      showNotification("error", t('error_add') + ": " + (err.response?.data?.message || err.message));
     }
   };
 
   // Supprimer
   const handleDelete = async (id) => {
-    if (!window.confirm("Voulez-vous vraiment supprimer cette publication ?")) return;
+    if (!window.confirm(t('delete_confirmation'))) return;
     try {
       await deletePublication(id);
       setPublications(prev => prev.filter(pub => pub.id_publication !== id));
-      showNotification("success", "✅ Publication supprimée avec succès !");
+      showNotification("success", t('success_delete'));
     } catch (err) {
       console.error("Erreur suppression:", err);
-      showNotification("error", "❌ Erreur lors de la suppression");
+      showNotification("error", t('error_delete'));
     }
   };
 
@@ -250,10 +249,10 @@ const Publication = () => {
     try {
       await validatePublication(id);
       loadPublications();
-      showNotification("success", "✅ Publication validée avec succès !");
+      showNotification("success", t('success_validate'));
     } catch (err) {
       console.error("Erreur validation:", err);
-      showNotification("error", "❌ Erreur lors de la validation");
+      showNotification("error", t('error_validate'));
     }
   };
 
@@ -315,16 +314,14 @@ const Publication = () => {
 
       const res = await updatePublication(selectedPub.id_publication, formData);
 
-      // CORRECTION : Mettre à jour avec les données complètes
+      // Mettre à jour avec les données complètes
       const updatedPub = {
         ...res.data,
-        // Conserver les données existantes
         titre: selectedPub.titre,
         contenu: selectedPub.contenu,
         type: selectedPub.type,
         categorie: selectedPub.categorie,
         type_fichier: selectedPub.type_fichier,
-        // Créer l'URL temporaire si nouveau fichier
         fichier_url: selectedPub.fichier && selectedPub.fichier instanceof File 
           ? URL.createObjectURL(selectedPub.fichier) 
           : selectedPub.fichier_url,
@@ -338,10 +335,10 @@ const Publication = () => {
       ));
       setEditModal(false);
       setPreviewFile(null);
-      showNotification("success", "✅ Publication modifiée avec succès !");
+      showNotification("success", t('success_edit'));
     } catch (err) {
       console.error("Erreur modification publication:", err);
-      showNotification("error", "❌ Erreur lors de la modification !");
+      showNotification("error", t('error_edit'));
     }
   };
 
@@ -483,7 +480,7 @@ const Publication = () => {
     try {
       const fileUrl = displayFile(pub);
       if (!fileUrl) {
-        showNotification("error", "❌ Fichier non disponible");
+        showNotification("error", t('error_download'));
         return;
       }
 
@@ -498,10 +495,10 @@ const Publication = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       
-      showNotification("success", "✅ Téléchargement commencé");
+      showNotification("success", t('success_download'));
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
-      showNotification("error", "❌ Erreur lors du téléchargement");
+      showNotification("error", t('error_download'));
     }
   };
 
@@ -516,7 +513,7 @@ const Publication = () => {
       <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
         <h6 className="mb-3">
           <i className="fas fa-eye me-2"></i>
-          Aperçu du fichier
+          {t('file_preview')}
         </h6>
         
         {isImage ? (
@@ -551,7 +548,7 @@ const Publication = () => {
           <div className="text-center">
             <i className={`fas ${getFileIcon(file.name)} fa-3x text-${getFileBadgeVariant(file.name)} mb-2`}></i>
             <p className="mb-0 small text-muted">{file.name}</p>
-            <p className="small text-muted">Aperçu non disponible pour ce type de fichier</p>
+            <p className="small text-muted">{t('preview_not_available')}</p>
           </div>
         )}
       </div>
@@ -600,7 +597,7 @@ const Publication = () => {
             } me-3 fs-5`}></i>
             <div>
               <strong className="d-block">
-                {showAlert.type === "success" ? "Succès" : "Erreur"}
+                {showAlert.type === "success" ? t('success') : t('error')}
               </strong>
               <span className="text-muted">{showAlert.message}</span>
             </div>
@@ -615,11 +612,11 @@ const Publication = () => {
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent"
             }}>
-              Gestion des Publications
+              {t('publication_management_title')}
             </h2>
             <p className="text-muted mb-0 d-flex align-items-center">
               <i className="fas fa-newspaper me-2"></i>
-              Gérez et publiez du contenu avec fichiers
+              {t('publication_management_subtitle')}
             </p>
           </div>
           <Button 
@@ -635,7 +632,7 @@ const Publication = () => {
             }}
           >
             <i className="fas fa-plus me-2"></i>
-            Nouvelle Publication
+            {t('new_publication_button')}
           </Button>
         </div>
 
@@ -643,25 +640,25 @@ const Publication = () => {
         <Row className="mb-4">
           {[
             { 
-              title: "Total Publications", 
+              title: "total_publications", 
               count: publications.length, 
               icon: "fa-newspaper", 
               color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
             },
             { 
-              title: "Avec Fichiers", 
+              title: "with_files", 
               count: publications.filter((p) => displayFile(p)).length, 
               icon: "fa-paperclip", 
               color: "linear-gradient(135deg, #00b09b, #96c93d)"
             },
             { 
-              title: "Vidéos", 
+              title: "videos", 
               count: publications.filter((p) => getFileType(p) === 'video').length, 
               icon: "fa-video", 
               color: "linear-gradient(135deg, #f093fb, #f5576c)"
             },
             { 
-              title: "Images", 
+              title: "images", 
               count: publications.filter((p) => getFileType(p) === 'image').length, 
               icon: "fa-image", 
               color: "linear-gradient(135deg, #fd746c, #ff9068)"
@@ -672,7 +669,7 @@ const Publication = () => {
                 <Card.Body className="p-4">
                   <div className="d-flex justify-content-between align-items-center">
                     <div>
-                      <h6 className="card-title text-muted mb-2">{stat.title}</h6>
+                      <h6 className="card-title text-muted mb-2">{t(stat.title)}</h6>
                       <h2 className="fw-bold mb-0" style={{ 
                         background: stat.color,
                         WebkitBackgroundClip: "text",
@@ -706,7 +703,7 @@ const Publication = () => {
                 <Form.Group>
                   <Form.Label className="fw-semibold text-muted mb-2">
                     <i className="fas fa-search me-2"></i>
-                    Recherche
+                    {t('search')}
                   </Form.Label>
                   <InputGroup>
                     <InputGroup.Text style={{ 
@@ -718,7 +715,7 @@ const Publication = () => {
                     </InputGroup.Text>
                     <Form.Control
                       type="text"
-                      placeholder="Rechercher par titre..."
+                      placeholder={t('search_placeholder')}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       style={{ borderRadius: "0 10px 10px 0" }}
@@ -731,18 +728,18 @@ const Publication = () => {
                 <Form.Group>
                   <Form.Label className="fw-semibold text-muted mb-2">
                     <i className="fas fa-filter me-2"></i>
-                    Statut
+                    {t('status_filter')}
                   </Form.Label>
                   <Form.Select
                     value={filterStatut}
                     onChange={(e) => setFilterStatut(e.target.value)}
                     style={{ borderRadius: "10px" }}
                   >
-                    <option value="Tous">Tous les statuts</option>
-                    <option value="Validé">Validé</option>
-                    <option value="En attente">En attente</option>
-                    <option value="Brouillon">Brouillon</option>
-                    <option value="Rejeté">Rejeté</option>
+                    <option value="Tous">{t('all_status')}</option>
+                    <option value="Validé">{t('Validé')}</option>
+                    <option value="En attente">{t('En attente')}</option>
+                    <option value="Brouillon">{t('Brouillon')}</option>
+                    <option value="Rejeté">{t('Rejeté')}</option>
                   </Form.Select>
                 </Form.Group>
               </Col>
@@ -751,16 +748,16 @@ const Publication = () => {
                 <Form.Group>
                   <Form.Label className="fw-semibold text-muted mb-2">
                     <i className="fas fa-tag me-2"></i>
-                    Type
+                    {t('type_filter')}
                   </Form.Label>
                   <Form.Select
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}
                     style={{ borderRadius: "10px" }}
                   >
-                    <option value="Tous">Tous les types</option>
-                    <option value="Article">Article</option>
-                    <option value="Annonce">Annonce</option>
+                    <option value="Tous">{t('all_types')}</option>
+                    <option value="Article">{t('article')}</option>
+                    <option value="Annonce">{t('announcement')}</option>
                   </Form.Select>
                 </Form.Group>
               </Col>
@@ -793,9 +790,9 @@ const Publication = () => {
         {loading ? (
           <div className="text-center py-5">
             <div className="spinner-border text-primary mb-3" style={{ width: "3rem", height: "3rem" }} role="status">
-              <span className="visually-hidden">Chargement...</span>
+              <span className="visually-hidden">{t('loading')}...</span>
             </div>
-            <p className="text-muted fw-semibold">Chargement des publications...</p>
+            <p className="text-muted fw-semibold">{t('loading_publications')}</p>
           </div>
         ) : (
           <Row>
@@ -836,7 +833,7 @@ const Publication = () => {
                             <div className="position-absolute top-0 start-0 m-2">
                               <Badge bg="dark" className="d-flex align-items-center">
                                 <i className="fas fa-video me-1"></i>
-                                Vidéo
+                                {t('video')}
                               </Badge>
                             </div>
                           </div>
@@ -866,7 +863,7 @@ const Publication = () => {
                             pub.statut === "En attente" ? "fa-clock" :
                             pub.statut === "Brouillon" ? "fa-edit" : "fa-times"
                           } me-1`}></i>
-                          {pub.statut}
+                          {t(pub.statut)}
                         </Badge>
                       </div>
                     ) : (
@@ -882,7 +879,7 @@ const Publication = () => {
                       }}>
                         <div className="text-center text-white">
                           <i className={`fas ${getTypeIcon(pub.type)} fs-1 mb-2 d-block`}></i>
-                          <small>Aucun fichier</small>
+                          <small>{t('no_file')}</small>
                         </div>
                         <Badge 
                           bg={getStatusVariant(pub.statut)} 
@@ -894,7 +891,7 @@ const Publication = () => {
                             pub.statut === "En attente" ? "fa-clock" :
                             pub.statut === "Brouillon" ? "fa-edit" : "fa-times"
                           } me-1`}></i>
-                          {pub.statut}
+                          {t(pub.statut)}
                         </Badge>
                       </div>
                     )}
@@ -908,7 +905,7 @@ const Publication = () => {
                             text="dark"
                             style={{ borderRadius: "15px", fontSize: "0.7rem" }}
                           >
-                            {pub.type}
+                            {t(pub.type.toLowerCase())}
                           </Badge>
                           {pub.categorie && (
                             <Badge 
@@ -925,7 +922,7 @@ const Publication = () => {
                               style={{ borderRadius: "15px", fontSize: "0.7rem", marginLeft: "5px" }}
                             >
                               <i className="fas fa-video me-1"></i>
-                              Vidéo
+                              {t('video')}
                             </Badge>
                           )}
                         </div>
@@ -957,7 +954,7 @@ const Publication = () => {
                               <div className="d-flex align-items-center">
                                 <i className={`fas ${getFileIcon(pub.nom_fichier_original)} text-${getFileBadgeVariant(pub.nom_fichier_original)} me-2`}></i>
                                 <span className="small">
-                                  {pub.nom_fichier_original || 'Fichier joint'}
+                                  {pub.nom_fichier_original || t('attached_file')}
                                 </span>
                               </div>
                               <Button
@@ -968,7 +965,7 @@ const Publication = () => {
                                 style={{ borderRadius: "6px", fontSize: "0.7rem" }}
                               >
                                 <i className="fas fa-download me-1"></i>
-                                Télécharger
+                                {t('download')}
                               </Button>
                             </div>
                           </div>
@@ -1030,15 +1027,15 @@ const Publication = () => {
                 <Card className="border-0 shadow-sm text-center" style={{ borderRadius: "20px" }}>
                   <Card.Body className="py-5">
                     <i className="fas fa-newspaper fs-1 text-muted mb-3 d-block" style={{ opacity: 0.5 }}></i>
-                    <h5 className="text-muted mb-2">Aucune publication trouvée</h5>
-                    <p className="text-muted mb-3">Aucune publication ne correspond à vos critères de recherche</p>
+                    <h5 className="text-muted mb-2">{t('no_publications_found')}</h5>
+                    <p className="text-muted mb-3">{t('no_publications_match')}</p>
                     <Button 
                       variant="primary" 
                       onClick={clearFilters}
                       className="d-flex align-items-center mx-auto"
                     >
                       <i className="fas fa-times me-2"></i>
-                      Effacer les filtres
+                      {t('clear_filters')}
                     </Button>
                   </Card.Body>
                 </Card>
@@ -1059,7 +1056,7 @@ const Publication = () => {
           >
             <Modal.Title className="d-flex align-items-center fw-bold">
               <i className="fas fa-plus me-2"></i>
-              Nouvelle Publication
+              {t('add_publication_modal')}
             </Modal.Title>
           </Modal.Header>
           <Modal.Body className="p-4">
@@ -1069,7 +1066,7 @@ const Publication = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-heading me-2 text-primary"></i>
-                      Titre *
+                      {t('publication_title')}
                     </Form.Label>
                     <Form.Control 
                       type="text" 
@@ -1078,7 +1075,7 @@ const Publication = () => {
                       onChange={handleChange} 
                       required 
                       style={{ borderRadius: "10px", padding: "12px" }}
-                      placeholder="Titre de la publication"
+                      placeholder={t('publication_title')}
                     />
                   </Form.Group>
                 </Col>
@@ -1086,17 +1083,17 @@ const Publication = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-chart-line me-2 text-primary"></i>
-                      Statut
+                      {t('status_label')}
                     </Form.Label>
                     <Form.Control 
                       type="text" 
-                      value="Validé" 
+                      value={t('Validé')} 
                       disabled 
                       style={{ borderRadius: "10px", padding: "12px", background: "#e9ecef" }}
                     />
                     <Form.Text className="text-muted">
                       <i className="fas fa-info-circle me-1"></i>
-                      Les publications admin sont toujours validées
+                      {t('admin_publications_always_validated')}
                     </Form.Text>
                   </Form.Group>
                 </Col>
@@ -1105,7 +1102,7 @@ const Publication = () => {
               <Form.Group className="mb-4">
                 <Form.Label className="fw-semibold text-muted">
                   <i className="fas fa-align-left me-2 text-primary"></i>
-                  Contenu *
+                  {t('content_label')}
                 </Form.Label>
                 <Form.Control 
                   as="textarea" 
@@ -1115,7 +1112,7 @@ const Publication = () => {
                   onChange={handleChange} 
                   required 
                   style={{ borderRadius: "10px", padding: "12px" }}
-                  placeholder="Contenu de la publication..."
+                  placeholder={t('content_placeholder')}
                 />
               </Form.Group>
               
@@ -1124,7 +1121,7 @@ const Publication = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-tag me-2 text-primary"></i>
-                      Type *
+                      {t('type_label')}
                     </Form.Label>
                     <Form.Select 
                       name="type" 
@@ -1132,8 +1129,8 @@ const Publication = () => {
                       onChange={handleChange}
                       style={{ borderRadius: "10px", padding: "12px" }}
                     >
-                      <option value="Article">Article</option>
-                      <option value="Annonce">Annonce</option>
+                      <option value="Article">{t('article')}</option>
+                      <option value="Annonce">{t('announcement')}</option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -1141,7 +1138,7 @@ const Publication = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-folder me-2 text-primary"></i>
-                      Catégorie *
+                      {t('category_label')}
                     </Form.Label>
                     <Form.Select 
                       name="categorie" 
@@ -1150,7 +1147,7 @@ const Publication = () => {
                       required
                       style={{ borderRadius: "10px", padding: "12px" }}
                     >
-                      <option value="">Sélectionnez une catégorie</option>
+                      <option value="">{t('select_category')}</option>
                       {categories.map((cat, index) => (
                         <option key={index} value={cat}>{cat}</option>
                       ))}
@@ -1165,7 +1162,7 @@ const Publication = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-paperclip me-2 text-primary"></i>
-                      Type de Fichier
+                      {t('file_type_label')}
                     </Form.Label>
                     <div className="d-flex gap-2">
                       <Button
@@ -1175,7 +1172,7 @@ const Publication = () => {
                         style={{ borderRadius: "10px" }}
                       >
                         <i className="fas fa-image me-2"></i>
-                        Image
+                        {t('image')}
                       </Button>
                       <Button
                         variant={newPub.type_fichier === 'video' ? 'primary' : 'outline-primary'}
@@ -1184,7 +1181,7 @@ const Publication = () => {
                         style={{ borderRadius: "10px" }}
                       >
                         <i className="fas fa-video me-2"></i>
-                        Vidéo
+                        {t('video')}
                       </Button>
                       <Button
                         variant={newPub.type_fichier === 'document' ? 'primary' : 'outline-primary'}
@@ -1193,7 +1190,7 @@ const Publication = () => {
                         style={{ borderRadius: "10px" }}
                       >
                         <i className="fas fa-file me-2"></i>
-                        Document
+                        {t('document')}
                       </Button>
                     </div>
                   </Form.Group>
@@ -1202,7 +1199,7 @@ const Publication = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-calendar me-2 text-primary"></i>
-                      Date de publication
+                      {t('publication_date')}
                     </Form.Label>
                     <Form.Control 
                       type="date" 
@@ -1221,7 +1218,7 @@ const Publication = () => {
                     newPub.type_fichier === 'video' ? 'fa-video' : 
                     newPub.type_fichier === 'document' ? 'fa-file' : 'fa-image'
                   } me-2 text-primary`}></i>
-                  Fichier {newPub.type_fichier === 'video' ? 'Vidéo' : newPub.type_fichier === 'document' ? 'Document' : 'Image'}
+                  {t('file_label')} {newPub.type_fichier === 'video' ? t('video') : newPub.type_fichier === 'document' ? t('document') : t('image')}
                 </Form.Label>
                 <Form.Control 
                   type="file" 
@@ -1237,10 +1234,10 @@ const Publication = () => {
                 <Form.Text className="text-muted">
                   <i className="fas fa-info-circle me-1"></i>
                   {newPub.type_fichier === 'video' 
-                    ? "Formats acceptés: MP4, AVI, MOV, WMV. Taille max: 50MB" 
+                    ? t('video_formats')
                     : newPub.type_fichier === 'document'
-                    ? "Formats acceptés: PDF, DOC, XLS, PPT, ZIP. Taille max: 20MB"
-                    : "Formats acceptés: JPG, PNG, GIF, WEBP. Taille max: 10MB"}
+                    ? t('document_formats')
+                    : t('image_formats')}
                 </Form.Text>
               </Form.Group>
 
@@ -1252,7 +1249,7 @@ const Publication = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-link me-2 text-primary"></i>
-                      Source
+                      {t('source_label')}
                     </Form.Label>
                     <Form.Control 
                       type="text" 
@@ -1260,7 +1257,7 @@ const Publication = () => {
                       value={newPub.source} 
                       onChange={handleChange} 
                       style={{ borderRadius: "10px", padding: "12px" }}
-                      placeholder="Source originale" 
+                      placeholder={t('source_placeholder')} 
                     />
                   </Form.Group>
                 </Col>
@@ -1275,7 +1272,7 @@ const Publication = () => {
               style={{ borderRadius: "10px", padding: "10px 20px" }}
             >
               <i className="fas fa-times me-2"></i>
-              Annuler
+              {t('cancel_button')}
             </Button>
             <Button 
               variant="primary" 
@@ -1289,7 +1286,7 @@ const Publication = () => {
               }}
             >
               <i className="fas fa-save me-2"></i>
-              Publier
+              {t('publish_button')}
             </Button>
           </Modal.Footer>
         </Modal>
@@ -1307,7 +1304,7 @@ const Publication = () => {
             >
               <Modal.Title className="d-flex align-items-center fw-bold">
                 <i className="fas fa-edit me-2"></i>
-                Modifier la Publication
+                {t('edit_publication_modal')}
               </Modal.Title>
             </Modal.Header>
             <Modal.Body className="p-4">
@@ -1317,7 +1314,7 @@ const Publication = () => {
                     <Form.Group className="mb-4">
                       <Form.Label className="fw-semibold text-muted">
                         <i className="fas fa-heading me-2 text-primary"></i>
-                        Titre *
+                        {t('publication_title')}
                       </Form.Label>
                       <Form.Control 
                         type="text" 
@@ -1333,17 +1330,17 @@ const Publication = () => {
                     <Form.Group className="mb-4">
                       <Form.Label className="fw-semibold text-muted">
                         <i className="fas fa-chart-line me-2 text-primary"></i>
-                        Statut
+                        {t('status_label')}
                       </Form.Label>
                       <Form.Control 
                         type="text" 
-                        value="Validé" 
+                        value={t('Validé')} 
                         disabled 
                         style={{ borderRadius: "10px", padding: "12px", background: "#e9ecef" }}
                       />
                       <Form.Text className="text-muted">
                         <i className="fas fa-info-circle me-1"></i>
-                        Les publications admin sont toujours validées
+                        {t('admin_publications_always_validated')}
                       </Form.Text>
                     </Form.Group>
                   </Col>
@@ -1352,7 +1349,7 @@ const Publication = () => {
                 <Form.Group className="mb-4">
                   <Form.Label className="fw-semibold text-muted">
                     <i className="fas fa-align-left me-2 text-primary"></i>
-                    Contenu *
+                    {t('content_label')}
                   </Form.Label>
                   <Form.Control 
                     as="textarea" 
@@ -1370,7 +1367,7 @@ const Publication = () => {
                     <Form.Group className="mb-4">
                       <Form.Label className="fw-semibold text-muted">
                         <i className="fas fa-tag me-2 text-primary"></i>
-                        Type *
+                        {t('type_label')}
                       </Form.Label>
                       <Form.Select 
                         name="type" 
@@ -1378,8 +1375,8 @@ const Publication = () => {
                         onChange={handleEditChange}
                         style={{ borderRadius: "10px", padding: "12px" }}
                       >
-                        <option value="Article">Article</option>
-                        <option value="Annonce">Annonce</option>
+                        <option value="Article">{t('article')}</option>
+                        <option value="Annonce">{t('announcement')}</option>
                       </Form.Select>
                     </Form.Group>
                   </Col>
@@ -1387,7 +1384,7 @@ const Publication = () => {
                     <Form.Group className="mb-4">
                       <Form.Label className="fw-semibold text-muted">
                         <i className="fas fa-folder me-2 text-primary"></i>
-                        Catégorie *
+                        {t('category_label')}
                       </Form.Label>
                       <Form.Select 
                         name="categorie" 
@@ -1396,7 +1393,7 @@ const Publication = () => {
                         required
                         style={{ borderRadius: "10px", padding: "12px" }}
                       >
-                        <option value="">Sélectionnez une catégorie</option>
+                        <option value="">{t('select_category')}</option>
                         {categories.map((cat, index) => (
                           <option key={index} value={cat}>{cat}</option>
                         ))}
@@ -1411,7 +1408,7 @@ const Publication = () => {
                     <Form.Group className="mb-4">
                       <Form.Label className="fw-semibold text-muted">
                         <i className="fas fa-paperclip me-2 text-primary"></i>
-                        Type de Fichier
+                        {t('file_type_label')}
                       </Form.Label>
                       <div className="d-flex gap-2">
                         <Button
@@ -1421,7 +1418,7 @@ const Publication = () => {
                           style={{ borderRadius: "10px" }}
                         >
                           <i className="fas fa-image me-2"></i>
-                          Image
+                          {t('image')}
                         </Button>
                         <Button
                           variant={selectedPub.type_fichier === 'video' ? 'primary' : 'outline-primary'}
@@ -1430,7 +1427,7 @@ const Publication = () => {
                           style={{ borderRadius: "10px" }}
                         >
                           <i className="fas fa-video me-2"></i>
-                          Vidéo
+                          {t('video')}
                         </Button>
                         <Button
                           variant={selectedPub.type_fichier === 'document' ? 'primary' : 'outline-primary'}
@@ -1439,7 +1436,7 @@ const Publication = () => {
                           style={{ borderRadius: "10px" }}
                         >
                           <i className="fas fa-file me-2"></i>
-                          Document
+                          {t('document')}
                         </Button>
                       </div>
                     </Form.Group>
@@ -1448,7 +1445,7 @@ const Publication = () => {
                     <Form.Group className="mb-4">
                       <Form.Label className="fw-semibold text-muted">
                         <i className="fas fa-calendar me-2 text-primary"></i>
-                        Date de publication
+                        {t('publication_date')}
                       </Form.Label>
                       <Form.Control 
                         type="date" 
@@ -1467,7 +1464,7 @@ const Publication = () => {
                       selectedPub.type_fichier === 'video' ? 'fa-video' : 
                       selectedPub.type_fichier === 'document' ? 'fa-file' : 'fa-image'
                     } me-2 text-primary`}></i>
-                    Fichier {selectedPub.type_fichier === 'video' ? 'Vidéo' : selectedPub.type_fichier === 'document' ? 'Document' : 'Image'}
+                    {t('file_label')} {selectedPub.type_fichier === 'video' ? t('video') : selectedPub.type_fichier === 'document' ? t('document') : t('image')}
                   </Form.Label>
                   <Form.Control 
                     type="file" 
@@ -1484,7 +1481,7 @@ const Publication = () => {
                     <div className="mt-2">
                       <small className="text-muted d-block">
                         <i className="fas fa-file me-1"></i>
-                        Fichier actuel: {selectedPub.nom_fichier_original || 'Fichier joint'}
+                        {t('current_file')}: {selectedPub.nom_fichier_original || t('attached_file')}
                       </small>
                       <Button
                         variant="outline-primary"
@@ -1494,7 +1491,7 @@ const Publication = () => {
                         style={{ borderRadius: "6px", fontSize: "0.7rem" }}
                       >
                         <i className="fas fa-download me-1"></i>
-                        Télécharger
+                        {t('download')}
                       </Button>
                     </div>
                   )}
@@ -1508,7 +1505,7 @@ const Publication = () => {
                     <Form.Group className="mb-4">
                       <Form.Label className="fw-semibold text-muted">
                         <i className="fas fa-link me-2 text-primary"></i>
-                        Source
+                        {t('source_label')}
                       </Form.Label>
                       <Form.Control 
                         type="text" 
@@ -1530,7 +1527,7 @@ const Publication = () => {
                 style={{ borderRadius: "10px", padding: "10px 20px" }}
               >
                 <i className="fas fa-times me-2"></i>
-                Annuler
+                {t('cancel_button')}
               </Button>
               <Button 
                 variant="primary" 
@@ -1544,7 +1541,7 @@ const Publication = () => {
                 }}
               >
                 <i className="fas fa-save me-2"></i>
-                Sauvegarder
+                {t('save_button')}
               </Button>
             </Modal.Footer>
           </Modal>

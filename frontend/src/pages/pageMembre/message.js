@@ -1,20 +1,26 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Card, ListGroup, Button, Form, Badge, InputGroup, Spinner } from "react-bootstrap";
+import { Card, ListGroup, Button, Form, Badge, InputGroup, Spinner, Alert } from "react-bootstrap";
 import MembreSidebar from "../../components/MembreSidebar";
 import axios from "axios";
 import { FaSearch, FaPaperPlane, FaUserCircle, FaCheckDouble, FaUser } from 'react-icons/fa';
 
 // === CONFIG ===
 const API_URL = "http://127.0.0.1:8000/api";
-const getAuthenticatedMemberId = () => 123;
+const getAuthenticatedMemberId = () => {
+  return localStorage.getItem('member_id') || 1; // Utiliser un ID valide
+};
+
+const getAuthenticatedMemberName = () => {
+  return localStorage.getItem('member_name') || "Membre CEDII";
+};
 
 // === COULEURS CEDII 2025 ===
 const COLORS = {
-  primary: "#5B11EE",    // Violet principal
-  secondary: "#0405BF",  // Bleu profond
-  dark: "#02061E",       // Texte / fond sombre
-  accent: "#0671B6",     // Bleu clair (accents)
-  gray: "#5E5E5E",       // Texte secondaire
+  primary: "#5B11EE",
+  secondary: "#0405BF",
+  dark: "#02061E",
+  accent: "#0671B6",
+  gray: "#5E5E5E",
   light: "#f8f9fa",
   white: "#ffffff",
   border: "#e9ecef"
@@ -58,7 +64,6 @@ const styles = {
   sidebar: { width: '280px', background: COLORS.white, borderRight: `1px solid ${COLORS.border}` },
   sidebarCollapsed: { width: '80px' },
 
-  // Header messagerie
   header: {
     background: COLORS.secondary,
     color: COLORS.white,
@@ -68,7 +73,6 @@ const styles = {
     letterSpacing: '0.3px'
   },
 
-  // Recherche
   search: {
     background: COLORS.light,
     border: `1.5px solid ${COLORS.border}`,
@@ -77,7 +81,6 @@ const styles = {
     fontSize: '0.925rem'
   },
 
-  // Conversation item
   convoItem: (isActive, hasUnread) => ({
     padding: '0.9rem 1.25rem',
     borderBottom: `1px solid ${COLORS.border}`,
@@ -102,7 +105,6 @@ const styles = {
     maxWidth: '180px'
   }),
 
-  // Chat header
   chatHeader: {
     background: COLORS.white,
     borderBottom: `1px solid ${COLORS.border}`,
@@ -111,7 +113,6 @@ const styles = {
     color: COLORS.dark
   },
 
-  // Zone messages
   messagesArea: {
     flex: 1,
     padding: '1.25rem',
@@ -122,7 +123,6 @@ const styles = {
     gap: '1rem'
   },
 
-  // Bulles
   bubble: (isAdmin) => ({
     maxWidth: '68%',
     padding: '0.75rem 1.1rem',
@@ -149,7 +149,6 @@ const styles = {
     justifyContent: 'flex-end'
   },
 
-  // Input
   inputArea: {
     background: COLORS.white,
     padding: '0.9rem 1.25rem',
@@ -185,79 +184,207 @@ const MessagerieMembre = () => {
   const [newMessage, setNewMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
+  
   const memberId = getAuthenticatedMemberId();
+  const memberName = getAuthenticatedMemberName();
 
-  // === CHARGEMENT DES MESSAGES ===
-  const fetchMessages = async () => {
+  // === CHARGEMENT DES CONVERSATIONS ===
+  const fetchConversations = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_URL}/messages?member_id=${memberId}`);
-      const data = res.data.map(msg => ({
-        ...msg,
-        nonLu: !msg.read ? 1 : 0,
-        avatarUrl: msg.avatarUrl,
-        replies: msg.replies || [
-          { id: 1, content: "Bonjour, j'ai un problème avec ma commande.", created_at: new Date(Date.now() - 180000).toISOString(), admin_id: null, member_id: memberId, read_status: 'sent' },
-          { id: 2, content: "Je prends en charge votre demande immédiatement.", created_at: new Date(Date.now() - 120000).toISOString(), admin_id: 1, member_id: null, read_status: 'read' },
-          { id: 3, content: "Référence : CMD-2025-789", created_at: new Date(Date.now() - 60000).toISOString(), admin_id: null, member_id: memberId, read_status: 'sent' },
-        ],
-      }));
-      setConversations(data);
-      setSelectedConv(data[0] || null);
+      setError(null);
+      console.log("Chargement des conversations pour le membre:", memberId);
+      
+      const res = await axios.get(`${API_URL}/messages/member/${memberId}`);
+      console.log("Données reçues:", res.data);
+      
+      if (res.data && Array.isArray(res.data)) {
+        const conversationsData = res.data.map(conv => ({
+          id: conv.id || Date.now(),
+          sender: conv.sender || "Support CEDII",
+          avatarUrl: conv.avatarUrl || null,
+          nonLu: conv.nonLu || 0,
+          lastMessage: conv.lastMessage || null,
+          messages: conv.messages || []
+        }));
+
+        setConversations(conversationsData);
+        
+        // Sélectionner la première conversation par défaut
+        if (conversationsData.length > 0) {
+          setSelectedConv(conversationsData[0]);
+          console.log("Conversation sélectionnée:", conversationsData[0]);
+        }
+      } else {
+        setConversations([]);
+        console.log("Aucune conversation trouvée");
+      }
     } catch (err) {
-      console.error("Erreur:", err);
+      console.error("Erreur chargement conversations:", err);
+      setError("Erreur lors du chargement des conversations");
+      setConversations([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchMessages(); }, [memberId]);
+  // === CHARGEMENT DÉTAILLÉ D'UNE CONVERSATION ===
+  const fetchConversationDetail = async (conversationId) => {
+    try {
+      console.log("Chargement détail conversation:", conversationId);
+      const res = await axios.get(`${API_URL}/messages/conversation-detail/${conversationId}`);
+      console.log("Détail conversation:", res.data);
+      return res.data;
+    } catch (err) {
+      console.error("Erreur chargement détail conversation:", err);
+      return null;
+    }
+  };
+
+  useEffect(() => { 
+    fetchConversations(); 
+  }, [memberId]);
 
   // === SÉLECTION CONVERSATION ===
   const handleSelectConv = async (conv) => {
-    if (conv.nonLu > 0) {
-      await axios.post(`${API_URL}/messages/${conv.id}/mark-as-read`).catch(() => {});
+    try {
+      console.log("Sélection conversation:", conv.id);
+      
+      // Charger les messages détaillés de la conversation
+      const conversationDetail = await fetchConversationDetail(conv.id);
+      
+      if (conversationDetail) {
+        const updatedConv = {
+          ...conv,
+          messages: conversationDetail.messages || [],
+          nonLu: 0
+        };
+        
+        setSelectedConv(updatedConv);
+        
+        // Mettre à jour la liste des conversations
+        setConversations(prev => 
+          prev.map(c => c.id === conv.id ? updatedConv : c)
+        );
+
+        // Marquer comme lu si nécessaire
+        if (conv.nonLu > 0) {
+          try {
+            await axios.put(`${API_URL}/messages/${conv.id}/mark-as-read`);
+          } catch (err) {
+            console.error("Erreur marquage comme lu:", err);
+          }
+        }
+      } else {
+        // Si pas de détail, utiliser les messages de base
+        setSelectedConv(conv);
+      }
+    } catch (err) {
+      console.error("Erreur sélection conversation:", err);
+      setError("Erreur lors de la sélection de la conversation");
     }
-    const updated = { ...conv, nonLu: 0 };
-    setConversations(prev => prev.map(c => c.id === conv.id ? updated : c));
-    setSelectedConv(updated);
   };
 
   // === SCROLL AUTO ===
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [selectedConv?.replies]);
+  }, [selectedConv?.messages]);
 
   // === ENVOI MESSAGE ===
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedConv) return;
+    if (!newMessage.trim() || !selectedConv) {
+      setError("Veuillez écrire un message");
+      return;
+    }
 
     const content = newMessage.trim();
     setNewMessage("");
+    setSending(true);
+    setError(null);
 
+    // Message temporaire
     const tempMsg = {
       id: Date.now(),
       content,
       created_at: new Date().toISOString(),
-      member_id: memberId,
-      admin_id: null,
-      read_status: 'sent'
+      is_from_admin: false,
+      read: false,
+      sender: memberName,
+      type: 'message'
     };
 
-    setSelectedConv(prev => ({ ...prev, replies: [...prev.replies, tempMsg] }));
+    // Mettre à jour l'interface immédiatement
+    setSelectedConv(prev => ({
+      ...prev,
+      messages: [...(prev.messages || []), tempMsg]
+    }));
 
     try {
-      const res = await axios.post(`${API_URL}/messages/${selectedConv.id}/reply`, { content, member_id: memberId });
-      setSelectedConv(res.data);
-      setConversations(prev => prev.map(c => c.id === selectedConv.id ? res.data : c));
+      console.log("Envoi message:", { memberId, memberName, content });
+      
+      // Envoyer le message au backend
+      const res = await axios.post(`${API_URL}/messages`, {
+        membre_id: parseInt(memberId),
+        sender: memberName,
+        email: `${memberId}@cedii.com`,
+        category: "Support",
+        content: content
+      });
+
+      console.log("Message envoyé avec succès:", res.data);
+
+      // Recharger les conversations pour avoir les données fraîches
+      await fetchConversations();
+
     } catch (err) {
-      console.error("Erreur envoi:", err);
+      console.error("Erreur envoi message:", err.response || err);
+      setError("Erreur lors de l'envoi du message");
+      
+      // En cas d'erreur, marquer le message temporaire comme erreur
+      setSelectedConv(prev => ({
+        ...prev,
+        messages: prev.messages.map(msg => 
+          msg.id === tempMsg.id 
+            ? { ...msg, error: true, content: `${content} (Échec de l'envoi)` }
+            : msg
+        )
+      }));
+    } finally {
+      setSending(false);
     }
   };
 
-  const filtered = conversations.filter(c => c.sender.toLowerCase().includes(searchTerm.toLowerCase()));
+  // === DÉMARRER UNE NOUVELLE CONVERSATION ===
+  const startNewConversation = async () => {
+    try {
+      setError(null);
+      console.log("Démarrage nouvelle conversation pour:", memberId);
+      
+      const res = await axios.post(`${API_URL}/messages/start-conversation`, {
+        membre_id: parseInt(memberId),
+        subject: "Nouvelle conversation",
+        content: "Bonjour, j'aimerais obtenir de l'aide."
+      });
+
+      console.log("Nouvelle conversation créée:", res.data);
+
+      if (res.data.conversation) {
+        // Recharger les conversations
+        await fetchConversations();
+      }
+    } catch (err) {
+      console.error("Erreur démarrage conversation:", err.response || err);
+      setError("Erreur lors du démarrage de la conversation");
+    }
+  };
+
+  const filteredConversations = conversations.filter(c => 
+    c.sender.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // === RENDU ===
   return (
@@ -270,16 +397,33 @@ const MessagerieMembre = () => {
       <div className="d-flex flex-grow-1">
         {/* LISTE CONVERSATIONS */}
         <div style={{ width: '370px', background: COLORS.white, borderRight: `1px solid ${COLORS.border}` }}>
-          <div style={styles.header} className="d-flex align-items-center">
-            <FaUserCircle size={26} className="me-2" />
-            Messagerie CEDII
+          <div style={styles.header} className="d-flex align-items-center justify-content-between">
+            <div className="d-flex align-items-center">
+              <FaUserCircle size={26} className="me-2" />
+              Messagerie CEDII
+            </div>
+            <Button 
+              variant="light" 
+              size="sm"
+              onClick={startNewConversation}
+              style={{
+                background: COLORS.primary,
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '0.3rem 0.8rem',
+                fontSize: '0.8rem'
+              }}
+            >
+              Nouveau
+            </Button>
           </div>
 
           <div className="p-3">
             <div className="d-flex align-items-center" style={styles.search}>
               <FaSearch size={15} style={{ color: COLORS.gray }} />
               <Form.Control
-                placeholder="Rechercher un contact..."
+                placeholder="Rechercher..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 className="border-0 bg-transparent shadow-none ms-2"
@@ -288,13 +432,19 @@ const MessagerieMembre = () => {
             </div>
           </div>
 
+          {error && (
+            <Alert variant="danger" className="m-3">
+              {error}
+            </Alert>
+          )}
+
           <div style={{ height: 'calc(100vh - 150px)', overflowY: 'auto' }}>
             {loading ? (
               <div className="text-center py-5 text-muted">
                 <Spinner animation="border" size="sm" /> Chargement...
               </div>
-            ) : filtered.length > 0 ? (
-              filtered.map(conv => (
+            ) : filteredConversations.length > 0 ? (
+              filteredConversations.map(conv => (
                 <div
                   key={conv.id}
                   onClick={() => handleSelectConv(conv)}
@@ -305,7 +455,7 @@ const MessagerieMembre = () => {
                   <div className="ms-3 flex-grow-1">
                     <div style={styles.convoName(conv.nonLu > 0)}>{conv.sender}</div>
                     <div style={styles.convoPreview(conv.nonLu > 0)}>
-                      {conv.replies[conv.replies.length - 1]?.content.slice(0, 38)}...
+                      {conv.lastMessage?.content?.slice(0, 38) || "Aucun message"}...
                     </div>
                   </div>
                   {conv.nonLu > 0 && (
@@ -324,12 +474,23 @@ const MessagerieMembre = () => {
                 </div>
               ))
             ) : (
-              <div className="text-center text-muted py-5">Aucune conversation</div>
+              <div className="text-center text-muted py-5">
+                <FaUserCircle size={32} className="mb-2 opacity-50" />
+                <div>Aucune conversation</div>
+                <Button 
+                  variant="outline-primary" 
+                  size="sm" 
+                  className="mt-2"
+                  onClick={startNewConversation}
+                >
+                  Démarrer une conversation
+                </Button>
+              </div>
             )}
           </div>
         </div>
 
-        {/* CHAT */}
+        {/* ZONE DE CHAT */}
         <div className="flex-grow-1 d-flex flex-column">
           {selectedConv ? (
             <>
@@ -337,25 +498,35 @@ const MessagerieMembre = () => {
                 <Avatar src={selectedConv.avatarUrl} size={42} alt={selectedConv.sender} />
                 <div className="ms-3">
                   <div style={{ fontWeight: 600 }}>{selectedConv.sender}</div>
-                  <small style={{ color: COLORS.accent, fontWeight: 500 }}>En ligne</small>
+                  <small style={{ color: COLORS.accent, fontWeight: 500 }}>
+                    Support CEDII
+                  </small>
                 </div>
               </div>
 
               <div style={styles.messagesArea}>
-                {selectedConv.replies.map(msg => {
-                  const isAdmin = !!msg.admin_id;
-                  return (
-                    <div key={msg.id} style={{ display: 'flex', justifyContent: isAdmin ? 'flex-end' : 'flex-start' }}>
-                      <div style={styles.bubble(isAdmin)}>
-                        <div>{msg.content}</div>
-                        <div style={styles.bubbleTime}>
-                          {new Date(msg.created_at).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' })}
-                          {isAdmin && <ReadStatusIcon status={msg.read_status} />}
+                {selectedConv.messages && selectedConv.messages.length > 0 ? (
+                  selectedConv.messages.map(msg => {
+                    const isAdmin = msg.is_from_admin;
+                    return (
+                      <div key={msg.id} style={{ display: 'flex', justifyContent: isAdmin ? 'flex-end' : 'flex-start' }}>
+                        <div style={styles.bubble(isAdmin)}>
+                          <div>{msg.content}</div>
+                          <div style={styles.bubbleTime}>
+                            {new Date(msg.created_at).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' })}
+                            {!isAdmin && <ReadStatusIcon status={msg.read ? 'read' : 'sent'} />}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  <div className="text-center text-muted py-5">
+                    <FaUserCircle size={48} className="mb-3 opacity-50" />
+                    <div>Aucun message dans cette conversation</div>
+                    <div className="small">Envoyez le premier message !</div>
+                  </div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
@@ -363,19 +534,31 @@ const MessagerieMembre = () => {
                 <Form onSubmit={handleSendMessage}>
                   <InputGroup>
                     <Form.Control
-                      placeholder="Écrivez votre message..."
+                      placeholder="Écrivez votre message au support..."
                       value={newMessage}
                       onChange={e => setNewMessage(e.target.value)}
                       style={styles.input}
+                      disabled={sending}
                     />
                     <Button
                       type="submit"
-                      disabled={!newMessage.trim()}
-                      style={styles.sendBtn}
-                      onMouseEnter={e => e.target.style.transform = 'scale(1.05)'}
+                      disabled={!newMessage.trim() || sending}
+                      style={{
+                        ...styles.sendBtn,
+                        opacity: (!newMessage.trim() || sending) ? 0.6 : 1
+                      }}
+                      onMouseEnter={e => {
+                        if (newMessage.trim() && !sending) {
+                          e.target.style.transform = 'scale(1.05)';
+                        }
+                      }}
                       onMouseLeave={e => e.target.style.transform = 'scale(1)'}
                     >
-                      <FaPaperPlane size={19} color="#fff" />
+                      {sending ? (
+                        <Spinner animation="border" size="sm" />
+                      ) : (
+                        <FaPaperPlane size={19} color="#fff" />
+                      )}
                     </Button>
                   </InputGroup>
                 </Form>
@@ -385,6 +568,13 @@ const MessagerieMembre = () => {
             <div className="d-flex flex-column flex-grow-1 justify-content-center align-items-center bg-white text-muted">
               <FaUserCircle size={72} className="mb-3 opacity-50" />
               <p style={{ fontSize: '1.1rem' }}>Sélectionnez une conversation</p>
+              <Button 
+                variant="primary" 
+                onClick={startNewConversation}
+                className="mt-2"
+              >
+                Démarrer une nouvelle conversation
+              </Button>
             </div>
           )}
         </div>

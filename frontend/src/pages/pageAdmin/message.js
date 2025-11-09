@@ -1,16 +1,14 @@
 // src/pages/MessageAdmin.jsx
 
 import React, { useState, useEffect } from "react";
-// Assurez-vous d'avoir tous ces imports de react-bootstrap
 import { Card, Button, Form, ListGroup, Row, Col, Badge, InputGroup, Alert, Spinner, Modal } from "react-bootstrap"; 
 import AdminSidebar from "../../components/AdminSidebar";
 import axios from "axios";
 
 const API_URL = "http://127.0.0.1:8000/api";
 
-// --- Composant Modale (intégré) ---
+// --- Composant Modale ---
 const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showNotification }) => {
-    // Note: Le backend doit lister les membres via la route /api/members
     const [members, setMembers] = useState([]); 
     const [recipientId, setRecipientId] = useState("");
     const [subject, setSubject] = useState("Information");
@@ -19,7 +17,6 @@ const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showN
     const [sending, setSending] = useState(false);
     const [error, setError] = useState(null);
 
-    // 1. Récupérer la liste des membres (destinataires)
     useEffect(() => {
         if (show) {
             setLoadingMembers(true);
@@ -27,7 +24,6 @@ const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showN
                 .then(res => {
                     setMembers(res.data);
                     if (res.data.length > 0) {
-                        // Le modèle Membre utilise 'nom' et non 'name'
                         setRecipientId(res.data[0].id); 
                     } else {
                         setRecipientId("");
@@ -42,7 +38,6 @@ const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showN
         }
     }, [show]);
 
-    // 2. Gérer l'envoi du message
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!recipientId || !content.trim()) {
@@ -54,14 +49,12 @@ const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showN
         setError(null);
         
         try {
-            await axios.post(`${API_URL}/messages/send-admin`, {
-                recipient_id: recipientId,
-                subject: subject,
+            await axios.post(`${API_URL}/messages/send-to/${recipientId}`, {
                 content: content,
             });
 
             setContent("");
-            onMessageSent("success", `✅ Message ' ${subject} ' envoyé au membre avec succès !`);
+            onMessageSent("success", `✅ Message envoyé au membre avec succès !`);
             handleClose();
 
         } catch (err) {
@@ -95,22 +88,10 @@ const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showN
                                 <option value="">Aucun membre trouvé</option>
                             ) : (
                                 members.map(member => (
-                                    // Utilisation de 'nom' et 'email' du modèle Membre
                                     <option key={member.id} value={member.id}>{member.nom} ({member.email})</option>
                                 ))
                             )}
                         </Form.Select>
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                        <Form.Label className="fw-semibold">Sujet / Catégorie</Form.Label>
-                        <Form.Control 
-                            type="text"
-                            value={subject} 
-                            onChange={e => setSubject(e.target.value)} 
-                            placeholder="Ex: Information importante"
-                            disabled={sending}
-                        />
                     </Form.Group>
 
                     <Form.Group className="mb-3">
@@ -145,20 +126,18 @@ const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showN
         </Modal>
     );
 };
-// --- Fin du Composant Modale ---
-
 
 const MessageAdmin = () => {
     // --- États ---
-    const [messages, setMessages] = useState([]);
-    const [selectedMessage, setSelectedMessage] = useState(null);
-    const [reply, setReply] = useState("");
+    const [membres, setMembres] = useState([]);
+    const [selectedMembre, setSelectedMembre] = useState(null);
+    const [conversation, setConversation] = useState([]);
+    const [newMessage, setNewMessage] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
     const [filterCategory, setFilterCategory] = useState("Tous");
-    const [sortOption, setSortOption] = useState("Plus récent");
     const [showAlert, setShowAlert] = useState({ show: false, type: "", message: "" });
     const [loading, setLoading] = useState(false);
-    const [isReplying, setIsReplying] = useState(false);
+    const [sending, setSending] = useState(false);
     const [showNewMessageModal, setShowNewMessageModal] = useState(false); 
 
     // --- Fonctions Utilitaires ---
@@ -174,6 +153,14 @@ const MessageAdmin = () => {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    const formatTime = (dateString) => {
+        if (!dateString) return '';
+        return new Date(dateString).toLocaleTimeString('fr-FR', {
             hour: '2-digit',
             minute: '2-digit'
         });
@@ -203,125 +190,194 @@ const MessageAdmin = () => {
 
     // --- Fonctions API ---
 
-    const fetchMessages = async () => {
+    const fetchMembres = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${API_URL}/messages`); 
-            setMessages(res.data);
-            if (selectedMessage) {
-                const freshMessage = res.data.find(msg => msg.id === selectedMessage.id);
-                setSelectedMessage(freshMessage || null);
-            }
+            const res = await axios.get(`${API_URL}/messages`);
+            console.log("Membres chargés:", res.data);
+            setMembres(res.data || []);
         } catch (err) {
-            console.error(err);
-            showNotification("error", "Erreur lors du chargement des messages");
+            console.error("Erreur chargement membres:", err);
+            showNotification("error", "Erreur lors du chargement des membres");
+            setMembres([]);
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-        fetchMessages();
-    }, []);
+    // Charger la conversation avec un membre spécifique
+    const fetchConversation = async (membreId) => {
+        try {
+            const res = await axios.get(`${API_URL}/messages/conversation/${membreId}`);
+            console.log("Conversation chargée:", res.data);
+            setSelectedMembre(res.data.membre);
+            setConversation(res.data.messages || []);
+        } catch (err) {
+            console.error("Erreur chargement conversation:", err);
+            showNotification("error", "Erreur lors du chargement de la conversation");
+            setConversation([]);
+        }
+    };
 
-    const markAsRead = async (id) => {
-        const messageToUpdate = messages.find(msg => msg.id === id);
-        if (messageToUpdate && !messageToUpdate.read) { 
-            try {
-                // Appel PUT: /api/messages/{id}/read
-                await axios.put(`${API_URL}/messages/${id}/read`); 
-                setMessages(messages.map(msg => msg.id === id ? { ...msg, read: true } : msg));
-                setSelectedMessage(prev => prev && prev.id === id ? { ...prev, read: true } : prev);
-                showNotification("success", "✅ Message marqué comme lu.");
-            } catch (err) {
-                console.error(err);
-                showNotification("error", "Erreur lors de la mise à jour");
+    // Envoyer un message à un membre
+    const sendMessage = async () => {
+        if (!newMessage.trim() || !selectedMembre) {
+            showNotification("error", "Veuillez écrire un message");
+            return;
+        }
+
+        setSending(true);
+        try {
+            const res = await axios.post(`${API_URL}/messages/send-to/${selectedMembre.id}`, {
+                content: newMessage
+            });
+
+            console.log("Message envoyé:", res.data);
+
+            // Ajouter le nouveau message à la conversation
+            const newMsg = {
+                ...res.data,
+                created_at: new Date().toISOString()
+            };
+            
+            setConversation(prev => [...prev, newMsg]);
+            setNewMessage("");
+            showNotification("success", "Message envoyé avec succès");
+            
+            // Rafraîchir la liste des membres
+            fetchMembres();
+        } catch (err) {
+            console.error("Erreur envoi message:", err);
+            showNotification("error", "Erreur lors de l'envoi du message");
+        } finally {
+            setSending(false);
+        }
+    };
+
+    // Répondre à un message spécifique
+    const replyToMessage = async (messageId) => {
+        if (!newMessage.trim()) {
+            showNotification("error", "Veuillez écrire un message");
+            return;
+        }
+
+        setSending(true);
+        try {
+            const res = await axios.post(`${API_URL}/messages/${messageId}/reply`, {
+                content: newMessage
+            });
+
+            console.log("Réponse envoyée:", res.data);
+
+            // Ajouter la réponse à la conversation
+            const newReply = {
+                ...res.data,
+                created_at: new Date().toISOString()
+            };
+            
+            setConversation(prev => [...prev, newReply]);
+            setNewMessage("");
+            showNotification("success", "Réponse envoyée avec succès");
+            
+            // Rafraîchir la conversation
+            if (selectedMembre) {
+                fetchConversation(selectedMembre.id);
             }
+        } catch (err) {
+            console.error("Erreur envoi réponse:", err);
+            showNotification("error", "Erreur lors de l'envoi de la réponse");
+        } finally {
+            setSending(false);
         }
     };
 
-    const markAllAsRead = async () => {
+    // Marquer tous les messages comme lus pour un membre
+    const markAllAsRead = async (membreId) => {
         try {
-            await axios.put(`${API_URL}/messages/mark-all-read`);
-            setMessages(messages.map(msg => ({ ...msg, read: true })));
-            showNotification("success", `✅ Tous les messages marqués comme lus`);
-            setSelectedMessage(prev => prev ? { ...prev, read: true } : null);
+            await axios.put(`${API_URL}/messages/mark-all-read/${membreId}`);
+            showNotification("success", "Tous les messages marqués comme lus");
+            fetchMembres();
+            if (selectedMembre && selectedMembre.id === membreId) {
+                fetchConversation(membreId);
+            }
         } catch (err) {
-            console.error(err);
-            showNotification("error", "Erreur lors de la mise à jour des messages");
+            console.error("Erreur marquage comme lu:", err);
+            showNotification("error", "Erreur lors de la mise à jour");
         }
     };
 
-    const deleteMessage = async (id) => {
-        if(!window.confirm("Êtes-vous sûr de vouloir supprimer ce message ? Cette action est irréversible.")) return;
+    // Marquer un message comme lu
+    const markAsRead = async (messageId) => {
         try {
-            // Appel DELETE: /api/messages/{id}
-            await axios.delete(`${API_URL}/messages/${id}`); 
-            setMessages(messages.filter(msg => msg.id !== id));
-            if (selectedMessage?.id === id) setSelectedMessage(null);
-            showNotification("success", "✅ Message supprimé avec succès");
+            await axios.put(`${API_URL}/messages/${messageId}/read`);
+            // Mettre à jour l'état local
+            setConversation(prev => 
+                prev.map(msg => 
+                    msg.id === messageId ? { ...msg, read: true } : msg
+                )
+            );
         } catch (err) {
-            console.error(err);
+            console.error("Erreur marquage comme lu:", err);
+        }
+    };
+
+    // Supprimer un message
+    const deleteMessage = async (messageId) => {
+        if(!window.confirm("Êtes-vous sûr de vouloir supprimer ce message ?")) return;
+        
+        try {
+            await axios.delete(`${API_URL}/messages/${messageId}`);
+            showNotification("success", "Message supprimé avec succès");
+            // Recharger la conversation
+            if (selectedMembre) {
+                fetchConversation(selectedMembre.id);
+            }
+        } catch (err) {
+            console.error("Erreur suppression:", err);
             showNotification("error", "Erreur lors de la suppression");
         }
     };
 
-    const handleReply = async () => {
-        if (!reply.trim() || !selectedMessage) {
-            showNotification("error", "❌ Veuillez écrire un message avant d'envoyer");
-            return;
+    useEffect(() => {
+        fetchMembres();
+    }, []);
+
+    // Filtrer les membres selon la recherche
+    const filteredMembres = membres.filter(membre =>
+        membre.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        membre.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Calculer le total des messages non lus
+    const totalUnread = membres.reduce((sum, membre) => sum + (membre.unread_count || 0), 0);
+
+    // Statistiques
+    const stats = [
+        { 
+            title: "Total Messages", 
+            count: membres.reduce((sum, m) => sum + (m.messages?.length || 0), 0), 
+            icon: "fa-envelope", 
+            color: "linear-gradient(135deg, #667eea, #764ba2)" 
+        },
+        { 
+            title: "Non Lus", 
+            count: totalUnread, 
+            icon: "fa-bell", 
+            color: "linear-gradient(135deg, #00b09b, #96c93d)" 
+        },
+        { 
+            title: "Support", 
+            count: membres.reduce((sum, m) => sum + (m.messages?.filter(msg => msg.category === "Support")?.length || 0), 0), 
+            icon: "fa-headset", 
+            color: "linear-gradient(135deg, #4facfe, #00f2fe)" 
+        },
+        { 
+            title: "Partenaires", 
+            count: membres.reduce((sum, m) => sum + (m.messages?.filter(msg => msg.category === "Partenaire")?.length || 0), 0), 
+            icon: "fa-handshake", 
+            color: "linear-gradient(135deg, #f093fb, #f5576c)" 
         }
-
-        setIsReplying(true);
-        try {
-            const res = await axios.post(`${API_URL}/messages/${selectedMessage.id}/reply`, {
-                content: reply, 
-            });
-
-            setMessages(messages.map(msg => msg.id === selectedMessage.id ? res.data : msg));
-            setSelectedMessage(res.data); 
-            
-            showNotification("success", `✅ Réponse à ${selectedMessage.sender} envoyée et message marquée comme lu`);
-            setReply("");
-        } catch (err) {
-            console.error(err);
-            showNotification("error", "Erreur lors de l'envoi de la réponse");
-        } finally {
-            setIsReplying(false);
-        }
-    };
-
-    // --- Filtres et Tri (inchangés) ---
-
-    const filteredMessages = messages.filter(msg => {
-        const matchesSearch = msg.sender.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                             msg.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                             msg.email.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesCategory = filterCategory === "Tous" || msg.category === filterCategory;
-        return matchesSearch && matchesCategory;
-    });
-
-    const unreadCount = messages.filter(msg => !msg.read).length;
-
-    const sortedMessages = [...filteredMessages].sort((a, b) => {
-        const dateA = new Date(a.created_at || a.date);
-        const dateB = new Date(b.created_at || b.date);
-
-        switch(sortOption) {
-            case "Plus ancien":
-                return dateA - dateB;
-            case "Non lus d'abord":
-                if (a.read === b.read) return dateB - dateA;
-                return a.read ? 1 : -1; 
-            case "Expéditeur":
-                return a.sender.localeCompare(b.sender);
-            case "Plus récent":
-            default:
-                return dateB - dateA;
-        }
-    });
-
-    // --- Rendu ---
+    ];
 
     return (
         <div className="d-flex" style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f5f7fa, #c3cfe2)" }}>
@@ -329,7 +385,6 @@ const MessageAdmin = () => {
             
             <div className="flex-grow-1 p-4" style={{ marginLeft: "280px" }}>
                 
-                {/* Alertes de notification */}
                 {showAlert.show && (
                     <Alert variant={showAlert.type === "success" ? "success" : "danger"} 
                             className="d-flex align-items-center shadow-lg border-0" 
@@ -343,30 +398,29 @@ const MessageAdmin = () => {
                     </Alert>
                 )}
 
-                {/* En-tête et actions globales */}
                 <div className="d-flex justify-content-between align-items-center mb-4">
                     <div>
-                        <h2 className="fw-bold mb-2" style={{background:"linear-gradient(135deg, #2c3e50, #34495e)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent"}}>Messagerie Administrateur</h2>
-                        <p className="text-muted mb-0 d-flex align-items-center"><i className="fas fa-comments me-2"></i>Gérez les messages et initiez des conversations</p>
+                        <h2 className="fw-bold mb-2" style={{background:"linear-gradient(135deg, #2c3e50, #34495e)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent"}}>Messagerie Admin</h2>
+                        <p className="text-muted mb-0 d-flex align-items-center">
+                            <i className="fas fa-comments me-2"></i>
+                            Communiquez avec les membres
+                        </p>
                     </div>
                     <div className="d-flex align-items-center gap-3">
-                        {unreadCount>0 && (<Badge bg="danger" className="d-flex align-items-center" style={{borderRadius:"20px",padding:"8px 12px",fontSize:"0.8rem"}}><i className="fas fa-bell me-1"></i>{unreadCount} non lu{unreadCount>1?"s":""}</Badge>)}
-                        
-                        {/* BOUTON NOUVEAU MESSAGE ADMIN */}
+                        {totalUnread > 0 && (
+                            <Badge bg="danger" className="d-flex align-items-center" style={{borderRadius:"20px",padding:"8px 12px",fontSize:"0.8rem"}}>
+                                <i className="fas fa-bell me-1"></i>{totalUnread} non lu{totalUnread>1?"s":""}
+                            </Badge>
+                        )}
                         <Button variant="success" onClick={() => setShowNewMessageModal(true)} className="d-flex align-items-center" style={{borderRadius:"10px"}}>
-                            <i className="fas fa-plus me-2"></i>Ajouter un Message
+                            <i className="fas fa-plus me-2"></i>Nouveau Message
                         </Button>
-                        
-                        <Button variant="outline-primary" onClick={markAllAsRead} className="d-flex align-items-center" style={{borderRadius:"10px"}}><i className="fas fa-check-double me-2"></i>Tout marquer comme lu</Button>
                     </div>
                 </div>
 
                 {/* Statistiques */}
                 <Row className="mb-4">
-                    {[{title:"Total Messages", count:messages.length, icon:"fa-envelope", color:"linear-gradient(135deg, #667eea, #764ba2)"},
-                        {title:"Non Lus", count:unreadCount, icon:"fa-bell", color:"linear-gradient(135deg, #00b09b, #96c93d)"},
-                        {title:"Support", count:messages.filter(msg=>msg.category==="Support").length, icon:"fa-headset", color:"linear-gradient(135deg, #4facfe, #00f2fe)"},
-                        {title:"Partenaires", count:messages.filter(msg=>msg.category==="Partenaire").length, icon:"fa-handshake", color:"linear-gradient(135deg, #f093fb, #f5576c)"}].map((stat,index)=>(
+                    {stats.map((stat,index) => (
                         <Col md={3} key={index} className="mb-3">
                             <Card className="border-0 shadow-sm h-100" style={{borderRadius:"20px"}}>
                                 <Card.Body className="p-4">
@@ -389,16 +443,22 @@ const MessageAdmin = () => {
                 <Card className="border-0 shadow-sm mb-4" style={{borderRadius:"20px"}}>
                     <Card.Body className="p-4">
                         <Row className="g-3 align-items-end">
-                            <Col md={4}>
+                            <Col md={6}>
                                 <Form.Group>
                                     <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-search me-2"></i>Recherche</Form.Label>
                                     <InputGroup>
                                         <InputGroup.Text style={{background:"linear-gradient(135deg, #667eea, #764ba2)",border:"none",color:"white"}}><i className="fas fa-search"></i></InputGroup.Text>
-                                        <Form.Control type="text" placeholder="Rechercher..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} style={{borderRadius:"0 10px 10px 0"}}/>
+                                        <Form.Control 
+                                            type="text" 
+                                            placeholder="Rechercher un membre..." 
+                                            value={searchTerm} 
+                                            onChange={e=>setSearchTerm(e.target.value)} 
+                                            style={{borderRadius:"0 10px 10px 0"}}
+                                        />
                                     </InputGroup>
                                 </Form.Group>
                             </Col>
-                            <Col md={3}>
+                            <Col md={4}>
                                 <Form.Group>
                                     <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-filter me-2"></i>Catégorie</Form.Label>
                                     <Form.Select value={filterCategory} onChange={e=>setFilterCategory(e.target.value)} style={{borderRadius:"10px"}}>
@@ -411,184 +471,297 @@ const MessageAdmin = () => {
                                     </Form.Select>
                                 </Form.Group>
                             </Col>
-                            <Col md={3}>
-                                <Form.Group>
-                                    <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-sort me-2"></i>Trier par</Form.Label>
-                                    <Form.Select value={sortOption} onChange={e=>setSortOption(e.target.value)} style={{borderRadius:"10px"}}>
-                                        <option>Plus récent</option>
-                                        <option>Plus ancien</option>
-                                        <option>Non lus d'abord</option>
-                                        <option>Expéditeur</option>
-                                    </Form.Select>
-                                </Form.Group>
+                            <Col md={2}>
+                                <Button 
+                                    variant="outline-secondary" 
+                                    onClick={()=>{setSearchTerm(""); setFilterCategory("Tous");}} 
+                                    className="d-flex align-items-center w-100" 
+                                    style={{borderRadius:"10px"}}
+                                >
+                                    <i className="fas fa-times me-2"></i>Effacer
+                                </Button>
                             </Col>
-                            <Col md={2}><Button variant="outline-secondary" onClick={()=>{setSearchTerm(""); setFilterCategory("Tous"); setSortOption("Plus récent");}} className="d-flex align-items-center w-100" style={{borderRadius:"10px"}}><i className="fas fa-times me-2"></i>Effacer</Button></Col>
                         </Row>
                     </Card.Body>
                 </Card>
 
-                {/* Liste et détail des messages */}
                 <Row>
+                    {/* Sidebar des membres */}
                     <Col md={5}>
-                        {/* Boîte de Réception (inchangée) */}
                         <Card className="border-0 shadow-sm h-100" style={{borderRadius:"20px"}}>
                             <Card.Body className="p-0">
-                                <div className="p-4 border-bottom">
-                                    <h5 className="fw-bold mb-0 d-flex align-items-center"><i className="fas fa-inbox me-2 text-primary"></i>Boîte de Réception<Badge bg="primary" className="ms-2">{sortedMessages.length}</Badge></h5>
+                                <div className="p-3 border-bottom">
+                                    <h5 className="fw-bold mb-3 d-flex align-items-center">
+                                        <i className="fas fa-users me-2 text-primary"></i>
+                                        Membres
+                                        <Badge bg="primary" className="ms-2">{filteredMembres.length}</Badge>
+                                    </h5>
                                 </div>
                                 <div style={{maxHeight:"600px", overflowY:"auto"}}>
                                     {loading ? (
-                                        <div className="text-center py-5"><Spinner animation="border" variant="primary" /><p className="text-muted mt-2">Chargement...</p></div>
-                                    ) : sortedMessages.length>0 ? (
+                                        <div className="text-center py-5">
+                                            <Spinner animation="border" variant="primary" />
+                                            <p className="text-muted mt-2">Chargement des membres...</p>
+                                        </div>
+                                    ) : filteredMembres.length > 0 ? (
                                         <ListGroup variant="flush">
-                                            {sortedMessages.map(msg=>(
+                                            {filteredMembres.map(membre => (
                                                 <ListGroup.Item 
-                                                    key={msg.id} 
+                                                    key={membre.id}
                                                     action 
-                                                    onClick={()=>{setSelectedMessage(msg); markAsRead(msg.id)}} 
+                                                    onClick={() => fetchConversation(membre.id)}
                                                     className="border-0" 
-                                                    style={{background:selectedMessage?.id===msg.id?"linear-gradient(135deg,#667eea,#764ba2)":"transparent", color:selectedMessage?.id===msg.id?"white":"inherit", borderLeft:selectedMessage?.id===msg.id?"4px solid #667eea":"4px solid transparent", cursor:"pointer", transition:"all 0.3s ease", padding:"20px"}}
+                                                    style={{
+                                                        background: selectedMembre?.id === membre.id ? "linear-gradient(135deg,#667eea,#764ba2)" : "transparent",
+                                                        color: selectedMembre?.id === membre.id ? "white" : "inherit",
+                                                        borderLeft: selectedMembre?.id === membre.id ? "4px solid #667eea" : "4px solid transparent",
+                                                        cursor: "pointer",
+                                                        transition: "all 0.3s ease",
+                                                        padding: "15px"
+                                                    }}
                                                 >
-                                                    <div className="d-flex justify-content-between align-items-start mb-2">
+                                                    <div className="d-flex justify-content-between align-items-start">
                                                         <div className="d-flex align-items-center">
-                                                            <div className="rounded-circle d-flex align-items-center justify-content-center me-3" style={{width:"40px", height:"40px", background:selectedMessage?.id===msg.id?"rgba(255,255,255,0.2)":"linear-gradient(135deg,#667eea,#764ba2)", color:"white", fontSize:"0.9rem", fontWeight:"bold"}}>{msg.sender.charAt(0).toUpperCase()}</div>
+                                                            <div className="rounded-circle d-flex align-items-center justify-content-center me-3" 
+                                                                style={{
+                                                                    width: "45px", 
+                                                                    height: "45px", 
+                                                                    background: selectedMembre?.id === membre.id ? "rgba(255,255,255,0.2)" : "linear-gradient(135deg,#667eea,#764ba2)",
+                                                                    color: "white",
+                                                                    fontSize: "0.9rem",
+                                                                    fontWeight: "bold"
+                                                                }}>
+                                                                {membre.nom?.charAt(0)?.toUpperCase() || 'M'}
+                                                            </div>
                                                             <div>
-                                                                <h6 className={`mb-0 fw-bold ${!msg.read && selectedMessage?.id!==msg.id ? 'text-primary' : ''}`}>{msg.sender}</h6>
-                                                                <small className={selectedMessage?.id===msg.id?"text-white-50":"text-muted"}>{msg.email}</small>
+                                                                <h6 className={`mb-1 fw-bold ${membre.unread_count > 0 && selectedMembre?.id !== membre.id ? 'text-primary' : ''}`}>
+                                                                    {membre.nom || 'Membre'}
+                                                                </h6>
+                                                                <small className={selectedMembre?.id === membre.id ? "text-white-50" : "text-muted"}>
+                                                                    {membre.email || 'Aucun email'}
+                                                                </small>
+                                                                {membre.messages && membre.messages.length > 0 && (
+                                                                    <p className="mb-0 small mt-1" style={{
+                                                                        opacity: selectedMembre?.id === membre.id ? 0.9 : 0.7,
+                                                                        lineHeight: "1.3"
+                                                                    }}>
+                                                                        {membre.messages[0]?.content?.length > 40 
+                                                                            ? `${membre.messages[0].content.substring(0, 40)}...`
+                                                                            : membre.messages[0]?.content || "Aucun message"
+                                                                        }
+                                                                    </p>
+                                                                )}
                                                             </div>
                                                         </div>
                                                         <div className="text-end">
-                                                            <small className={selectedMessage?.id===msg.id?"text-white-50":"text-muted"}>{formatDate(msg.created_at || msg.date)}</small>
-                                                            {!msg.read && selectedMessage?.id!==msg.id && (<div style={{width:"8px", height:"8px", borderRadius:"50%", backgroundColor:"#28a745", display:"inline-block"}} className="ms-2"></div>)}
+                                                            {membre.unread_count > 0 && (
+                                                                <Badge bg="danger" className="mb-1">
+                                                                    {membre.unread_count}
+                                                                </Badge>
+                                                            )}
+                                                            <br />
+                                                            <small className={selectedMembre?.id === membre.id ? "text-white-50" : "text-muted"}>
+                                                                {membre.type || 'Membre'}
+                                                            </small>
                                                         </div>
                                                     </div>
-                                                    <div className="mb-2">
-                                                        <Badge bg={getCategoryVariant(msg.category)} className="d-flex align-items-center" style={{borderRadius:"15px", fontSize:"0.7rem", padding:"4px 8px", width:"fit-content"}}><i className={`fas ${getCategoryIcon(msg.category)} me-1`}></i>{msg.category}</Badge>
-                                                    </div>
-                                                    <p className="mb-0 small" style={{lineHeight:"1.4", opacity:selectedMessage?.id===msg.id?0.9:0.8}}>{msg.content.length>80?`${msg.content.substring(0,80)}...`:msg.content}</p>
                                                 </ListGroup.Item>
                                             ))}
                                         </ListGroup>
-                                    ):(
-                                        <div className="text-center py-5"><i className="fas fa-envelope-open fs-1 text-muted mb-3 d-block" style={{opacity:0.5}}></i><h6 className="text-muted mb-2">Aucun message trouvé</h6><p className="text-muted small">Aucun message ne correspond à vos critères de recherche</p></div>
+                                    ) : (
+                                        <div className="text-center py-5">
+                                            <i className="fas fa-user-slash fs-1 text-muted mb-3 d-block" style={{opacity:0.5}}></i>
+                                            <h6 className="text-muted mb-2">Aucun membre trouvé</h6>
+                                            <p className="text-muted small">Aucun membre ne correspond à votre recherche</p>
+                                        </div>
                                     )}
                                 </div>
                             </Card.Body>
                         </Card>
                     </Col>
 
-                    {/* Panneau de Détail du Message et d'Historique (MODIFIÉ) */}
+                    {/* Zone de conversation */}
                     <Col md={7}>
-                        {selectedMessage ? (
+                        {selectedMembre ? (
                             <Card className="border-0 shadow-sm h-100" style={{borderRadius:"20px"}}>
-                                <Card.Body className="d-flex flex-column p-0">
-                                    
-                                    {/* En-tête du Message */}
-                                    <div className="p-4 border-bottom">
-                                        <div className="d-flex justify-content-between align-items-start mb-3">
-                                            <div className="d-flex align-items-center">
-                                                <div className="rounded-circle d-flex align-items-center justify-content-center me-3" style={{width:"50px",height:"50px",background:"linear-gradient(135deg,#667eea,#764ba2)",color:"white",fontSize:"1.1rem",fontWeight:"bold"}}>{selectedMessage.sender.charAt(0).toUpperCase()}</div>
-                                                <div>
-                                                    <h5 className="fw-bold mb-1">{selectedMessage.sender}</h5>
-                                                    <p className="text-muted mb-0">{selectedMessage.email}</p>
-                                                </div>
-                                            </div>
-                                            
-                                            {/* BLOC BOUTONS D'ACTION (MODIFIÉ) */}
-                                            <div className="d-flex gap-2">
-                                                {/* Bouton pour Marquer comme lu */}
-                                                <Button 
-                                                    variant={selectedMessage.read ? "outline-secondary" : "outline-success"} 
-                                                    size="sm" 
-                                                    onClick={() => markAsRead(selectedMessage.id)} 
-                                                    className="d-flex align-items-center" 
-                                                    style={{borderRadius:"8px"}}
-                                                    disabled={selectedMessage.read}
-                                                >
-                                                    <i className={`fas ${selectedMessage.read ? "fa-eye-slash" : "fa-check-circle"} me-2`}></i>
-                                                    {selectedMessage.read ? "Lu" : "Marquer comme lu"}
-                                                </Button>
-
-                                                {/* Bouton Supprimer */}
-                                                <Button 
-                                                    variant="outline-danger" 
-                                                    size="sm" 
-                                                    onClick={() => deleteMessage(selectedMessage.id)} 
-                                                    className="d-flex align-items-center" 
-                                                    style={{borderRadius:"8px"}}
-                                                >
-                                                    <i className="fas fa-trash me-2"></i>
-                                                    Supprimer
-                                                </Button>
-                                            </div>
-                                        </div>
+                                <Card.Body className="d-flex flex-column p-0 h-100">
+                                    {/* En-tête de la conversation */}
+                                    <div className="p-3 border-bottom bg-white">
                                         <div className="d-flex justify-content-between align-items-center">
-                                            <Badge bg={getCategoryVariant(selectedMessage.category)} className="d-flex align-items-center" style={{borderRadius:"20px", padding:"6px 12px", fontSize:"0.8rem"}}><i className={`fas ${getCategoryIcon(selectedMessage.category)} me-1`}></i>{selectedMessage.category}</Badge>
-                                            <small className="text-muted"><i className="fas fa-clock me-1"></i>Reçu le {formatDate(selectedMessage.created_at)}</small>
-                                        </div>
-                                    </div>
-
-                                    {/* Historique des échanges (Scrollable) (inchangé) */}
-                                    <div className="flex-grow-1 p-4" style={{maxHeight: '400px', overflowY: 'auto'}}>
-                                        
-                                        {/* Message Initial de l'utilisateur */}
-                                        <div className="d-flex flex-column mb-4">
-                                            <div className="d-flex align-items-center mb-2">
-                                                <i className="fas fa-user-circle me-2 text-secondary fs-5"></i>
-                                                <strong className="text-secondary">{selectedMessage.sender}</strong>
-                                            </div>
-                                            <Card className="bg-light border-0 shadow-sm" style={{borderRadius:"15px", borderLeft:"3px solid #6c757d"}}>
-                                                <Card.Body className="p-3">
-                                                    <p className="mb-0" style={{lineHeight:"1.6"}}>{selectedMessage.content}</p>
-                                                </Card.Body>
-                                            </Card>
-                                        </div>
-
-                                        {/* Réponses de l'Administrateur */}
-                                        {selectedMessage.replies?.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map((reply, index) => (
-                                            <div className="d-flex flex-column mb-4 align-items-end" key={index}>
-                                                <div className="d-flex align-items-center mb-2">
-                                                    <strong className="text-primary me-2">Vous (Admin)</strong>
-                                                    <i className="fas fa-shield-alt text-primary fs-5"></i>
+                                            <div className="d-flex align-items-center">
+                                                <div className="rounded-circle d-flex align-items-center justify-content-center me-3" 
+                                                    style={{
+                                                        width: "50px",
+                                                        height: "50px", 
+                                                        background: "linear-gradient(135deg,#667eea,#764ba2)", 
+                                                        color: "white", 
+                                                        fontSize: "1.1rem", 
+                                                        fontWeight: "bold"
+                                                    }}>
+                                                    {selectedMembre.nom?.charAt(0)?.toUpperCase() || 'M'}
                                                 </div>
-                                                <Card className="bg-primary text-white border-0 shadow-sm" style={{borderRadius:"15px", borderRight:"3px solid #007bff", maxWidth: '90%'}}>
-                                                    <Card.Body className="p-3">
-                                                        <p className="mb-0" style={{lineHeight:"1.6"}}>{reply.content}</p>
-                                                        <small className="d-block text-end mt-2" style={{opacity: 0.8}}>Envoyé le {formatDate(reply.created_at)}</small>
-                                                    </Card.Body>
-                                                </Card>
+                                                <div>
+                                                    <h5 className="fw-bold mb-1">{selectedMembre.nom || 'Membre'}</h5>
+                                                    <p className="text-muted mb-0">{selectedMembre.email || 'Aucun email'} • {selectedMembre.type || 'Membre'}</p>
+                                                </div>
                                             </div>
-                                        ))}
+                                            <div className="d-flex gap-2">
+                                                <Button 
+                                                    variant="outline-primary" 
+                                                    size="sm"
+                                                    onClick={() => markAllAsRead(selectedMembre.id)}
+                                                    className="d-flex align-items-center"
+                                                    style={{borderRadius: "8px"}}
+                                                >
+                                                    <i className="fas fa-check-double me-2"></i>
+                                                    Tout marquer comme lu
+                                                </Button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    
-                                    {/* Formulaire de réponse (inchangé) */}
-                                    <div className="p-4 border-top">
-                                        <h6 className="fw-bold mb-3 d-flex align-items-center"><i className="fas fa-reply me-2 text-primary"></i>Répondre à {selectedMessage.sender}</h6>
+
+                                    {/* Messages */}
+                                    <div className="flex-grow-1 p-4" style={{
+                                        maxHeight: '400px', 
+                                        overflowY: 'auto', 
+                                        backgroundColor: '#f0f2f5',
+                                        backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.1) 1px, transparent 0)',
+                                        backgroundSize: '20px 20px'
+                                    }}>
+                                        {conversation.length > 0 ? (
+                                            conversation.map((message) => (
+                                                <div key={message.id} className="d-flex mb-4" style={{ 
+                                                    justifyContent: message.is_from_admin ? 'flex-end' : 'flex-start' 
+                                                }}>
+                                                    <div className="d-flex align-items-start" style={{maxWidth: '70%'}}>
+                                                        {/* Avatar pour les messages du membre */}
+                                                        {!message.is_from_admin && (
+                                                            <div className="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" 
+                                                                style={{
+                                                                    width: '40px', 
+                                                                    height: '40px', 
+                                                                    background: 'linear-gradient(135deg, #667eea, #764ba2)', 
+                                                                    color: 'white', 
+                                                                    fontSize: '0.9rem', 
+                                                                    fontWeight: 'bold'
+                                                                }}>
+                                                                {selectedMembre.nom?.charAt(0)?.toUpperCase() || 'M'}
+                                                            </div>
+                                                        )}
+                                                        
+                                                        <div className="flex-grow-1">
+                                                            <div className={`rounded-3 p-3 shadow-sm ${
+                                                                message.is_from_admin 
+                                                                    ? 'bg-primary text-white' 
+                                                                    : 'bg-white text-dark'
+                                                            }`} 
+                                                                style={{
+                                                                    borderTopLeftRadius: message.is_from_admin ? '20px' : '4px',
+                                                                    borderBottomLeftRadius: '20px',
+                                                                    borderBottomRightRadius: message.is_from_admin ? '4px' : '20px',
+                                                                    borderTopRightRadius: '20px',
+                                                                    background: message.is_from_admin 
+                                                                        ? 'linear-gradient(135deg, #007bff, #0056b3)' 
+                                                                        : 'white'
+                                                                }}>
+                                                                <p className="mb-2" style={{lineHeight: '1.4'}}>
+                                                                    {message.content}
+                                                                </p>
+                                                                <small className={message.is_from_admin ? "text-white-50" : "text-muted"}>
+                                                                    {formatTime(message.created_at)}
+                                                                    {!message.is_from_admin && !message.read && (
+                                                                        <span className="ms-2">
+                                                                            <i className="fas fa-check text-muted"></i>
+                                                                        </span>
+                                                                    )}
+                                                                    {!message.is_from_admin && message.read && (
+                                                                        <span className="ms-2">
+                                                                            <i className="fas fa-check-double text-primary"></i>
+                                                                        </span>
+                                                                    )}
+                                                                </small>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Avatar pour les messages de l'admin */}
+                                                        {message.is_from_admin && (
+                                                            <div className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 ms-3" 
+                                                                style={{
+                                                                    width: '40px', 
+                                                                    height: '40px', 
+                                                                    background: 'linear-gradient(135deg, #28a745, #20c997)', 
+                                                                    color: 'white', 
+                                                                    fontSize: '0.9rem', 
+                                                                    fontWeight: 'bold'
+                                                                }}>
+                                                                A
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="text-center text-muted py-5">
+                                                <i className="fas fa-comments fs-1 text-muted mb-3 d-block" style={{opacity:0.5}}></i>
+                                                <h6 className="text-muted mb-2">Aucun message</h6>
+                                                <p className="text-muted small">Commencez la conversation avec {selectedMembre.nom || 'ce membre'}</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Zone de saisie */}
+                                    <div className="p-3 border-top bg-white">
                                         <Form.Group className="mb-3">
                                             <Form.Control 
                                                 as="textarea" 
                                                 rows={3} 
-                                                value={reply} 
-                                                onChange={e=>setReply(e.target.value)} 
-                                                placeholder={`Écrivez votre réponse à ${selectedMessage.sender}...`} 
-                                                style={{borderRadius:"12px", padding:"15px", border:"1px solid #e0e0e0", resize:"none"}} 
-                                                disabled={isReplying}
+                                                value={newMessage} 
+                                                onChange={e => setNewMessage(e.target.value)} 
+                                                placeholder={`Écrivez votre message à ${selectedMembre.nom || 'ce membre'}...`} 
+                                                style={{
+                                                    borderRadius: "15px", 
+                                                    padding: "12px", 
+                                                    border: "1px solid #e0e0e0", 
+                                                    resize: "none",
+                                                    fontSize: "14px"
+                                                }} 
+                                                disabled={sending}
                                             />
                                         </Form.Group>
                                         <div className="d-flex gap-2">
-                                            <Button variant="primary" onClick={handleReply} className="d-flex align-items-center" style={{borderRadius:"10px", background:"linear-gradient(135deg,#667eea,#764ba2)", border:"none", padding:"10px 20px"}} disabled={isReplying}>
-                                                {isReplying ? (
+                                            <Button 
+                                                variant="primary" 
+                                                onClick={sendMessage} 
+                                                className="d-flex align-items-center" 
+                                                style={{
+                                                    borderRadius: "15px", 
+                                                    background: "linear-gradient(135deg,#667eea,#764ba2)", 
+                                                    border: "none", 
+                                                    padding: "8px 20px",
+                                                    fontSize: "14px"
+                                                }} 
+                                                disabled={sending || !newMessage.trim()}
+                                            >
+                                                {sending ? (
                                                     <>
                                                         <Spinner animation="border" size="sm" className="me-2" />
-                                                        Envoi en cours...
+                                                        Envoi...
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <i className="fas fa-paper-plane me-2"></i>Envoyer la réponse
+                                                        <i className="fas fa-paper-plane me-2"></i>Envoyer
                                                     </>
                                                 )}
                                             </Button>
-                                            <Button variant="outline-secondary" onClick={()=>setReply("")} className="d-flex align-items-center" style={{borderRadius:"10px"}} disabled={isReplying}><i className="fas fa-times me-2"></i>Effacer</Button>
+                                            <Button 
+                                                variant="outline-secondary" 
+                                                onClick={() => setNewMessage("")} 
+                                                className="d-flex align-items-center" 
+                                                style={{borderRadius: "15px", fontSize: "14px"}} 
+                                                disabled={sending}
+                                            >
+                                                <i className="fas fa-times me-2"></i>Effacer
+                                            </Button>
                                         </div>
                                     </div>
                                 </Card.Body>
@@ -597,8 +770,8 @@ const MessageAdmin = () => {
                             <Card className="border-0 shadow-sm h-100 d-flex align-items-center justify-content-center" style={{borderRadius:"20px"}}>
                                 <Card.Body className="text-center py-5">
                                     <i className="fas fa-comments fs-1 text-muted mb-3 d-block" style={{opacity:0.5}}></i>
-                                    <h5 className="text-muted mb-2">Aucun message sélectionné</h5>
-                                    <p className="text-muted mb-0">Sélectionnez un message dans la liste pour voir l'historique de la conversation</p>
+                                    <h5 className="text-muted mb-2">Aucune conversation sélectionnée</h5>
+                                    <p className="text-muted mb-0">Sélectionnez un membre pour commencer à discuter</p>
                                 </Card.Body>
                             </Card>
                         )}
@@ -610,7 +783,7 @@ const MessageAdmin = () => {
             <NewAdminMessageModalComponent
                 show={showNewMessageModal}
                 handleClose={() => setShowNewMessageModal(false)}
-                onMessageSent={(type, message) => {showNotification(type, message); fetchMessages();}} 
+                onMessageSent={(type, message) => {showNotification(type, message); fetchMembres();}} 
                 showNotification={showNotification}
             />
         </div>

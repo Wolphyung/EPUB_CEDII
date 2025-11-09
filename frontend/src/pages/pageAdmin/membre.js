@@ -20,8 +20,11 @@ import {
   updateMembre,
   deleteMembre,
 } from "../../services/api";
+import { useTranslation } from 'react-i18next';
 
 const MembrePage = () => {
+  const { t } = useTranslation();
+  
   const [membres, setMembres] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showAlert, setShowAlert] = useState({ show: false, type: "", message: "" });
@@ -52,7 +55,7 @@ const MembrePage = () => {
       setMembres(res.data);
     } catch (err) {
       console.error("Erreur chargement membres:", err);
-      showNotification("error", "Erreur lors du chargement des membres");
+      showNotification("error", t('error_load_members'));
     } finally {
       setLoading(false);
     }
@@ -113,30 +116,30 @@ const MembrePage = () => {
 
       if (currentMembre.id) {
         await updateMembre(currentMembre.id, formData);
-        showNotification("success", "✅ Membre modifié avec succès !");
+        showNotification("success", t('success_edit_member'));
       } else {
         await addMembre(formData);
-        showNotification("success", "✅ Membre ajouté avec succès !");
+        showNotification("success", t('success_add_member'));
       }
 
       loadMembres();
       setShowModal(false);
     } catch (err) {
       console.error("Erreur sauvegarde membre:", err.response?.data || err.message);
-      showNotification("error", "❌ Erreur lors de l'enregistrement : " + 
+      showNotification("error", t('error_save_member') + ": " + 
         (err.response?.data?.message || err.message));
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Voulez-vous vraiment supprimer ce membre ?")) return;
+    if (!window.confirm(t('delete_member_confirmation'))) return;
     try {
       await deleteMembre(id);
-      showNotification("success", "✅ Membre supprimé avec succès !");
+      showNotification("success", t('success_delete_member'));
       loadMembres();
     } catch (err) {
       console.error("Erreur suppression:", err);
-      showNotification("error", "❌ Erreur lors de la suppression");
+      showNotification("error", t('error_delete_member'));
     }
   };
 
@@ -174,7 +177,7 @@ const MembrePage = () => {
           statut === "Actif" ? "fa-check-circle" :
           statut === "En attente" ? "fa-clock" : "fa-ban"
         } me-1`}></i>
-        {statut}
+        {t(statut)}
       </Badge>
     );
   };
@@ -202,7 +205,7 @@ const MembrePage = () => {
         }}
       >
         <i className={`fas ${icons[type] || "fa-user"} me-1`}></i>
-        {type}
+        {t(type)}
       </Badge>
     );
   };
@@ -240,7 +243,7 @@ const MembrePage = () => {
             } me-3 fs-5`}></i>
             <div>
               <strong className="d-block">
-                {showAlert.type === "success" ? "Succès" : "Erreur"}
+                {showAlert.type === "success" ? t('success') : t('error')}
               </strong>
               <span className="text-muted">{showAlert.message}</span>
             </div>
@@ -255,11 +258,11 @@ const MembrePage = () => {
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent"
             }}>
-              Gestion des Membres
+              {t('member_management_title')}
             </h2>
             <p className="text-muted mb-0 d-flex align-items-center">
               <i className="fas fa-users me-2"></i>
-              Gérez les membres de votre plateforme
+              {t('member_management_subtitle')}
             </p>
           </div>
           <Button 
@@ -275,7 +278,7 @@ const MembrePage = () => {
             }}
           >
             <i className="fas fa-user-plus me-2"></i>
-            Nouveau Membre
+            {t('new_member_button')}
           </Button>
         </div>
 
@@ -283,28 +286,28 @@ const MembrePage = () => {
         <Row className="mb-4">
           {[
             { 
-              title: "Total Membres", 
+              title: "total_members", 
               count: membres.length, 
               icon: "fa-users", 
               color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
               bg: "primary"
             },
             { 
-              title: "Actifs", 
+              title: "active_members", 
               count: membres.filter((m) => m.statut === "Actif").length, 
               icon: "fa-user-check", 
               color: "linear-gradient(135deg, #00b09b, #96c93d)",
               bg: "success"
             },
             { 
-              title: "En attente", 
+              title: "pending_members", 
               count: membres.filter((m) => m.statut === "En attente").length, 
               icon: "fa-clock", 
               color: "linear-gradient(135deg, #f093fb, #f5576c)",
               bg: "warning"
             },
             { 
-              title: "Suspendus", 
+              title: "suspended_members", 
               count: membres.filter((m) => m.statut === "Suspendu").length, 
               icon: "fa-user-slash", 
               color: "linear-gradient(135deg, #fd746c, #ff9068)",
@@ -316,7 +319,7 @@ const MembrePage = () => {
                 <Card.Body className="p-4">
                   <div className="d-flex justify-content-between align-items-center">
                     <div>
-                      <h6 className="card-title text-muted mb-2">{stat.title}</h6>
+                      <h6 className="card-title text-muted mb-2">{t(stat.title)}</h6>
                       <h2 className="fw-bold mb-0" style={{ 
                         background: stat.color,
                         WebkitBackgroundClip: "text",
@@ -339,7 +342,7 @@ const MembrePage = () => {
                   <div className="mt-3">
                     <small className="text-muted">
                       <i className="fas fa-chart-line me-1"></i>
-                      {Math.round((stat.count / Math.max(membres.length, 1)) * 100)}% du total
+                      {Math.round((stat.count / Math.max(membres.length, 1)) * 100)}% {t('of_total')}
                     </small>
                   </div>
                 </Card.Body>
@@ -356,7 +359,7 @@ const MembrePage = () => {
                 <Form.Group>
                   <Form.Label className="fw-semibold text-muted mb-2">
                     <i className="fas fa-search me-2"></i>
-                    Recherche
+                    {t('search')}
                   </Form.Label>
                   <InputGroup>
                     <InputGroup.Text style={{ 
@@ -368,7 +371,7 @@ const MembrePage = () => {
                     </InputGroup.Text>
                     <Form.Control
                       type="text"
-                      placeholder="Nom, email ou type..."
+                      placeholder={t('search_member_placeholder')}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       style={{ borderRadius: "0 10px 10px 0" }}
@@ -381,17 +384,17 @@ const MembrePage = () => {
                 <Form.Group>
                   <Form.Label className="fw-semibold text-muted mb-2">
                     <i className="fas fa-filter me-2"></i>
-                    Statut
+                    {t('status_filter')}
                   </Form.Label>
                   <Form.Select
                     value={filterStatut}
                     onChange={(e) => setFilterStatut(e.target.value)}
                     style={{ borderRadius: "10px" }}
                   >
-                    <option value="Tous">Tous les statuts</option>
-                    <option value="Actif">Actif</option>
-                    <option value="En attente">En attente</option>
-                    <option value="Suspendu">Suspendu</option>
+                    <option value="Tous">{t('all_status')}</option>
+                    <option value="Actif">{t('Actif')}</option>
+                    <option value="En attente">{t('En attente')}</option>
+                    <option value="Suspendu">{t('Suspendu')}</option>
                   </Form.Select>
                 </Form.Group>
               </Col>
@@ -400,17 +403,17 @@ const MembrePage = () => {
                 <Form.Group>
                   <Form.Label className="fw-semibold text-muted mb-2">
                     <i className="fas fa-tag me-2"></i>
-                    Type
+                    {t('type_filter')}
                   </Form.Label>
                   <Form.Select
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}
                     style={{ borderRadius: "10px" }}
                   >
-                    <option value="Tous">Tous les types</option>
-                    <option value="admin">Administrateur</option>
-                    <option value="membre">Membre</option>
-                    <option value="moderateur">Modérateur</option>
+                    <option value="Tous">{t('all_types')}</option>
+                    <option value="admin">{t('admin')}</option>
+                    <option value="membre">{t('membre')}</option>
+                    <option value="moderateur">{t('moderateur')}</option>
                   </Form.Select>
                 </Form.Group>
               </Col>
@@ -444,10 +447,10 @@ const MembrePage = () => {
           <Card.Body className="p-4">
             <div className="d-flex justify-content-between align-items-center mb-4">
               <div>
-                <h5 className="fw-bold mb-1">Liste des Membres</h5>
+                <h5 className="fw-bold mb-1">{t('members_list_title')}</h5>
                 <span className="text-muted d-flex align-items-center">
                   <i className="fas fa-info-circle me-2"></i>
-                  {filteredMembres.length} membre(s) trouvé(s)
+                  {filteredMembres.length} {t('members_found', { count: filteredMembres.length })}
                 </span>
               </div>
               <Dropdown>
@@ -457,16 +460,16 @@ const MembrePage = () => {
                   style={{ borderRadius: "10px" }}
                 >
                   <i className="fas fa-download me-2"></i>
-                  Exporter
+                  {t('export')}
                 </Dropdown.Toggle>
                 <Dropdown.Menu>
                   <Dropdown.Item>
                     <i className="fas fa-file-excel me-2 text-success"></i>
-                    Excel
+                    {t('excel')}
                   </Dropdown.Item>
                   <Dropdown.Item>
                     <i className="fas fa-file-pdf me-2 text-danger"></i>
-                    PDF
+                    {t('pdf')}
                   </Dropdown.Item>
                 </Dropdown.Menu>
               </Dropdown>
@@ -475,9 +478,9 @@ const MembrePage = () => {
             {loading ? (
               <div className="text-center py-5">
                 <div className="spinner-border text-primary mb-3" style={{ width: "3rem", height: "3rem" }} role="status">
-                  <span className="visually-hidden">Chargement...</span>
+                  <span className="visually-hidden">{t('loading')}...</span>
                 </div>
-                <p className="text-muted fw-semibold">Chargement des membres...</p>
+                <p className="text-muted fw-semibold">{t('loading_members')}</p>
               </div>
             ) : (
               <div className="table-responsive">
@@ -488,12 +491,12 @@ const MembrePage = () => {
                   }}>
                     <tr>
                       <th style={{ border: "none", padding: "15px", fontWeight: "600" }}>#ID</th>
-                      <th style={{ border: "none", padding: "15px", fontWeight: "600" }}>Avatar</th>
-                      <th style={{ border: "none", padding: "15px", fontWeight: "600" }}>Membre</th>
-                      <th style={{ border: "none", padding: "15px", fontWeight: "600" }}>Type</th>
-                      <th style={{ border: "none", padding: "15px", fontWeight: "600" }}>Contact</th>
-                      <th style={{ border: "none", padding: "15px", fontWeight: "600" }}>Statut</th>
-                      <th style={{ border: "none", padding: "15px", fontWeight: "600", textAlign: "center" }}>Actions</th>
+                      <th style={{ border: "none", padding: "15px", fontWeight: "600" }}>{t('avatar')}</th>
+                      <th style={{ border: "none", padding: "15px", fontWeight: "600" }}>{t('member')}</th>
+                      <th style={{ border: "none", padding: "15px", fontWeight: "600" }}>{t('type')}</th>
+                      <th style={{ border: "none", padding: "15px", fontWeight: "600" }}>{t('contact')}</th>
+                      <th style={{ border: "none", padding: "15px", fontWeight: "600" }}>{t('status')}</th>
+                      <th style={{ border: "none", padding: "15px", fontWeight: "600", textAlign: "center" }}>{t('actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -531,7 +534,7 @@ const MembrePage = () => {
                           <div>
                             <strong className="d-block">{m.nom}</strong>
                             <small className="text-muted">
-                              Inscrit le {new Date().toLocaleDateString()}
+                              {t('registered_on')} {new Date().toLocaleDateString()}
                             </small>
                           </div>
                         </td>
@@ -555,7 +558,7 @@ const MembrePage = () => {
                               style={{ borderRadius: "8px" }}
                             >
                               <i className="fas fa-edit me-1"></i>
-                              Modifier
+                              {t('edit')}
                             </Button>
                             <Button
                               variant="outline-danger"
@@ -565,7 +568,7 @@ const MembrePage = () => {
                               style={{ borderRadius: "8px" }}
                             >
                               <i className="fas fa-trash me-1"></i>
-                              Supprimer
+                              {t('delete')}
                             </Button>
                           </div>
                         </td>
@@ -576,11 +579,11 @@ const MembrePage = () => {
                         <td colSpan="7" className="text-center py-5">
                           <div className="py-4">
                             <i className="fas fa-users fs-1 text-muted mb-3 d-block" style={{ opacity: 0.5 }}></i>
-                            <h5 className="text-muted mb-2">Aucun membre trouvé</h5>
-                            <p className="text-muted mb-3">Aucun membre ne correspond à vos critères de recherche</p>
+                            <h5 className="text-muted mb-2">{t('no_members_found')}</h5>
+                            <p className="text-muted mb-3">{t('no_members_match')}</p>
                             <Button variant="primary" onClick={clearFilters}>
                               <i className="fas fa-times me-2"></i>
-                              Effacer les filtres
+                              {t('clear_filters')}
                             </Button>
                           </div>
                         </td>
@@ -605,7 +608,7 @@ const MembrePage = () => {
           >
             <Modal.Title className="d-flex align-items-center fw-bold">
               <i className={`fas ${currentMembre.id ? "fa-edit" : "fa-user-plus"} me-2`}></i>
-              {currentMembre.id ? "Modifier le membre" : "Ajouter un membre"}
+              {currentMembre.id ? t('edit_member_modal') : t('add_member_modal')}
             </Modal.Title>
           </Modal.Header>
           <Modal.Body className="p-4">
@@ -615,14 +618,14 @@ const MembrePage = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-user me-2 text-primary"></i>
-                      Nom complet
+                      {t('full_name')}
                     </Form.Label>
                     <Form.Control
                       type="text"
                       name="nom"
                       value={currentMembre.nom}
                       onChange={handleChange}
-                      placeholder="Entrez le nom complet"
+                      placeholder={t('full_name_placeholder')}
                       style={{ borderRadius: "10px", padding: "12px" }}
                     />
                   </Form.Group>
@@ -631,7 +634,7 @@ const MembrePage = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-tag me-2 text-primary"></i>
-                      Type
+                      {t('type_label')}
                     </Form.Label>
                     <Form.Select
                       name="type"
@@ -639,10 +642,10 @@ const MembrePage = () => {
                       onChange={handleChange}
                       style={{ borderRadius: "10px", padding: "12px" }}
                     >
-                      <option value="">Sélectionnez un type</option>
-                      <option value="admin">Administrateur</option>
-                      <option value="membre">Membre</option>
-                      <option value="moderateur">Modérateur</option>
+                      <option value="">{t('select_type')}</option>
+                      <option value="admin">{t('admin')}</option>
+                      <option value="membre">{t('membre')}</option>
+                      <option value="moderateur">{t('moderateur')}</option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -653,14 +656,14 @@ const MembrePage = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-envelope me-2 text-primary"></i>
-                      Email
+                      {t('email')}
                     </Form.Label>
                     <Form.Control
                       type="email"
                       name="email"
                       value={currentMembre.email}
                       onChange={handleChange}
-                      placeholder="email@exemple.com"
+                      placeholder={t('email_placeholder')}
                       style={{ borderRadius: "10px", padding: "12px" }}
                     />
                   </Form.Group>
@@ -669,14 +672,14 @@ const MembrePage = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-lock me-2 text-primary"></i>
-                      Mot de passe
+                      {t('password')}
                     </Form.Label>
                     <Form.Control
                       type="password"
                       name="password"
                       value={currentMembre.password}
                       onChange={handleChange}
-                      placeholder={currentMembre.id ? "Laisser vide pour ne pas modifier" : "Entrez le mot de passe"}
+                      placeholder={currentMembre.id ? t('password_edit_placeholder') : t('password_placeholder')}
                       style={{ borderRadius: "10px", padding: "12px" }}
                     />
                   </Form.Group>
@@ -688,7 +691,7 @@ const MembrePage = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-chart-line me-2 text-primary"></i>
-                      Statut
+                      {t('status_label')}
                     </Form.Label>
                     <Form.Select
                       name="statut"
@@ -696,9 +699,9 @@ const MembrePage = () => {
                       onChange={handleChange}
                       style={{ borderRadius: "10px", padding: "12px" }}
                     >
-                      <option value="Actif">Actif</option>
-                      <option value="En attente">En attente</option>
-                      <option value="Suspendu">Suspendu</option>
+                      <option value="Actif">{t('Actif')}</option>
+                      <option value="En attente">{t('En attente')}</option>
+                      <option value="Suspendu">{t('Suspendu')}</option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -706,7 +709,7 @@ const MembrePage = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-camera me-2 text-primary"></i>
-                      Avatar
+                      {t('avatar')}
                     </Form.Label>
                     <Form.Control
                       type="file"
@@ -744,7 +747,7 @@ const MembrePage = () => {
               style={{ borderRadius: "10px", padding: "10px 20px" }}
             >
               <i className="fas fa-times me-2"></i>
-              Annuler
+              {t('cancel_button')}
             </Button>
             <Button 
               variant="primary" 
@@ -758,7 +761,7 @@ const MembrePage = () => {
               }}
             >
               <i className="fas fa-save me-2"></i>
-              {currentMembre.id ? "Modifier" : "Ajouter"}
+              {currentMembre.id ? t('edit_button') : t('add_button')}
             </Button>
           </Modal.Footer>
         </Modal>

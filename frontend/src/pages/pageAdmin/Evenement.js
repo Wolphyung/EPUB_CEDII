@@ -12,11 +12,13 @@ import {
   InputGroup
 } from "react-bootstrap";
 import axios from "axios";
+import { useTranslation } from 'react-i18next';
 
 const API_URL = "http://127.0.0.1:8000/api";
 
 // Composant FilePreviewCard séparé
 const FilePreviewCard = ({ fichier, fileName, onDownload }) => {
+  const { t } = useTranslation();
   const [imageError, setImageError] = useState(false);
 
   if (!fichier) return null;
@@ -74,7 +76,7 @@ const FilePreviewCard = ({ fichier, fileName, onDownload }) => {
       <div className="d-flex justify-content-between align-items-center mb-2">
         <div className="d-flex align-items-center">
           <i className={`fas ${getFileIcon(fileName)} text-${getFileBadgeVariant(fileName)} me-2`}></i>
-          <span className="small fw-semibold">Document joint:</span>
+          <span className="small fw-semibold">{t('attached_document')}:</span>
         </div>
         <Button
           variant="outline-primary"
@@ -84,7 +86,7 @@ const FilePreviewCard = ({ fichier, fileName, onDownload }) => {
           style={{ borderRadius: "6px", fontSize: "0.7rem" }}
         >
           <i className="fas fa-download me-1"></i>
-          Télécharger
+          {t('download')}
         </Button>
       </div>
       <p className="small text-muted mb-2">{fileName}</p>
@@ -110,7 +112,7 @@ const FilePreviewCard = ({ fichier, fileName, onDownload }) => {
             <div className="py-2">
               <i className={`fas ${getFileIcon(fileName)} fa-3x text-${getFileBadgeVariant(fileName)} mb-2`}></i>
               <p className="small text-muted mb-0">
-                {isImage && imageError ? "Image non disponible" : "Cliquez sur 'Télécharger' pour voir le document"}
+                {isImage && imageError ? t('image_not_available') : t('click_to_download')}
               </p>
             </div>
           )}
@@ -122,16 +124,48 @@ const FilePreviewCard = ({ fichier, fileName, onDownload }) => {
 
 // Composant FilePreviewModal séparé
 const FilePreviewModal = ({ file }) => {
+  const { t } = useTranslation();
+
   if (!file) return null;
 
   const isImage = file.type.startsWith('image/');
   const isPDF = file.type === 'application/pdf';
 
+  const getFileIcon = (fileName) => {
+    if (!fileName) return 'fa-file';
+    
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf': return 'fa-file-pdf';
+      case 'doc': case 'docx': return 'fa-file-word';
+      case 'xls': case 'xlsx': return 'fa-file-excel';
+      case 'ppt': case 'pptx': return 'fa-file-powerpoint';
+      case 'jpg': case 'jpeg': case 'png': case 'gif': case 'bmp': return 'fa-file-image';
+      case 'mp4': case 'avi': case 'mov': return 'fa-file-video';
+      case 'mp3': case 'wav': return 'fa-file-audio';
+      case 'zip': case 'rar': return 'fa-file-archive';
+      default: return 'fa-file';
+    }
+  };
+
+  const getFileBadgeVariant = (fileName) => {
+    if (!fileName) return 'secondary';
+    
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf': return 'danger';
+      case 'doc': case 'docx': return 'primary';
+      case 'xls': case 'xlsx': return 'success';
+      case 'jpg': case 'jpeg': case 'png': case 'gif': return 'info';
+      default: return 'secondary';
+    }
+  };
+
   return (
     <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
       <h6 className="mb-3">
         <i className="fas fa-eye me-2"></i>
-        Aperçu du fichier
+        {t('file_preview')}
       </h6>
       
       {isImage ? (
@@ -166,46 +200,17 @@ const FilePreviewModal = ({ file }) => {
         <div className="text-center">
           <i className={`fas ${getFileIcon(file.name)} fa-3x text-${getFileBadgeVariant(file.name)} mb-2`}></i>
           <p className="mb-0 small text-muted">{file.name}</p>
-          <p className="small text-muted">Aperçu non disponible pour ce type de fichier</p>
+          <p className="small text-muted">{t('preview_not_available')}</p>
         </div>
       )}
     </div>
   );
 };
 
-// Fonctions utilitaires
-const getFileIcon = (fileName) => {
-  if (!fileName) return 'fa-file';
-  
-  const extension = fileName.split('.').pop()?.toLowerCase();
-  switch (extension) {
-    case 'pdf': return 'fa-file-pdf';
-    case 'doc': case 'docx': return 'fa-file-word';
-    case 'xls': case 'xlsx': return 'fa-file-excel';
-    case 'ppt': case 'pptx': return 'fa-file-powerpoint';
-    case 'jpg': case 'jpeg': case 'png': case 'gif': case 'bmp': return 'fa-file-image';
-    case 'mp4': case 'avi': case 'mov': return 'fa-file-video';
-    case 'mp3': case 'wav': return 'fa-file-audio';
-    case 'zip': case 'rar': return 'fa-file-archive';
-    default: return 'fa-file';
-  }
-};
-
-const getFileBadgeVariant = (fileName) => {
-  if (!fileName) return 'secondary';
-  
-  const extension = fileName.split('.').pop()?.toLowerCase();
-  switch (extension) {
-    case 'pdf': return 'danger';
-    case 'doc': case 'docx': return 'primary';
-    case 'xls': case 'xlsx': return 'success';
-    case 'jpg': case 'jpeg': case 'png': case 'gif': return 'info';
-    default: return 'secondary';
-  }
-};
-
 // Composant principal Evenement
 const Evenement = () => {
+  const { t } = useTranslation();
+  
   const [evenements, setEvenements] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -243,7 +248,7 @@ const Evenement = () => {
       setEvenements(res.data.data || res.data);
     } catch (err) {
       console.error(err);
-      showNotification("error", "Erreur lors du chargement des événements");
+      showNotification("error", t('error_load_events'));
     } finally {
       setLoading(false);
     }
@@ -362,11 +367,11 @@ const Evenement = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setEvenements(prev => [res.data.data || res.data, ...prev]);
-      showNotification("success", "✅ Événement ajouté avec succès !");
+      showNotification("success", t('success_add_event'));
       handleCloseAddModal();
     } catch (err) {
       console.error(err);
-      showNotification("error", err.response?.data?.message || "❌ Erreur lors de l'ajout de l'événement");
+      showNotification("error", err.response?.data?.message || t('error_add_event'));
     } finally {
       setLoading(false);
     }
@@ -389,11 +394,11 @@ const Evenement = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setEvenements(prev => prev.map(ev => ev.id === selectedEvent.id ? (res.data.data || res.data) : ev));
-      showNotification("success", "✅ Événement modifié avec succès !");
+      showNotification("success", t('success_edit_event'));
       handleCloseEditModal();
     } catch (err) {
       console.error(err);
-      showNotification("error", err.response?.data?.message || "❌ Erreur lors de la modification de l'événement");
+      showNotification("error", err.response?.data?.message || t('error_edit_event'));
     } finally {
       setLoading(false);
     }
@@ -401,14 +406,14 @@ const Evenement = () => {
 
   // Supprimer événement
   const handleDeleteEvent = async (id) => {
-    if (!window.confirm("Voulez-vous vraiment supprimer cet événement ?")) return;
+    if (!window.confirm(t('delete_event_confirmation'))) return;
     try {
       await axios.delete(`${API_URL}/evenements/${id}`);
       setEvenements(prev => prev.filter(ev => ev.id !== id));
-      showNotification("success", "✅ Événement supprimé avec succès !");
+      showNotification("success", t('success_delete_event'));
     } catch (err) {
       console.error(err);
-      showNotification("error", "❌ Erreur lors de la suppression de l'événement");
+      showNotification("error", t('error_delete_event'));
     }
   };
 
@@ -422,10 +427,10 @@ const Evenement = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setEvenements(prev => prev.map(ev => ev.id === id ? (res.data.data || res.data) : ev));
-      showNotification("success", `✅ Statut changé en "${newStatus}" avec succès !`);
+      showNotification("success", t('success_change_status', { status: newStatus }));
     } catch (err) {
       console.error(err);
-      showNotification("error", "❌ Erreur lors du changement de statut");
+      showNotification("error", t('error_change_status'));
     }
   };
 
@@ -440,7 +445,7 @@ const Evenement = () => {
     try {
       const fileUrl = getFileUrl(fichier);
       if (!fileUrl) {
-        showNotification("error", "❌ Fichier non disponible");
+        showNotification("error", t('error_download'));
         return;
       }
 
@@ -468,10 +473,10 @@ const Evenement = () => {
         window.URL.revokeObjectURL(url);
       }
       
-      showNotification("success", "✅ Téléchargement commencé");
+      showNotification("success", t('success_download'));
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
-      showNotification("error", "❌ Erreur lors du téléchargement");
+      showNotification("error", t('error_download'));
     }
   };
 
@@ -516,9 +521,9 @@ const Evenement = () => {
 
   const getFileName = (fichier) => {
     if (!fichier) return '';
-    if (typeof fichier === 'string') return fichier.split('/').pop() || 'Fichier joint';
+    if (typeof fichier === 'string') return fichier.split('/').pop() || t('attached_file');
     if (fichier instanceof File) return fichier.name;
-    return 'Fichier joint';
+    return t('attached_file');
   };
 
   const isUpcoming = (dateTimeString) => {
@@ -553,7 +558,7 @@ const Evenement = () => {
             } me-3 fs-5`}></i>
             <div>
               <strong className="d-block">
-                {showAlert.type === "success" ? "Succès" : "Erreur"}
+                {showAlert.type === "success" ? t('success') : t('error')}
               </strong>
               <span className="text-muted">{showAlert.message}</span>
             </div>
@@ -568,11 +573,11 @@ const Evenement = () => {
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent"
             }}>
-              Gestion des Événements
+              {t('event_management_title')}
             </h2>
             <p className="text-muted mb-0 d-flex align-items-center">
               <i className="fas fa-calendar-alt me-2"></i>
-              Créez et gérez vos événements
+              {t('event_management_subtitle')}
             </p>
           </div>
           <Button 
@@ -588,7 +593,7 @@ const Evenement = () => {
             }}
           >
             <i className="fas fa-plus me-2"></i>
-            Nouvel Événement
+            {t('new_event_button')}
           </Button>
         </div>
 
@@ -596,25 +601,25 @@ const Evenement = () => {
         <Row className="mb-4">
           {[
             { 
-              title: "Total Événements", 
+              title: "total_events", 
               count: evenements.length, 
               icon: "fa-calendar-alt", 
               color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
             },
             { 
-              title: "À venir", 
+              title: "upcoming_events", 
               count: evenements.filter(ev => isUpcoming(ev.date_heure)).length, 
               icon: "fa-clock", 
               color: "linear-gradient(135deg, #00b09b, #96c93d)"
             },
             { 
-              title: "Validés", 
+              title: "validated_events", 
               count: evenements.filter((ev) => ev.statut === "Validé").length, 
               icon: "fa-check-circle", 
               color: "linear-gradient(135deg, #4facfe, #00f2fe)"
             },
             { 
-              title: "Avec Fichiers", 
+              title: "with_files", 
               count: evenements.filter((ev) => ev.fichier).length, 
               icon: "fa-paperclip", 
               color: "linear-gradient(135deg, #f093fb, #f5576c)"
@@ -625,7 +630,7 @@ const Evenement = () => {
                 <Card.Body className="p-4">
                   <div className="d-flex justify-content-between align-items-center">
                     <div>
-                      <h6 className="card-title text-muted mb-2">{stat.title}</h6>
+                      <h6 className="card-title text-muted mb-2">{t(stat.title)}</h6>
                       <h2 className="fw-bold mb-0" style={{ 
                         background: stat.color,
                         WebkitBackgroundClip: "text",
@@ -659,7 +664,7 @@ const Evenement = () => {
                 <Form.Group>
                   <Form.Label className="fw-semibold text-muted mb-2">
                     <i className="fas fa-search me-2"></i>
-                    Recherche
+                    {t('search')}
                   </Form.Label>
                   <InputGroup>
                     <InputGroup.Text style={{ 
@@ -671,7 +676,7 @@ const Evenement = () => {
                     </InputGroup.Text>
                     <Form.Control
                       type="text"
-                      placeholder="Rechercher par titre ou description..."
+                      placeholder={t('search_event_placeholder')}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       style={{ borderRadius: "0 10px 10px 0" }}
@@ -684,17 +689,17 @@ const Evenement = () => {
                 <Form.Group>
                   <Form.Label className="fw-semibold text-muted mb-2">
                     <i className="fas fa-filter me-2"></i>
-                    Statut
+                    {t('status_filter')}
                   </Form.Label>
                   <Form.Select
                     value={filterStatut}
                     onChange={(e) => setFilterStatut(e.target.value)}
                     style={{ borderRadius: "10px" }}
                   >
-                    <option value="Tous">Tous les statuts</option>
-                    <option value="Validé">Validé</option>
-                    <option value="En attente">En attente</option>
-                    <option value="Rejeté">Rejeté</option>
+                    <option value="Tous">{t('all_status')}</option>
+                    <option value="Validé">{t('Validé')}</option>
+                    <option value="En attente">{t('En attente')}</option>
+                    <option value="Rejeté">{t('Rejeté')}</option>
                   </Form.Select>
                 </Form.Group>
               </Col>
@@ -703,17 +708,17 @@ const Evenement = () => {
                 <Form.Group>
                   <Form.Label className="fw-semibold text-muted mb-2">
                     <i className="fas fa-tag me-2"></i>
-                    Type
+                    {t('type_filter')}
                   </Form.Label>
                   <Form.Select
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}
                     style={{ borderRadius: "10px" }}
                   >
-                    <option value="Tous">Tous les types</option>
-                    <option value="Présentiel">Présentiel</option>
-                    <option value="En ligne">En ligne</option>
-                    <option value="Hybride">Hybride</option>
+                    <option value="Tous">{t('all_types')}</option>
+                    <option value="Présentiel">{t('presentiel')}</option>
+                    <option value="En ligne">{t('online')}</option>
+                    <option value="Hybride">{t('hybrid')}</option>
                   </Form.Select>
                 </Form.Group>
               </Col>
@@ -746,9 +751,9 @@ const Evenement = () => {
         {loading ? (
           <div className="text-center py-5">
             <div className="spinner-border text-primary mb-3" style={{ width: "3rem", height: "3rem" }} role="status">
-              <span className="visually-hidden">Chargement...</span>
+              <span className="visually-hidden">{t('loading')}...</span>
             </div>
-            <p className="text-muted fw-semibold">Chargement des événements...</p>
+            <p className="text-muted fw-semibold">{t('loading_events')}</p>
           </div>
         ) : (
           <Row>
@@ -789,7 +794,7 @@ const Evenement = () => {
                         }}
                       >
                         <i className={`fas ${getStatusIcon(ev.statut)} me-1`}></i>
-                        {ev.statut}
+                        {t(ev.statut)}
                       </Badge>
                     </div>
 
@@ -808,7 +813,7 @@ const Evenement = () => {
                         <span>{formatDateTime(ev.date_heure)}</span>
                         {isUpcoming(ev.date_heure) && (
                           <Badge bg="info" className="ms-2" style={{ fontSize: "0.65rem" }}>
-                            À venir
+                            {t('upcoming')}
                           </Badge>
                         )}
                       </div>
@@ -820,7 +825,7 @@ const Evenement = () => {
                       
                       <div className="d-flex align-items-center mb-2">
                         <i className={`fas ${getTypeIcon(ev.type)} text-primary me-2`} style={{ width: "16px" }}></i>
-                        <span>{ev.type}</span>
+                        <span>{t(ev.type.toLowerCase())}</span>
                       </div>
 
                       {/* Section Fichier avec aperçu VISUEL */}
@@ -845,7 +850,7 @@ const Evenement = () => {
                                 onClick={() => handleChangeStatus(ev.id, "Validé")}
                                 className="d-flex align-items-center"
                                 style={{ borderRadius: "8px" }}
-                                title="Valider"
+                                title={t('validate')}
                               >
                                 <i className="fas fa-check"></i>
                               </Button>
@@ -855,7 +860,7 @@ const Evenement = () => {
                                 onClick={() => handleChangeStatus(ev.id, "Rejeté")}
                                 className="d-flex align-items-center"
                                 style={{ borderRadius: "8px" }}
-                                title="Rejeter"
+                                title={t('reject')}
                               >
                                 <i className="fas fa-times"></i>
                               </Button>
@@ -868,7 +873,7 @@ const Evenement = () => {
                               onClick={() => handleChangeStatus(ev.id, "Rejeté")}
                               className="d-flex align-items-center"
                               style={{ borderRadius: "8px" }}
-                              title="Rejeter"
+                              title={t('reject')}
                             >
                               <i className="fas fa-times"></i>
                             </Button>
@@ -880,7 +885,7 @@ const Evenement = () => {
                               onClick={() => handleChangeStatus(ev.id, "Validé")}
                               className="d-flex align-items-center"
                               style={{ borderRadius: "8px" }}
-                              title="Valider"
+                              title={t('validate')}
                             >
                               <i className="fas fa-check"></i>
                             </Button>
@@ -894,7 +899,7 @@ const Evenement = () => {
                             onClick={() => handleShowEditModal(ev)}
                             className="d-flex align-items-center"
                             style={{ borderRadius: "8px" }}
-                            title="Modifier"
+                            title={t('edit')}
                           >
                             <i className="fas fa-edit"></i>
                           </Button>
@@ -904,7 +909,7 @@ const Evenement = () => {
                             onClick={() => handleDeleteEvent(ev.id)}
                             className="d-flex align-items-center"
                             style={{ borderRadius: "8px" }}
-                            title="Supprimer"
+                            title={t('delete')}
                           >
                             <i className="fas fa-trash"></i>
                           </Button>
@@ -921,15 +926,15 @@ const Evenement = () => {
                 <Card className="border-0 shadow-sm text-center" style={{ borderRadius: "20px" }}>
                   <Card.Body className="py-5">
                     <i className="fas fa-calendar-times fs-1 text-muted mb-3 d-block" style={{ opacity: 0.5 }}></i>
-                    <h5 className="text-muted mb-2">Aucun événement trouvé</h5>
-                    <p className="text-muted mb-3">Aucun événement ne correspond à vos critères de recherche</p>
+                    <h5 className="text-muted mb-2">{t('no_events_found')}</h5>
+                    <p className="text-muted mb-3">{t('no_events_match')}</p>
                     <Button 
                       variant="primary" 
                       onClick={clearFilters}
                       className="d-flex align-items-center mx-auto"
                     >
                       <i className="fas fa-times me-2"></i>
-                      Effacer les filtres
+                      {t('clear_filters')}
                     </Button>
                   </Card.Body>
                 </Card>
@@ -950,7 +955,7 @@ const Evenement = () => {
           >
             <Modal.Title className="d-flex align-items-center fw-bold">
               <i className="fas fa-plus me-2"></i>
-              Nouvel Événement
+              {t('add_event_modal')}
             </Modal.Title>
           </Modal.Header>
           <Modal.Body className="p-4">
@@ -960,7 +965,7 @@ const Evenement = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-heading me-2 text-primary"></i>
-                      Titre *
+                      {t('event_title')} *
                     </Form.Label>
                     <Form.Control 
                       type="text" 
@@ -969,7 +974,7 @@ const Evenement = () => {
                       onChange={handleInputChange} 
                       required 
                       style={{ borderRadius: "10px", padding: "12px" }}
-                      placeholder="Titre de l'événement"
+                      placeholder={t('event_title_placeholder')}
                     />
                   </Form.Group>
                 </Col>
@@ -977,7 +982,7 @@ const Evenement = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-chart-line me-2 text-primary"></i>
-                      Statut *
+                      {t('status_label')} *
                     </Form.Label>
                     <Form.Select 
                       name="statut" 
@@ -985,9 +990,9 @@ const Evenement = () => {
                       onChange={handleInputChange}
                       style={{ borderRadius: "10px", padding: "12px" }}
                     >
-                      <option value="En attente">En attente</option>
-                      <option value="Validé">Validé</option>
-                      <option value="Rejeté">Rejeté</option>
+                      <option value="En attente">{t('En attente')}</option>
+                      <option value="Validé">{t('Validé')}</option>
+                      <option value="Rejeté">{t('Rejeté')}</option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -996,7 +1001,7 @@ const Evenement = () => {
               <Form.Group className="mb-4">
                 <Form.Label className="fw-semibold text-muted">
                   <i className="fas fa-align-left me-2 text-primary"></i>
-                  Description *
+                  {t('description_label')} *
                 </Form.Label>
                 <Form.Control 
                   as="textarea" 
@@ -1006,7 +1011,7 @@ const Evenement = () => {
                   onChange={handleInputChange} 
                   required 
                   style={{ borderRadius: "10px", padding: "12px" }}
-                  placeholder="Description de l'événement..."
+                  placeholder={t('description_placeholder')}
                 />
               </Form.Group>
 
@@ -1015,7 +1020,7 @@ const Evenement = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-calendar me-2 text-primary"></i>
-                      Date et heure *
+                      {t('date_time_label')} *
                     </Form.Label>
                     <Form.Control 
                       type="datetime-local" 
@@ -1031,7 +1036,7 @@ const Evenement = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-map-marker-alt me-2 text-primary"></i>
-                      Lieu *
+                      {t('location_label')} *
                     </Form.Label>
                     <Form.Control 
                       type="text" 
@@ -1040,7 +1045,7 @@ const Evenement = () => {
                       onChange={handleInputChange} 
                       required 
                       style={{ borderRadius: "10px", padding: "12px" }}
-                      placeholder="Lieu de l'événement"
+                      placeholder={t('location_placeholder')}
                     />
                   </Form.Group>
                 </Col>
@@ -1051,7 +1056,7 @@ const Evenement = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-tag me-2 text-primary"></i>
-                      Type *
+                      {t('type_label')} *
                     </Form.Label>
                     <Form.Select 
                       name="type" 
@@ -1059,9 +1064,9 @@ const Evenement = () => {
                       onChange={handleInputChange}
                       style={{ borderRadius: "10px", padding: "12px" }}
                     >
-                      <option value="Présentiel">Présentiel</option>
-                      <option value="En ligne">En ligne</option>
-                      <option value="Hybride">Hybride</option>
+                      <option value="Présentiel">{t('presentiel')}</option>
+                      <option value="En ligne">{t('online')}</option>
+                      <option value="Hybride">{t('hybrid')}</option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -1069,7 +1074,7 @@ const Evenement = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-paperclip me-2 text-primary"></i>
-                      Fichier joint
+                      {t('file_label')}
                     </Form.Label>
                     <Form.Control 
                       type="file" 
@@ -1078,7 +1083,7 @@ const Evenement = () => {
                     />
                     <Form.Text className="text-muted">
                       <i className="fas fa-info-circle me-1"></i>
-                      Formats acceptés: PDF, DOC, Images, Vidéos. Taille max: 10MB
+                      {t('event_file_formats')}
                     </Form.Text>
                   </Form.Group>
                 </Col>
@@ -1096,7 +1101,7 @@ const Evenement = () => {
               style={{ borderRadius: "10px", padding: "10px 20px" }}
             >
               <i className="fas fa-times me-2"></i>
-              Annuler
+              {t('cancel_button')}
             </Button>
             <Button 
               variant="primary" 
@@ -1112,7 +1117,7 @@ const Evenement = () => {
               }}
             >
               <i className="fas fa-save me-2"></i>
-              {loading ? "Création..." : "Créer l'événement"}
+              {loading ? t('creating') : t('create_event_button')}
             </Button>
           </Modal.Footer>
         </Modal>
@@ -1130,7 +1135,7 @@ const Evenement = () => {
             >
               <Modal.Title className="d-flex align-items-center fw-bold">
                 <i className="fas fa-edit me-2"></i>
-                Modifier l'Événement
+                {t('edit_event_modal')}
               </Modal.Title>
             </Modal.Header>
             <Modal.Body className="p-4">
@@ -1140,7 +1145,7 @@ const Evenement = () => {
                     <Form.Group className="mb-4">
                       <Form.Label className="fw-semibold text-muted">
                         <i className="fas fa-heading me-2 text-primary"></i>
-                        Titre *
+                        {t('event_title')} *
                       </Form.Label>
                       <Form.Control 
                         type="text" 
@@ -1156,7 +1161,7 @@ const Evenement = () => {
                     <Form.Group className="mb-4">
                       <Form.Label className="fw-semibold text-muted">
                         <i className="fas fa-chart-line me-2 text-primary"></i>
-                        Statut *
+                        {t('status_label')} *
                       </Form.Label>
                       <Form.Select 
                         name="statut" 
@@ -1164,9 +1169,9 @@ const Evenement = () => {
                         onChange={handleEditInputChange}
                         style={{ borderRadius: "10px", padding: "12px" }}
                       >
-                        <option value="En attente">En attente</option>
-                        <option value="Validé">Validé</option>
-                        <option value="Rejeté">Rejeté</option>
+                        <option value="En attente">{t('En attente')}</option>
+                        <option value="Validé">{t('Validé')}</option>
+                        <option value="Rejeté">{t('Rejeté')}</option>
                       </Form.Select>
                     </Form.Group>
                   </Col>
@@ -1175,7 +1180,7 @@ const Evenement = () => {
                 <Form.Group className="mb-4">
                   <Form.Label className="fw-semibold text-muted">
                     <i className="fas fa-align-left me-2 text-primary"></i>
-                    Description *
+                    {t('description_label')} *
                   </Form.Label>
                   <Form.Control 
                     as="textarea" 
@@ -1193,7 +1198,7 @@ const Evenement = () => {
                     <Form.Group className="mb-4">
                       <Form.Label className="fw-semibold text-muted">
                         <i className="fas fa-calendar me-2 text-primary"></i>
-                        Date et heure *
+                        {t('date_time_label')} *
                       </Form.Label>
                       <Form.Control 
                         type="datetime-local" 
@@ -1209,7 +1214,7 @@ const Evenement = () => {
                     <Form.Group className="mb-4">
                       <Form.Label className="fw-semibold text-muted">
                         <i className="fas fa-map-marker-alt me-2 text-primary"></i>
-                        Lieu *
+                        {t('location_label')} *
                       </Form.Label>
                       <Form.Control 
                         type="text" 
@@ -1228,7 +1233,7 @@ const Evenement = () => {
                     <Form.Group className="mb-4">
                       <Form.Label className="fw-semibold text-muted">
                         <i className="fas fa-tag me-2 text-primary"></i>
-                        Type *
+                        {t('type_label')} *
                       </Form.Label>
                       <Form.Select 
                         name="type" 
@@ -1236,9 +1241,9 @@ const Evenement = () => {
                         onChange={handleEditInputChange}
                         style={{ borderRadius: "10px", padding: "12px" }}
                       >
-                        <option value="Présentiel">Présentiel</option>
-                        <option value="En ligne">En ligne</option>
-                        <option value="Hybride">Hybride</option>
+                        <option value="Présentiel">{t('presentiel')}</option>
+                        <option value="En ligne">{t('online')}</option>
+                        <option value="Hybride">{t('hybrid')}</option>
                       </Form.Select>
                     </Form.Group>
                   </Col>
@@ -1246,7 +1251,7 @@ const Evenement = () => {
                     <Form.Group className="mb-4">
                       <Form.Label className="fw-semibold text-muted">
                         <i className="fas fa-paperclip me-2 text-primary"></i>
-                        Fichier joint
+                        {t('file_label')}
                       </Form.Label>
                       <Form.Control 
                         type="file" 
@@ -1257,7 +1262,7 @@ const Evenement = () => {
                         <div className="mt-2">
                           <small className="text-muted d-block">
                             <i className="fas fa-file me-1"></i>
-                            Fichier actuel: {getFileName(selectedEvent.fichier)}
+                            {t('current_file')}: {getFileName(selectedEvent.fichier)}
                           </small>
                           <Button
                             variant="outline-primary"
@@ -1267,7 +1272,7 @@ const Evenement = () => {
                             style={{ borderRadius: "6px", fontSize: "0.7rem" }}
                           >
                             <i className="fas fa-download me-1"></i>
-                            Télécharger
+                            {t('download')}
                           </Button>
                         </div>
                       )}
@@ -1287,7 +1292,7 @@ const Evenement = () => {
                 style={{ borderRadius: "10px", padding: "10px 20px" }}
               >
                 <i className="fas fa-times me-2"></i>
-                Annuler
+                {t('cancel_button')}
               </Button>
               <Button 
                 variant="primary" 
@@ -1303,7 +1308,7 @@ const Evenement = () => {
                 }}
               >
                 <i className="fas fa-save me-2"></i>
-                {loading ? "Modification..." : "Modifier"}
+                {loading ? t('modifying') : t('save_button')}
               </Button>
             </Modal.Footer>
           </Modal>

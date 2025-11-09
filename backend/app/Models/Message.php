@@ -10,21 +10,25 @@ class Message extends Model
     use HasFactory;
 
     protected $fillable = [
-        'sender', 
+        'membre_id',
+        'sender',
         'email', 
-        'content', 
-        'category', 
-        'read'
-    ];
-    
-    // Ajout d'une propriété pour s'assurer que 'read' est traité comme un booléen
-    protected $casts = [
-        'read' => 'boolean',
+        'category',
+        'content',
+        'read',
+        'is_from_admin'
     ];
 
-    /**
-     * Un message peut avoir plusieurs réponses de l'administrateur.
-     */
+    protected $casts = [
+        'read' => 'boolean',
+        'is_from_admin' => 'boolean'
+    ];
+
+    public function membre()
+    {
+        return $this->belongsTo(Membre::class);
+    }
+
     public function replies()
     {
         return $this->hasMany(AdminReply::class);

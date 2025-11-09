@@ -13,10 +13,13 @@ import {
   Dropdown
 } from "react-bootstrap";
 import axios from "axios";
+import { useTranslation } from 'react-i18next';
 
 const API_URL = "http://127.0.0.1:8000/api";
 
 const AppelOffre = () => {
+  const { t } = useTranslation();
+  
   const [appelOffres, setAppelOffres] = useState([]);
   const [membres, setMembres] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -76,7 +79,7 @@ const AppelOffre = () => {
       setAppelOffres(res.data.data || res.data);
     } catch (err) {
       console.error("Erreur chargement appels d'offre:", err);
-      showNotification("error", "Erreur lors du chargement des appels d'offre");
+      showNotification("error", t('error_load_offers'));
     } finally {
       setLoading(false);
     }
@@ -181,11 +184,11 @@ const AppelOffre = () => {
       });
       
       setAppelOffres(prev => [res.data.data || res.data, ...prev]);
-      showNotification("success", "✅ Appel d'offre ajouté avec succès !");
+      showNotification("success", t('success_add_offer'));
       handleClose();
     } catch (err) {
       console.error("Erreur ajout appel d'offre:", err);
-      showNotification("error", "❌ Erreur lors de l'ajout de l'appel d'offre");
+      showNotification("error", t('error_add_offer'));
     } finally {
       setLoading(false);
     }
@@ -205,24 +208,24 @@ const AppelOffre = () => {
       setAppelOffres(prev => prev.map(offre => 
         offre.id === id ? (res.data.data || res.data) : offre
       ));
-      showNotification("success", `✅ Statut changé en "${newStatus}" avec succès !`);
+      showNotification("success", t('success_change_status', { status: newStatus }));
     } catch (err) {
       console.error("Erreur changement statut:", err);
-      showNotification("error", "❌ Erreur lors du changement de statut");
+      showNotification("error", t('error_change_status'));
     }
   };
 
   // Supprimer un appel d'offre
   const handleDelete = async (id) => {
-    if (!window.confirm("Voulez-vous vraiment supprimer cet appel d'offre ?")) return;
+    if (!window.confirm(t('delete_offer_confirmation'))) return;
     
     try {
       await axios.delete(`${API_URL}/appeloffres/${id}`);
       setAppelOffres(prev => prev.filter(offre => offre.id !== id));
-      showNotification("success", "✅ Appel d'offre supprimé avec succès !");
+      showNotification("success", t('success_delete_offer'));
     } catch (err) {
       console.error("Erreur suppression:", err);
-      showNotification("error", "❌ Erreur lors de la suppression");
+      showNotification("error", t('error_delete_offer'));
     }
   };
 
@@ -241,7 +244,7 @@ const AppelOffre = () => {
     try {
       const fileUrl = getFileUrl(fichier);
       if (!fileUrl) {
-        showNotification("error", "❌ Fichier non disponible");
+        showNotification("error", t('error_download'));
         return;
       }
 
@@ -256,10 +259,10 @@ const AppelOffre = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       
-      showNotification("success", "✅ Téléchargement commencé");
+      showNotification("success", t('success_download'));
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
-      showNotification("error", "❌ Erreur lors du téléchargement");
+      showNotification("error", t('error_download'));
     }
   };
 
@@ -297,6 +300,8 @@ const AppelOffre = () => {
 
   // Composant pour afficher la prévisualisation du fichier
   const FilePreview = ({ file }) => {
+    const { t } = useTranslation();
+
     if (!file) return null;
 
     const isImage = file.type.startsWith('image/');
@@ -306,7 +311,7 @@ const AppelOffre = () => {
       <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
         <h6 className="mb-3">
           <i className="fas fa-eye me-2"></i>
-          Aperçu du fichier
+          {t('file_preview')}
         </h6>
         
         {isImage ? (
@@ -341,7 +346,7 @@ const AppelOffre = () => {
           <div className="text-center">
             <i className={`fas ${getFileIcon(file.name)} fa-3x text-${getFileBadgeVariant(file.name)} mb-2`}></i>
             <p className="mb-0 small text-muted">{file.name}</p>
-            <p className="small text-muted">Aperçu non disponible pour ce type de fichier</p>
+            <p className="small text-muted">{t('preview_not_available')}</p>
           </div>
         )}
       </div>
@@ -400,18 +405,18 @@ const AppelOffre = () => {
 
   const getFileName = (fichier) => {
     if (!fichier) return '';
-    if (typeof fichier === 'string') return fichier.split('/').pop() || 'Fichier joint';
+    if (typeof fichier === 'string') return fichier.split('/').pop() || t('attached_file');
     if (fichier instanceof File) return fichier.name;
-    return 'Fichier joint';
+    return t('attached_file');
   };
 
   // Fonction pour obtenir le nom d'affichage du membre
   const getMembreDisplayName = (membreId) => {
     const membre = membres.find(m => m.id == membreId);
     if (membre) {
-      return membre.nom_entreprise || membre.nom_contact || membre.name || `Membre ${membreId}`;
+      return membre.nom_entreprise || membre.nom_contact || membre.name || t('member', { id: membreId });
     }
-    return membreId || "Non assigné";
+    return membreId || t('not_assigned');
   };
 
   return (
@@ -441,7 +446,7 @@ const AppelOffre = () => {
             } me-3 fs-5`}></i>
             <div>
               <strong className="d-block">
-                {showAlert.type === "success" ? "Succès" : "Erreur"}
+                {showAlert.type === "success" ? t('success') : t('error')}
               </strong>
               <span className="text-muted">{showAlert.message}</span>
             </div>
@@ -456,11 +461,11 @@ const AppelOffre = () => {
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent"
             }}>
-              Gestion des Appels d'Offre
+              {t('offer_management_title')}
             </h2>
             <p className="text-muted mb-0 d-flex align-items-center">
               <i className="fas fa-file-contract me-2"></i>
-              Gérez les appels d'offre de votre plateforme
+              {t('offer_management_subtitle')}
             </p>
           </div>
           <Button 
@@ -476,7 +481,7 @@ const AppelOffre = () => {
             }}
           >
             <i className="fas fa-plus me-2"></i>
-            Nouvel Appel d'Offre
+            {t('new_offer_button')}
           </Button>
         </div>
 
@@ -484,25 +489,25 @@ const AppelOffre = () => {
         <Row className="mb-4">
           {[
             { 
-              title: "Total Appels d'Offre", 
+              title: "total_offers", 
               count: appelOffres.length, 
               icon: "fa-file-contract", 
               color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
             },
             { 
-              title: "En attente", 
+              title: "pending_offers", 
               count: appelOffres.filter((offre) => offre.statut === "En attente").length, 
               icon: "fa-clock", 
               color: "linear-gradient(135deg, #00b09b, #96c93d)"
             },
             { 
-              title: "Validés", 
+              title: "validated_offers", 
               count: appelOffres.filter((offre) => offre.statut === "Validé").length, 
               icon: "fa-check-circle", 
               color: "linear-gradient(135deg, #4facfe, #00f2fe)"
             },
             { 
-              title: "Urgents", 
+              title: "urgent_offers", 
               count: appelOffres.filter((offre) => offre.est_urgent).length, 
               icon: "fa-exclamation-triangle", 
               color: "linear-gradient(135deg, #f093fb, #f5576c)"
@@ -513,7 +518,7 @@ const AppelOffre = () => {
                 <Card.Body className="p-4">
                   <div className="d-flex justify-content-between align-items-center">
                     <div>
-                      <h6 className="card-title text-muted mb-2">{stat.title}</h6>
+                      <h6 className="card-title text-muted mb-2">{t(stat.title)}</h6>
                       <h2 className="fw-bold mb-0" style={{ 
                         background: stat.color,
                         WebkitBackgroundClip: "text",
@@ -547,7 +552,7 @@ const AppelOffre = () => {
                 <Form.Group>
                   <Form.Label className="fw-semibold text-muted mb-2">
                     <i className="fas fa-search me-2"></i>
-                    Recherche
+                    {t('search')}
                   </Form.Label>
                   <InputGroup>
                     <InputGroup.Text style={{ 
@@ -559,7 +564,7 @@ const AppelOffre = () => {
                     </InputGroup.Text>
                     <Form.Control
                       type="text"
-                      placeholder="Rechercher par intitulé ou description..."
+                      placeholder={t('search_offer_placeholder')}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       style={{ borderRadius: "0 10px 10px 0" }}
@@ -572,19 +577,19 @@ const AppelOffre = () => {
                 <Form.Group>
                   <Form.Label className="fw-semibold text-muted mb-2">
                     <i className="fas fa-filter me-2"></i>
-                    Statut
+                    {t('status_filter')}
                   </Form.Label>
                   <Form.Select
                     value={filterStatut}
                     onChange={(e) => setFilterStatut(e.target.value)}
                     style={{ borderRadius: "10px" }}
                   >
-                    <option value="Tous">Tous les statuts</option>
-                    <option value="En attente">En attente</option>
-                    <option value="Validé">Validé</option>
-                    <option value="Rejeté">Rejeté</option>
-                    <option value="Actif">Actif</option>
-                    <option value="Clôturé">Clôturé</option>
+                    <option value="Tous">{t('all_status')}</option>
+                    <option value="En attente">{t('En attente')}</option>
+                    <option value="Validé">{t('Validé')}</option>
+                    <option value="Rejeté">{t('Rejeté')}</option>
+                    <option value="Actif">{t('Actif')}</option>
+                    <option value="Clôturé">{t('Clôturé')}</option>
                   </Form.Select>
                 </Form.Group>
               </Col>
@@ -593,13 +598,13 @@ const AppelOffre = () => {
                 <Form.Group>
                   <Form.Label className="fw-semibold text-muted mb-2">
                     <i className="fas fa-sort me-2"></i>
-                    Trier par
+                    {t('sort_by')}
                   </Form.Label>
                   <Form.Select style={{ borderRadius: "10px" }}>
-                    <option>Date d'ouverture</option>
-                    <option>Date de clôture</option>
-                    <option>Intitulé</option>
-                    <option>Statut</option>
+                    <option>{t('opening_date')}</option>
+                    <option>{t('closing_date')}</option>
+                    <option>{t('title')}</option>
+                    <option>{t('status')}</option>
                   </Form.Select>
                 </Form.Group>
               </Col>
@@ -632,9 +637,9 @@ const AppelOffre = () => {
         {loading ? (
           <div className="text-center py-5">
             <div className="spinner-border text-primary mb-3" style={{ width: "3rem", height: "3rem" }} role="status">
-              <span className="visually-hidden">Chargement...</span>
+              <span className="visually-hidden">{t('loading')}...</span>
             </div>
-            <p className="text-muted fw-semibold">Chargement des appels d'offre...</p>
+            <p className="text-muted fw-semibold">{t('loading_offers')}</p>
           </div>
         ) : (
           <Row>
@@ -669,7 +674,7 @@ const AppelOffre = () => {
                           {offre.est_urgent && (
                             <Badge bg="danger" className="ms-2">
                               <i className="fas fa-exclamation-triangle me-1"></i>
-                              Urgent
+                              {t('urgent')}
                             </Badge>
                           )}
                         </Card.Title>
@@ -690,7 +695,7 @@ const AppelOffre = () => {
                         }}
                       >
                         <i className={`fas ${getStatusIcon(offre.statut)} me-1`}></i>
-                        {offre.statut}
+                        {t(offre.statut)}
                       </Badge>
                     </div>
 
@@ -725,16 +730,16 @@ const AppelOffre = () => {
                       
                       <div className="d-flex align-items-center mb-2">
                         <i className="fas fa-calendar-plus text-primary me-2" style={{ width: "16px" }}></i>
-                        <span>Ouverture: {formatDate(offre.date_ouverture)}</span>
+                        <span>{t('opening')}: {formatDate(offre.date_ouverture)}</span>
                       </div>
                       
                       <div className="d-flex align-items-center mb-2">
                         <i className="fas fa-calendar-check text-primary me-2" style={{ width: "16px" }}></i>
                         <span>
-                          Clôture: {formatDate(offre.date_cloture)}
+                          {t('closing')}: {formatDate(offre.date_cloture)}
                           {isDatePassed(offre.date_cloture) && (
                             <Badge bg="danger" className="ms-2" style={{ fontSize: "0.65rem" }}>
-                              Expiré
+                              {t('expired')}
                             </Badge>
                           )}
                         </span>
@@ -746,7 +751,7 @@ const AppelOffre = () => {
                           <div className="d-flex justify-content-between align-items-center mb-2">
                             <div className="d-flex align-items-center">
                               <i className={`fas ${getFileIcon(getFileName(offre.fichier))} text-${getFileBadgeVariant(getFileName(offre.fichier))} me-2`}></i>
-                              <span className="small fw-semibold">Document:</span>
+                              <span className="small fw-semibold">{t('document')}:</span>
                             </div>
                             <Button
                               variant="outline-primary"
@@ -756,7 +761,7 @@ const AppelOffre = () => {
                               style={{ borderRadius: "6px", fontSize: "0.7rem" }}
                             >
                               <i className="fas fa-download me-1"></i>
-                              Télécharger
+                              {t('download')}
                             </Button>
                           </div>
                           <p className="small text-muted mb-2">{getFileName(offre.fichier)}</p>
@@ -781,7 +786,7 @@ const AppelOffre = () => {
                               ) : (
                                 <div className="py-2">
                                   <i className={`fas ${getFileIcon(getFileName(offre.fichier))} fa-2x text-${getFileBadgeVariant(getFileName(offre.fichier))} mb-2`}></i>
-                                  <p className="small text-muted mb-0">Cliquez sur "Télécharger" pour voir le document</p>
+                                  <p className="small text-muted mb-0">{t('click_to_download')}</p>
                                 </div>
                               )}
                             </div>
@@ -802,7 +807,7 @@ const AppelOffre = () => {
                                 onClick={() => handleChangeStatus(offre.id, "Validé")}
                                 className="d-flex align-items-center"
                                 style={{ borderRadius: "8px" }}
-                                title="Valider"
+                                title={t('validate')}
                               >
                                 <i className="fas fa-check"></i>
                               </Button>
@@ -812,7 +817,7 @@ const AppelOffre = () => {
                                 onClick={() => handleChangeStatus(offre.id, "Rejeté")}
                                 className="d-flex align-items-center"
                                 style={{ borderRadius: "8px" }}
-                                title="Rejeter"
+                                title={t('reject')}
                               >
                                 <i className="fas fa-times"></i>
                               </Button>
@@ -825,7 +830,7 @@ const AppelOffre = () => {
                               onClick={() => handleChangeStatus(offre.id, "Rejeté")}
                               className="d-flex align-items-center"
                               style={{ borderRadius: "8px" }}
-                              title="Rejeter"
+                              title={t('reject')}
                             >
                               <i className="fas fa-times"></i>
                             </Button>
@@ -837,7 +842,7 @@ const AppelOffre = () => {
                               onClick={() => handleChangeStatus(offre.id, "Validé")}
                               className="d-flex align-items-center"
                               style={{ borderRadius: "8px" }}
-                              title="Valider"
+                              title={t('validate')}
                             >
                               <i className="fas fa-check"></i>
                             </Button>
@@ -851,7 +856,7 @@ const AppelOffre = () => {
                             onClick={() => handleDelete(offre.id)}
                             className="d-flex align-items-center"
                             style={{ borderRadius: "8px" }}
-                            title="Supprimer"
+                            title={t('delete')}
                           >
                             <i className="fas fa-trash"></i>
                           </Button>
@@ -868,15 +873,15 @@ const AppelOffre = () => {
                 <Card className="border-0 shadow-sm text-center" style={{ borderRadius: "20px" }}>
                   <Card.Body className="py-5">
                     <i className="fas fa-file-contract fs-1 text-muted mb-3 d-block" style={{ opacity: 0.5 }}></i>
-                    <h5 className="text-muted mb-2">Aucun appel d'offre trouvé</h5>
-                    <p className="text-muted mb-3">Aucun appel d'offre ne correspond à vos critères de recherche</p>
+                    <h5 className="text-muted mb-2">{t('no_offers_found')}</h5>
+                    <p className="text-muted mb-3">{t('no_offers_match')}</p>
                     <Button 
                       variant="primary" 
                       onClick={clearFilters}
                       className="d-flex align-items-center mx-auto"
                     >
                       <i className="fas fa-times me-2"></i>
-                      Effacer les filtres
+                      {t('clear_filters')}
                     </Button>
                   </Card.Body>
                 </Card>
@@ -897,7 +902,7 @@ const AppelOffre = () => {
           >
             <Modal.Title className="d-flex align-items-center fw-bold">
               <i className="fas fa-plus me-2"></i>
-              Nouvel Appel d'Offre
+              {t('add_offer_modal')}
             </Modal.Title>
           </Modal.Header>
           <Modal.Body className="p-4">
@@ -906,7 +911,7 @@ const AppelOffre = () => {
               <Form.Group className="mb-4">
                 <Form.Label className="fw-semibold text-muted">
                   <i className="fas fa-heading me-2 text-primary"></i>
-                  Intitulé *
+                  {t('offer_title')} *
                 </Form.Label>
                 <Form.Control
                   type="text"
@@ -915,7 +920,7 @@ const AppelOffre = () => {
                   onChange={handleChange}
                   required
                   style={{ borderRadius: "10px", padding: "12px" }}
-                  placeholder="Ex: Construction de la nouvelle école"
+                  placeholder={t('offer_title_placeholder')}
                 />
               </Form.Group>
 
@@ -925,7 +930,7 @@ const AppelOffre = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-file-contract me-2 text-primary"></i>
-                      Type de Contrat (UI SEULEMENT)
+                      {t('contract_type')} ({t('ui_only')})
                     </Form.Label>
                     <Form.Select
                       name="type_contrat"
@@ -938,7 +943,7 @@ const AppelOffre = () => {
                         overflowY: "auto"
                       }}
                     >
-                      <option value="">Sélectionnez un type de contrat</option>
+                      <option value="">{t('select_contract_type')}</option>
                       {typesContrat.map((type, index) => (
                         <option key={index} value={type}>{type}</option>
                       ))}
@@ -951,7 +956,7 @@ const AppelOffre = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-chart-line me-2 text-primary"></i>
-                      Statut *
+                      {t('status_label')} *
                     </Form.Label>
                     <Form.Select
                       name="statut"
@@ -959,11 +964,11 @@ const AppelOffre = () => {
                       onChange={handleChange}
                       style={{ borderRadius: "10px", padding: "12px" }}
                     >
-                      <option value="Validé">Validé</option>
-                      <option value="En attente">En attente</option>
-                      <option value="Rejeté">Rejeté</option>
-                      <option value="Actif">Actif</option>
-                      <option value="Clôturé">Clôturé</option>
+                      <option value="Validé">{t('Validé')}</option>
+                      <option value="En attente">{t('En attente')}</option>
+                      <option value="Rejeté">{t('Rejeté')}</option>
+                      <option value="Actif">{t('Actif')}</option>
+                      <option value="Clôturé">{t('Clôturé')}</option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -973,7 +978,7 @@ const AppelOffre = () => {
               <Form.Group className="mb-4">
                 <Form.Label className="fw-semibold text-muted">
                   <i className="fas fa-building me-2 text-primary"></i>
-                  Membre émetteur *
+                  {t('issuing_member')} *
                 </Form.Label>
                 <Form.Control
                   type="text"
@@ -982,7 +987,7 @@ const AppelOffre = () => {
                   onChange={handleChange}
                   required
                   style={{ borderRadius: "10px", padding: "12px" }}
-                  placeholder="Ex: Ministère du Transport"
+                  placeholder={t('issuing_member_placeholder')}
                 />
               </Form.Group>
 
@@ -992,7 +997,7 @@ const AppelOffre = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-map-marker-alt me-2 text-primary"></i>
-                      Localisation (UI SEULEMENT)
+                      {t('location_label')} ({t('ui_only')})
                     </Form.Label>
                     <Form.Select
                       name="localisation"
@@ -1005,13 +1010,13 @@ const AppelOffre = () => {
                         overflowY: "auto"
                       }}
                     >
-                      <option value="">Sélectionnez une localisation</option>
-                      <optgroup label="Villes">
+                      <option value="">{t('select_location')}</option>
+                      <optgroup label={t('cities')}>
                         {villesMadagascar.map((ville, index) => (
                           <option key={`ville-${index}`} value={ville}>{ville}</option>
                         ))}
                       </optgroup>
-                      <optgroup label="Régions">
+                      <optgroup label={t('regions')}>
                         {regionsMadagascar.map((region, index) => (
                           <option key={`region-${index}`} value={region}>{region}</option>
                         ))}
@@ -1025,7 +1030,7 @@ const AppelOffre = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-money-bill-wave me-2 text-primary"></i>
-                      Salaire/Rémunération (UI SEULEMENT)
+                      {t('salary_remuneration')} ({t('ui_only')})
                     </Form.Label>
                     <Form.Control
                       type="text"
@@ -1033,7 +1038,7 @@ const AppelOffre = () => {
                       value={newOffre.salaire_remuneration}
                       onChange={handleChange}
                       style={{ borderRadius: "10px", padding: "12px" }}
-                      placeholder="Ex: 1 500 000 Ar, À négocier"
+                      placeholder={t('salary_placeholder')}
                     />
                   </Form.Group>
                 </Col>
@@ -1045,7 +1050,7 @@ const AppelOffre = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-calendar-plus me-2 text-primary"></i>
-                      Date d'ouverture
+                      {t('opening_date')}
                     </Form.Label>
                     <Form.Control
                       type="date"
@@ -1062,7 +1067,7 @@ const AppelOffre = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-calendar-check me-2 text-primary"></i>
-                      Date de clôture *
+                      {t('closing_date')} *
                     </Form.Label>
                     <Form.Control
                       type="date"
@@ -1080,7 +1085,7 @@ const AppelOffre = () => {
               <Form.Group className="mb-4">
                 <Form.Label className="fw-semibold text-muted">
                   <i className="fas fa-paperclip me-2 text-primary"></i>
-                  Fichier (PDF, Doc, max 10Mo)
+                  {t('file_label')}
                 </Form.Label>
                 <Form.Control
                   type="file"
@@ -1091,7 +1096,7 @@ const AppelOffre = () => {
                 />
                 <Form.Text className="text-muted">
                   <i className="fas fa-info-circle me-1"></i>
-                  Formats acceptés: PDF, DOC, ZIP, Images. Taille max: 10MB
+                  {t('offer_file_formats')}
                 </Form.Text>
               </Form.Group>
 
@@ -1102,7 +1107,7 @@ const AppelOffre = () => {
               <Form.Group className="mb-4">
                 <Form.Label className="fw-semibold text-muted">
                   <i className="fas fa-align-left me-2 text-primary"></i>
-                  Description *
+                  {t('description_label')} *
                 </Form.Label>
                 <Form.Control
                   as="textarea"
@@ -1112,7 +1117,7 @@ const AppelOffre = () => {
                   onChange={handleChange}
                   required
                   style={{ borderRadius: "10px", padding: "12px" }}
-                  placeholder="Décrivez les détails de l'appel d'offre, les spécifications, etc."
+                  placeholder={t('offer_description_placeholder')}
                 />
               </Form.Group>
 
@@ -1126,13 +1131,13 @@ const AppelOffre = () => {
                   label={
                     <span className="fw-semibold">
                       <i className="fas fa-exclamation-triangle me-2 text-warning"></i>
-                      Marquer comme appel urgent (UI SEULEMENT)
+                      {t('mark_as_urgent')} ({t('ui_only')})
                     </span>
                   }
                 />
                 <Form.Text className="text-muted">
                   <i className="fas fa-info-circle me-1"></i>
-                  Les offres urgentes seront mises en avant. (Note: ce champ n'est pas sauvegardé dans la BDD pour l'instant)
+                  {t('urgent_offer_note')}
                 </Form.Text>
               </Form.Group>
             </Form>
@@ -1145,7 +1150,7 @@ const AppelOffre = () => {
               style={{ borderRadius: "10px", padding: "10px 20px" }}
             >
               <i className="fas fa-times me-2"></i>
-              Annuler
+              {t('cancel_button')}
             </Button>
             <Button 
               variant="primary" 
@@ -1161,7 +1166,7 @@ const AppelOffre = () => {
               }}
             >
               <i className="fas fa-save me-2"></i>
-              {loading ? "Création..." : "Créer l'appel d'offre"}
+              {loading ? t('creating') : t('create_offer_button')}
             </Button>
           </Modal.Footer>
         </Modal>

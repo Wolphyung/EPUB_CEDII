@@ -97,3 +97,26 @@ Route::post('/messages/{id}/reply', [MessageController::class, 'reply']);
 Route::get('/members', [MessageController::class, 'listMembers']); 
 // POST: Envoi d'un message initié par l'admin
 Route::post('/messages/send-admin', [MessageController::class, 'sendAdminMessage']);
+
+
+Route::get('/messages/member/{memberId}', [MessageController::class, 'getMemberConversations']);
+Route::post('/messages/start-conversation', [MessageController::class, 'startConversation']);
+
+
+Route::get('/messages', [MessageController::class, 'index']);
+Route::get('/messages/conversation/{membreId}', [MessageController::class, 'getConversation']);
+Route::post('/messages/send-to/{membreId}', [MessageController::class, 'sendToMembre']);
+Route::post('/messages', [MessageController::class, 'store']); // Pour les messages des membres
+Route::post('/messages/{id}/reply', [MessageController::class, 'reply']);
+Route::put('/messages/{id}/read', [MessageController::class, 'markAsRead']);
+Route::put('/messages/mark-all-read/{membreId}', [MessageController::class, 'markAllAsRead']);
+Route::delete('/messages/{id}', [MessageController::class, 'destroy']);
+
+Route::get('/messages/member/{memberId}', [MessageController::class, 'getMemberConversations']);
+Route::get('/messages/conversation-detail/{conversationId}', [MessageController::class, 'getConversationDetail']);
+Route::post('/messages/start-conversation', [MessageController::class, 'startConversation']);
+Route::post('/messages', [MessageController::class, 'store']);
+Route::post('/messages/{id}/reply', [MessageController::class, 'reply']);
+Route::put('/messages/{id}/read', [MessageController::class, 'markAsRead']);
+Route::put('/messages/mark-all-read/{membreId}', [MessageController::class, 'markAllAsRead']);
+Route::delete('/messages/{id}', [MessageController::class, 'destroy']);
