@@ -9,24 +9,58 @@ use Illuminate\Support\Facades\Storage;
 
 class PublicationController extends Controller
 {
-    // Lister toutes les publications
+    // 📋 Récupérer toutes les publications (pour l'admin)
     public function index()
     {
-        $publications = Publication::all()->map(function ($publication) {
-            return $this->formatPublicationResponse($publication);
-        });
-        
-        return response()->json($publications);
+        try {
+            $publications = Publication::orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($publication) {
+                    return $this->formatPublicationResponse($publication);
+                });
+            
+            return response()->json($publications);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Erreur lors du chargement des publications'
+            ], 500);
+        }
     }
 
-    // Afficher une publication
+    // 📋 Récupérer uniquement les publications validées (pour les visiteurs)
+    public function getPublicationsValidees()
+    {
+        try {
+            $publications = Publication::where('statut', 'Validé')
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($publication) {
+                    return $this->formatPublicationResponse($publication);
+                });
+            
+            return response()->json([
+                'success' => true,
+                'data' => $publications
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du chargement des publications validées',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // 👤 Afficher une publication
     public function show($id)
     {
         $publication = Publication::findOrFail($id);
         return response()->json($this->formatPublicationResponse($publication));
     }
 
-    // Ajouter une publication
+    // ➕ Ajouter une publication
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -80,7 +114,7 @@ class PublicationController extends Controller
         ], 201);
     }
 
-    // Modifier une publication
+    // ✏️ Modifier une publication
     public function update(Request $request, $id)
     {
         $publication = Publication::findOrFail($id);
@@ -136,7 +170,7 @@ class PublicationController extends Controller
         ]);
     }
 
-    // Supprimer une publication
+    // 🗑️ Supprimer une publication
     public function destroy($id)
     {
         $publication = Publication::findOrFail($id);
@@ -151,7 +185,7 @@ class PublicationController extends Controller
         return response()->json(['message' => 'Publication supprimée']);
     }
 
-    // Valider une publication
+    // ✅ Valider une publication
     public function validatePublication($id)
     {
         $publication = Publication::findOrFail($id);
@@ -164,7 +198,7 @@ class PublicationController extends Controller
         ]);
     }
 
-    // Télécharger le fichier d'une publication
+    // 📥 Télécharger le fichier d'une publication
     public function downloadFile($id)
     {
         $publication = Publication::findOrFail($id);
@@ -183,7 +217,7 @@ class PublicationController extends Controller
         return response()->download($filePath, $fileName);
     }
 
-    // Formater la réponse de la publication
+    // 🎯 Formater la réponse de la publication
     private function formatPublicationResponse(Publication $publication)
     {
         return [
@@ -196,15 +230,37 @@ class PublicationController extends Controller
             'categorie' => $publication->categorie,
             'statut' => $publication->statut,
             'fichier' => $publication->fichier,
-            'fichier_url' => $publication->fichier_url, // URL complète
+            'fichier_url' => $publication->fichier ? asset('storage/' . $publication->fichier) : null,
             'type_fichier' => $publication->type_fichier,
             'nom_fichier_original' => $publication->nom_fichier_original,
             'auteur' => $publication->auteur,
             'id_utilisateur' => $publication->id_utilisateur,
-            'has_file' => $publication->hasFile(),
-            'file_icon' => $publication->getFileIcon(),
+            'has_file' => !empty($publication->fichier),
+            'file_icon' => $this->getFileIcon($publication->nom_fichier_original),
             'created_at' => $publication->created_at,
             'updated_at' => $publication->updated_at,
         ];
+    }
+
+    // 🎯 Obtenir l'icône du fichier
+    private function getFileIcon($fileName)
+    {
+        if (!$fileName) return 'file';
+        
+        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        $icons = [
+            'pdf' => 'file-pdf',
+            'doc' => 'file-word',
+            'docx' => 'file-word',
+            'xls' => 'file-excel',
+            'xlsx' => 'file-excel',
+            'jpg' => 'file-image',
+            'jpeg' => 'file-image',
+            'png' => 'file-image',
+            'zip' => 'file-archive',
+            'rar' => 'file-archive',
+        ];
+        
+        return $icons[$ext] ?? 'file';
     }
 }

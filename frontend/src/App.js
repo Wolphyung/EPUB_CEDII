@@ -15,6 +15,8 @@ import NotificationgeAdmin from "./pages/pageAdmin/notification"
 import AdminEv from "./pages/pageAdmin/Evenement"
 
 
+import DashVisiteur from "./pages/pageVisiteur/dashVisiteur"
+
 
 import DashMembre from "./pages/pageMembre/dashMembre"
 import PubMembre from "./pages/pageMembre/pubmembre"
@@ -30,7 +32,7 @@ function App() {
     <BrowserRouter>
       <Routes>
 
-
+        <Route path="/dashvisiteur" element={<DashVisiteur />} />
          <Route path="/signup" element={<Signup />} />
         <Route path="/" element={<Dashboard />} />
         <Route path="/publications" element={<PublicationsList />} />
