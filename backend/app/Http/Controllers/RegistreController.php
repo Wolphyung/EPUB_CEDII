@@ -7,7 +7,6 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Auth;
 
 class RegisterController extends Controller
 {
@@ -15,8 +14,7 @@ class RegisterController extends Controller
     {
         // Validation des données
         $validator = Validator::make($request->all(), [
-            'nom' => 'required|string|max:255',
-            'prenom' => 'required|string|max:255',
+            'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
         ]);
@@ -29,13 +27,11 @@ class RegisterController extends Controller
         }
 
         try {
-            // Création de l'utilisateur
+            // Création de l'utilisateur dans la table users (visiteur)
             $user = User::create([
-                'nom' => $request->nom,
-                'prenom' => $request->prenom,
+                'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
-                'role' => 'membre', // Défaut
             ]);
 
             // Génération du token
@@ -45,13 +41,13 @@ class RegisterController extends Controller
                 'message' => 'Utilisateur créé avec succès',
                 'user' => [
                     'id' => $user->id,
-                    'nom' => $user->nom,
-                    'prenom' => $user->prenom,
+                    'name' => $user->name,
                     'email' => $user->email,
-                    'role' => $user->role,
+                    'type' => 'visiteur',
                 ],
                 'token' => $token,
-                'token_type' => 'Bearer'
+                'token_type' => 'Bearer',
+                'redirect_to' => '/dashvisiteur'
             ], 201);
 
         } catch (\Exception $e) {

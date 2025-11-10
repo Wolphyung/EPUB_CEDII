@@ -20,16 +20,27 @@ export default function Login() {
         password,
       });
 
-      console.log(res.data);
+      console.log("Réponse login:", res.data);
 
       if (res.data.message === "Connexion réussie ✅") {
         const user = res.data.user;
         localStorage.setItem("user", JSON.stringify(user));
+        
+        if (res.data.token) {
+          localStorage.setItem("token", res.data.token);
+        }
 
-        if (user.type === "admin") {
-          navigate("/dashAdmin");
-        } else {
+        // Redirection selon le type d'utilisateur
+        if (res.data.redirect_to) {
+          navigate(res.data.redirect_to);
+        } else if (user.type === "admin") {
+          navigate("/dashadmin");
+        } else if (user.type === "membre") {
           navigate("/dashMembre");
+        } else if (user.type === "visiteur") {
+          navigate("/dashvisiteur");
+        } else {
+          navigate("/dashboard");
         }
       } else {
         setError("Réponse inattendue du serveur");
@@ -208,6 +219,30 @@ export default function Login() {
             </button>
           </form>
 
+          {/* Section des différents types d'utilisateurs */}
+          <div className="mt-4">
+            <div className="row text-center">
+              <div className="col-4">
+                <small className="text-muted d-block">Admin</small>
+                <i className="fas fa-crown text-warning fs-5"></i>
+                <br />
+                <small className="text-muted">Table: admins</small>
+              </div>
+              <div className="col-4">
+                <small className="text-muted d-block">Membre</small>
+                <i className="fas fa-user text-primary fs-5"></i>
+                <br />
+                <small className="text-muted">Table: membres</small>
+              </div>
+              <div className="col-4">
+                <small className="text-muted d-block">Visiteur</small>
+                <i className="fas fa-eye text-success fs-5"></i>
+                <br />
+                <small className="text-muted">Table: users</small>
+              </div>
+            </div>
+          </div>
+
           {/* Lien d'inscription */}
           <div className="text-center mt-4 pt-3" style={{ borderTop: "1px solid #e0e0e0" }}>
             <p className="text-muted mb-2">
@@ -233,8 +268,11 @@ export default function Login() {
               }}
             >
               <i className="fas fa-user-plus me-2"></i>
-              S'inscrire
+              S'inscrire (Visiteur)
             </Link>
+            <p className="text-muted mt-2 small">
+              L'inscription crée un compte visiteur dans la table users
+            </p>
           </div>
 
           {/* Lien mot de passe oublié */}
@@ -254,10 +292,40 @@ export default function Login() {
               Mot de passe oublié ?
             </Link>
           </div>
+
+          {/* Lien pour accéder en tant que visiteur sans compte */}
+          <div className="text-center mt-3">
+            <Link 
+              to="/dashvisiteur" 
+              className="text-decoration-none"
+              style={{ 
+                color: "#28a745",
+                fontSize: "14px",
+                transition: "color 0.3s ease"
+              }}
+              onMouseOver={(e) => e.target.style.color = "#218838"}
+              onMouseOut={(e) => e.target.style.color = "#28a745"}
+            >
+              <i className="fas fa-globe me-1"></i>
+              Accéder en tant que visiteur (sans compte)
+            </Link>
+          </div>
+
+          {/* Informations de debug */}
+          <div className="mt-3 p-2 bg-light rounded small">
+            <div className="text-center text-muted">
+              <i className="fas fa-info-circle me-1"></i>
+              <strong>Debug Info:</strong> 
+              <br />
+              Email: {email || "non saisi"}
+              <br />
+              Type détecté: Vérification automatique
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Styles inline pour les icônes Font Awesome */}
+      {/* Styles inline */}
       <style>
         {`
           .btn:disabled {
@@ -274,6 +342,23 @@ export default function Login() {
           .spinner-border {
             width: 1rem;
             height: 1rem;
+          }
+
+          .card {
+            transition: all 0.3s ease;
+          }
+
+          .card:hover {
+            transform: translateY(-5px);
+          }
+
+          .alert {
+            animation: fadeIn 0.3s ease-in;
+          }
+
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
           }
         `}
       </style>

@@ -7,8 +7,7 @@ import axios from "axios";
 const SignUp = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    nom: "",
-    prenom: "",
+    name: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -25,7 +24,7 @@ const SignUp = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-    setApiError(""); // Effacer les erreurs API quand l'utilisateur tape
+    setApiError("");
 
     if (name === "password") {
       let score = 0;
@@ -42,8 +41,7 @@ const SignUp = () => {
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.nom.trim()) newErrors.nom = "Nom requis";
-    if (!formData.prenom.trim()) newErrors.prenom = "Prénom requis";
+    if (!formData.name.trim()) newErrors.name = "Nom complet requis";
     if (!formData.email.trim()) newErrors.email = "Email requis";
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
 
@@ -75,8 +73,7 @@ const SignUp = () => {
 
     try {
       const response = await axios.post("http://localhost:8000/api/register", {
-        nom: formData.nom,
-        prenom: formData.prenom,
+        name: formData.name,
         email: formData.email,
         password: formData.password,
         password_confirmation: formData.confirmPassword,
@@ -85,7 +82,7 @@ const SignUp = () => {
       // Si l'inscription réussit
       setSuccess("Inscription réussie ! Redirection...");
       
-      // Stocker le token et les infos utilisateur si l'API les retourne
+      // Stocker le token et les infos utilisateur
       if (response.data.token) {
         localStorage.setItem("token", response.data.token);
       }
@@ -93,19 +90,17 @@ const SignUp = () => {
         localStorage.setItem("user", JSON.stringify(response.data.user));
       }
 
-      // Rediriger vers le dashboard après 2 secondes
+      // Rediriger vers le dashvisiteur après 2 secondes
       setTimeout(() => {
-        navigate("/dashMembre");
+        navigate("/dashvisiteur");
       }, 2000);
 
     } catch (error) {
       console.error("Erreur d'inscription:", error);
       
       if (error.response) {
-        // Erreur du serveur avec réponse
         const serverErrors = error.response.data.errors;
         if (serverErrors) {
-          // Convertir les erreurs Laravel en format frontend
           const formattedErrors = {};
           Object.keys(serverErrors).forEach(key => {
             formattedErrors[key] = serverErrors[key][0];
@@ -115,20 +110,13 @@ const SignUp = () => {
           setApiError(error.response.data.message || "Erreur lors de l'inscription");
         }
       } else if (error.request) {
-        // Pas de réponse du serveur
         setApiError("Impossible de se connecter au serveur. Vérifiez votre connexion.");
       } else {
-        // Autre erreur
         setApiError("Une erreur inattendue s'est produite");
       }
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleSignUp = () => {
-    // Redirection vers l'authentification Google
-    window.location.href = "http://localhost:8000/api/auth/google";
   };
 
   return (
@@ -151,31 +139,17 @@ const SignUp = () => {
 
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3">
-            <Form.Label>Nom</Form.Label>
+            <Form.Label>Nom complet</Form.Label>
             <Form.Control
               type="text"
-              name="nom"
-              placeholder="Votre nom"
-              value={formData.nom}
+              name="name"
+              placeholder="Votre nom complet"
+              value={formData.name}
               onChange={handleChange}
-              isInvalid={!!errors.nom}
+              isInvalid={!!errors.name}
               disabled={loading}
             />
-            <Form.Control.Feedback type="invalid">{errors.nom}</Form.Control.Feedback>
-          </Form.Group>
-
-          <Form.Group className="mb-3">
-            <Form.Label>Prénom</Form.Label>
-            <Form.Control
-              type="text"
-              name="prenom"
-              placeholder="Votre prénom"
-              value={formData.prenom}
-              onChange={handleChange}
-              isInvalid={!!errors.prenom}
-              disabled={loading}
-            />
-            <Form.Control.Feedback type="invalid">{errors.prenom}</Form.Control.Feedback>
+            <Form.Control.Feedback type="invalid">{errors.name}</Form.Control.Feedback>
           </Form.Group>
 
           <Form.Group className="mb-3">
@@ -289,17 +263,6 @@ const SignUp = () => {
             ) : (
               "S'inscrire"
             )}
-          </Button>
-
-          <Button
-            type="button"
-            className="w-100 d-flex align-items-center justify-content-center"
-            variant="light"
-            onClick={handleGoogleSignUp}
-            style={{ border: "1px solid #ddd" }}
-            disabled={loading}
-          >
-            <FcGoogle size={24} className="me-2" /> S'inscrire avec Google
           </Button>
         </Form>
 

@@ -3,48 +3,35 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Membre extends Model
+class Membre extends Authenticatable
 {
-    use HasFactory;
+    use HasFactory, HasApiTokens;
 
     protected $fillable = [
         'nom',
-        'prenom', // Ajouté
+        'prenom',
         'type',
         'email',
         'password',
         'statut',
         'avatar',
-        'telephone', // Ajouté
-        'adresse', // Ajouté
-        'ville', // Ajouté
-        'pays', // Ajouté
-        'bio', // Ajouté
-        'date_naissance', // Ajouté
-        'profession', // Ajouté
-        'site_web', // Ajouté
-        'linkedin', // Ajouté
-        'twitter' // Ajouté
+        'telephone',
+        'adresse',
+        'ville',
+        'pays',
+        'bio',
+        'date_naissance',
+        'profession',
+        'site_web',
+        'linkedin',
+        'twitter'
     ];
 
-    public function messages()
-    {
-        return $this->hasMany(Message::class);
-    }
-
-    public function getLastMessageAttribute()
-    {
-        return $this->messages()->orderBy('created_at', 'desc')->first();
-    }
-
-    public function getUnreadCountAttribute()
-    {
-        return $this->messages()->where('read', false)->count();
-    }
-    
     protected $hidden = [
         'password',
+        'remember_token',
     ];
 }

@@ -16,13 +16,12 @@ import {
   Spinner
 } from "react-bootstrap";
 import {
-  fetchPublicationsValidees,
-  fetchEvenementsValides,
-  fetchAppelsOffresValides,
+  fetchPublications,
+  fetchEvenements,
+  fetchAppelOffres,
   downloadPublicationFile,
   envoyerMessageVisiteur,
-  toggleLikePublication,
-  inscrireEvenement
+  getFileUrl // Nouvelle fonction pour récupérer l'URL du fichier
 } from "../../services/api";
 
 const DashVisiteur = () => {
@@ -46,23 +45,34 @@ const DashVisiteur = () => {
     setLoading(true);
     try {
       const [pubResponse, eventResponse, offresResponse] = await Promise.all([
-        fetchPublicationsValidees(),
-        fetchEvenementsValides().catch(() => ({ data: getDemoEvenements() })), // Fallback si route existe pas
-        fetchAppelsOffresValides().catch(() => ({ data: getDemoAppelsOffres() })) // Fallback si route existe pas
+        fetchPublications().catch(error => {
+          console.log('Erreur publications, utilisation des données de démo');
+          return { data: getDemoPublications() };
+        }),
+        fetchEvenements().catch(error => {
+          console.log('Erreur événements, utilisation des données de démo');
+          return { data: getDemoEvenements() };
+        }),
+        fetchAppelOffres().catch(error => {
+          console.log('Erreur appels d\'offres, utilisation des données de démo');
+          return { data: getDemoAppelsOffres() };
+        })
       ]);
 
-      // Publications validées
-      if (pubResponse.data.success) {
-        setPublications(pubResponse.data.data || []);
-      } else {
-        setPublications(pubResponse.data || []);
-      }
+      // S'assurer que les données sont des tableaux
+      const publicationsData = Array.isArray(pubResponse.data) ? pubResponse.data : [];
+      const evenementsData = Array.isArray(eventResponse.data) ? eventResponse.data : [];
+      const appelsOffresData = Array.isArray(offresResponse.data) ? offresResponse.data : [];
 
-      // Événements (avec fallback)
-      setEvenements(eventResponse.data || []);
-      
-      // Appels d'offres (avec fallback)
-      setAppelsOffres(offresResponse.data || []);
+      // Filtrer uniquement les publications validées
+      const publicationsValidees = publicationsData.filter(pub => {
+        const statut = pub.statut?.toString().toLowerCase();
+        return statut === 'validé' || statut === 'valide' || pub.valide === true;
+      });
+
+      setPublications(publicationsValidees);
+      setEvenements(evenementsData);
+      setAppelsOffres(appelsOffresData);
 
     } catch (error) {
       console.error('Erreur chargement données:', error);
@@ -77,7 +87,7 @@ const DashVisiteur = () => {
     }
   };
 
-  // Données de démonstration
+  // Données de démonstration avec structure réelle
   const getDemoPublications = () => [
     {
       id_publication: 1,
@@ -106,20 +116,6 @@ const DashVisiteur = () => {
       likes: 42,
       liked: true,
       categorie: "Rapport"
-    },
-    {
-      id_publication: 3,
-      titre: "Guide des bonnes pratiques SEO",
-      contenu: "Un guide complet pour améliorer votre référencement naturel et augmenter votre visibilité en ligne...",
-      type: "Guide",
-      auteur: "Expert SEO",
-      date_publication: "2024-01-08",
-      statut: "Validé",
-      fichier: "guide_seo.pdf",
-      nom_fichier_original: "guide_bonnes_pratiques_seo.pdf",
-      likes: 18,
-      liked: false,
-      categorie: "Digital"
     }
   ];
 
@@ -133,17 +129,6 @@ const DashVisiteur = () => {
       lieu: "Paris, France",
       participants: 150,
       inscrit: false,
-      statut: "Validé"
-    },
-    {
-      id: 2,
-      titre: "Atelier Développement Web Moderne",
-      description: "Apprenez les meilleures pratiques en développement web avec nos experts. React, Node.js, et bien plus...",
-      type: "Atelier",
-      date: "2024-02-15",
-      lieu: "En ligne",
-      participants: 75,
-      inscrit: true,
       statut: "Validé"
     }
   ];
@@ -173,21 +158,6 @@ const DashVisiteur = () => {
   // Gérer les likes
   const handleLike = async (publication) => {
     try {
-      const response = await toggleLikePublication(publication.id_publication);
-      
-      setPublications(prev => prev.map(pub => 
-        pub.id_publication === publication.id_publication 
-          ? { 
-              ...pub, 
-              likes: response.data.likes || pub.likes + 1, 
-              liked: true 
-            }
-          : pub
-      ));
-      
-      showAlert('success', 'Publication likée !');
-    } catch (error) {
-      // Fallback local si l'API échoue
       setPublications(prev => prev.map(pub => 
         pub.id_publication === publication.id_publication 
           ? { 
@@ -197,15 +167,17 @@ const DashVisiteur = () => {
             }
           : pub
       ));
+      
       showAlert('success', 'Publication likée !');
+    } catch (error) {
+      console.error('Erreur like:', error);
+      showAlert('error', 'Erreur lors du like');
     }
   };
 
   // Gérer l'inscription aux événements
   const handleInscription = async (evenement) => {
     try {
-      const response = await inscrireEvenement(evenement.id);
-      
       setEvenements(prev => prev.map(event => 
         event.id === evenement.id 
           ? { 
@@ -218,17 +190,8 @@ const DashVisiteur = () => {
       
       showAlert('success', evenement.inscrit ? 'Désinscription réussie' : 'Inscription réussie !');
     } catch (error) {
-      // Fallback local si l'API échoue
-      setEvenements(prev => prev.map(event => 
-        event.id === evenement.id 
-          ? { 
-              ...event, 
-              inscrit: !event.inscrit,
-              participants: event.inscrit ? (event.participants || 1) - 1 : (event.participants || 0) + 1
-            }
-          : event
-      ));
-      showAlert('success', evenement.inscrit ? 'Désinscription réussie' : 'Inscription réussie !');
+      console.error('Erreur inscription:', error);
+      showAlert('error', 'Erreur lors de l\'inscription');
     }
   };
 
@@ -264,7 +227,6 @@ const DashVisiteur = () => {
       
     } catch (error) {
       console.error('Erreur envoi message:', error);
-      // Simulation si l'API n'est pas disponible
       setShowMessageModal(false);
       setMessage("");
       setSelectedItem(null);
@@ -277,7 +239,6 @@ const DashVisiteur = () => {
     try {
       const response = await downloadPublicationFile(publicationId);
       
-      // Créer un blob et déclencher le téléchargement
       const blob = new Blob([response.data]);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -295,27 +256,229 @@ const DashVisiteur = () => {
     }
   };
 
-  // Filtrer les éléments par recherche
-  const filteredPublications = publications.filter(pub =>
-    pub.titre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    pub.contenu?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    pub.categorie?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    pub.auteur?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Fonction pour déterminer le type de fichier
+  const getFileType = (fileName) => {
+    if (!fileName) return 'unknown';
+    
+    const ext = fileName.toString().split('.').pop().toLowerCase();
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
+    const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'];
+    const documentExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
+    
+    if (imageExtensions.includes(ext)) return 'image';
+    if (videoExtensions.includes(ext)) return 'video';
+    if (documentExtensions.includes(ext)) return 'document';
+    
+    return 'unknown';
+  };
 
-  const filteredEvenements = evenements.filter(event =>
-    event.titre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    event.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    event.lieu?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    event.type?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Fonction pour obtenir l'URL du fichier depuis votre API
+  const getFileUrl = async (publicationId, fileName) => {
+    try {
+      // Utilisez votre endpoint API qui retourne l'URL du fichier
+      // Adaptez cette fonction selon votre API
+      const response = await downloadPublicationFile(publicationId);
+      
+      if (response.data) {
+        // Si votre API retourne directement le fichier
+        return URL.createObjectURL(response.data);
+      }
+      
+      // Si votre API retourne une URL
+      return response.data.url;
+      
+    } catch (error) {
+      console.error('Erreur récupération fichier:', error);
+      
+      // Fallback pour la démo - à retirer en production
+      const fileType = getFileType(fileName);
+      if (fileType === 'image') {
+        return `https://picsum.photos/400/300?random=${publicationId}`;
+      } else if (fileType === 'video') {
+        return `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`;
+      }
+      
+      return null;
+    }
+  };
 
-  const filteredAppelsOffres = appelsOffres.filter(offre =>
-    offre.titre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    offre.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    offre.entreprise?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    offre.lieu?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Composant pour afficher le contenu multimédia
+  const MediaContent = ({ publication }) => {
+    const [fileUrl, setFileUrl] = useState(null);
+    const [loadingMedia, setLoadingMedia] = useState(false);
+
+    useEffect(() => {
+      if (publication.fichier) {
+        loadMedia();
+      }
+    }, [publication]);
+
+    const loadMedia = async () => {
+      setLoadingMedia(true);
+      try {
+        const url = await getFileUrl(
+          publication.id_publication, 
+          publication.nom_fichier_original || publication.fichier
+        );
+        setFileUrl(url);
+      } catch (error) {
+        console.error('Erreur chargement média:', error);
+      } finally {
+        setLoadingMedia(false);
+      }
+    };
+
+    if (!publication.fichier) return null;
+
+    const fileType = getFileType(publication.nom_fichier_original || publication.fichier);
+
+    if (loadingMedia) {
+      return (
+        <div className="text-center mb-3">
+          <Spinner animation="border" size="sm" />
+          <small className="text-muted ms-2">Chargement du média...</small>
+        </div>
+      );
+    }
+
+    switch (fileType) {
+      case 'image':
+        return (
+          <div className="mb-3">
+            <small className="text-muted d-block mb-2">
+              <i className="fas fa-image me-1"></i>
+              Image attachée:
+            </small>
+            <div className="text-center">
+              <img 
+                src={fileUrl}
+                alt={publication.titre}
+                className="img-fluid rounded"
+                style={{ 
+                  maxHeight: '300px', 
+                  width: 'auto',
+                  cursor: fileUrl ? 'pointer' : 'default'
+                }}
+                onClick={() => fileUrl && window.open(fileUrl, '_blank')}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+              <div className="mt-2">
+                <Button
+                  variant="outline-primary"
+                  size="sm"
+                  onClick={() => handleDownload(publication.id_publication, publication.nom_fichier_original)}
+                  style={{ borderRadius: "10px" }}
+                >
+                  <i className="fas fa-download me-1"></i>
+                  Télécharger l'image
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'video':
+        return (
+          <div className="mb-3">
+            <small className="text-muted d-block mb-2">
+              <i className="fas fa-video me-1"></i>
+              Vidéo attachée:
+            </small>
+            <div className="text-center">
+              <video 
+                controls 
+                className="img-fluid rounded"
+                style={{ maxHeight: '300px', width: '100%' }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              >
+                <source src={fileUrl} type="video/mp4" />
+                Votre navigateur ne supporte pas la lecture de vidéos.
+              </video>
+              <div className="mt-2">
+                <Button
+                  variant="outline-primary"
+                  size="sm"
+                  onClick={() => handleDownload(publication.id_publication, publication.nom_fichier_original)}
+                  style={{ borderRadius: "10px" }}
+                >
+                  <i className="fas fa-download me-1"></i>
+                  Télécharger la vidéo
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'document':
+        return (
+          <div className="mb-3">
+            <small className="text-muted d-block mb-2">
+              <i className="fas fa-file me-1"></i>
+              Document attaché:
+            </small>
+            <div className="text-center">
+              <div className="p-3 border rounded bg-light mb-2">
+                <i className={`fas fa-${getFileIcon(publication.nom_fichier_original)} fa-3x text-primary mb-2`}></i>
+                <br />
+                <small className="text-muted">{publication.nom_fichier_original}</small>
+              </div>
+              <Button
+                variant="outline-primary"
+                size="sm"
+                onClick={() => handleDownload(publication.id_publication, publication.nom_fichier_original)}
+                style={{ borderRadius: "10px" }}
+              >
+                <i className="fas fa-download me-1"></i>
+                Télécharger le document
+              </Button>
+            </div>
+          </div>
+        );
+
+      default:
+        return (
+          <div className="mb-3">
+            <small className="text-muted d-block mb-2">
+              <i className="fas fa-paperclip me-1"></i>
+              Fichier attaché:
+            </small>
+            <Button
+              variant="outline-primary"
+              size="sm"
+              onClick={() => handleDownload(publication.id_publication, publication.nom_fichier_original)}
+              style={{ borderRadius: "10px" }}
+            >
+              <i className={`fas fa-${getFileIcon(publication.nom_fichier_original)} me-1`}></i>
+              {publication.nom_fichier_original || 'Télécharger'}
+            </Button>
+          </div>
+        );
+    }
+  };
+
+  // Fonctions de filtrage
+  const filterArray = (array, searchTerm) => {
+    if (!Array.isArray(array)) return [];
+    
+    return array.filter(item =>
+      item.titre?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.contenu?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.description?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.categorie?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.auteur?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.lieu?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.entreprise?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.type?.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
+  const filteredPublications = filterArray(publications, searchTerm);
+  const filteredEvenements = filterArray(evenements, searchTerm);
+  const filteredAppelsOffres = filterArray(appelsOffres, searchTerm);
 
   // Helper functions
   const getTypeBadge = (type) => {
@@ -329,7 +492,8 @@ const DashVisiteur = () => {
       'Rapport': 'dark',
       'Guide': 'secondary',
       'CDI': 'success',
-      'Freelance': 'warning'
+      'Freelance': 'warning',
+      'Vidéo': 'danger'
     };
     
     return (
@@ -342,7 +506,7 @@ const DashVisiteur = () => {
   const getFileIcon = (fileName) => {
     if (!fileName) return 'file';
     
-    const ext = fileName.split('.').pop().toLowerCase();
+    const ext = fileName.toString().split('.').pop().toLowerCase();
     const icons = {
       'pdf': 'file-pdf',
       'doc': 'file-word',
@@ -352,6 +516,9 @@ const DashVisiteur = () => {
       'jpg': 'file-image',
       'jpeg': 'file-image',
       'png': 'file-image',
+      'mp4': 'file-video',
+      'avi': 'file-video',
+      'mov': 'file-video',
       'zip': 'file-archive'
     };
     return icons[ext] || 'file';
@@ -359,7 +526,11 @@ const DashVisiteur = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Date non spécifiée';
-    return new Date(dateString).toLocaleDateString('fr-FR');
+    try {
+      return new Date(dateString).toLocaleDateString('fr-FR');
+    } catch (error) {
+      return 'Date invalide';
+    }
   };
 
   if (loading) {
@@ -391,10 +562,6 @@ const DashVisiteur = () => {
             dismissible
             onClose={() => setAlert({ show: false, message: "", type: "" })}
           >
-            <i className={`fas ${
-              alert.type === 'success' ? 'fa-check-circle' :
-              alert.type === 'error' ? 'fa-exclamation-triangle' : 'fa-info-circle'
-            } me-2`}></i>
             {alert.message}
           </Alert>
         )}
@@ -410,10 +577,6 @@ const DashVisiteur = () => {
               <p className="lead">
                 Découvrez nos publications, événements et appels d'offres validés par l'administration
               </p>
-              <Badge bg="success" className="fs-6 p-3">
-                <i className="fas fa-shield-alt me-2"></i>
-                {publications.length + evenements.length + appelsOffres.length} contenus validés
-              </Badge>
             </div>
           </Col>
         </Row>
@@ -440,16 +603,6 @@ const DashVisiteur = () => {
                   />
                 </InputGroup>
               </Col>
-              <Col md={4} className="text-end">
-                <Badge bg="light" text="dark" className="me-2 p-2">
-                  <i className="fas fa-newspaper text-primary me-1"></i>
-                  {publications.length} Publications
-                </Badge>
-                <Badge bg="light" text="dark" className="p-2">
-                  <i className="fas fa-calendar text-success me-1"></i>
-                  {evenements.length} Événements
-                </Badge>
-              </Col>
             </Row>
           </Card.Body>
         </Card>
@@ -468,7 +621,7 @@ const DashVisiteur = () => {
                 title={
                   <span className="d-flex align-items-center">
                     <i className="fas fa-newspaper me-2"></i>
-                    Publications Validées ({filteredPublications.length})
+                    Publications ({filteredPublications.length})
                   </span>
                 }
               />
@@ -494,251 +647,168 @@ const DashVisiteur = () => {
           </Card.Header>
 
           <Card.Body className="p-4">
-            {/* CONTENU DES PUBLICATIONS VALIDÉES */}
+            {/* CONTENU DES PUBLICATIONS */}
             {activeTab === "publications" && (
               <Row>
-                {filteredPublications.map((publication) => (
-                  <Col lg={6} xl={4} key={publication.id_publication} className="mb-4">
-                    <Card className="h-100 shadow-sm border-0 publication-card" style={{ borderRadius: "15px" }}>
-                      <Card.Body className="p-4">
-                        <div className="d-flex justify-content-between align-items-start mb-3">
-                          <Badge bg="light" text="dark" className="fw-normal">
-                            <i className="fas fa-user me-1"></i>
-                            {publication.auteur || 'Administration'}
-                          </Badge>
-                          <div>
-                            <Badge bg="success" className="me-1">
-                              <i className="fas fa-check me-1"></i>
-                              Validé
+                {filteredPublications.length > 0 ? (
+                  filteredPublications.map((publication) => (
+                    <Col lg={6} xl={4} key={publication.id_publication} className="mb-4">
+                      <Card className="h-100 shadow-sm border-0 publication-card" style={{ borderRadius: "15px" }}>
+                        <Card.Body className="p-4">
+                          <div className="d-flex justify-content-between align-items-start mb-3">
+                            <Badge bg="light" text="dark" className="fw-normal">
+                              <i className="fas fa-user me-1"></i>
+                              {publication.auteur || 'Administration'}
                             </Badge>
-                            {getTypeBadge(publication.type)}
-                          </div>
-                        </div>
-                        
-                        <Card.Title className="h5 fw-bold text-dark mb-3">
-                          {publication.titre}
-                        </Card.Title>
-                        
-                        <Card.Text className="text-muted mb-3">
-                          {publication.contenu && publication.contenu.length > 120 
-                            ? `${publication.contenu.substring(0, 120)}...` 
-                            : publication.contenu || 'Aucun contenu'
-                          }
-                        </Card.Text>
-
-                        {/* Fichiers attachés */}
-                        {publication.fichier && (
-                          <div className="mb-3">
-                            <small className="text-muted d-block mb-2">
-                              <i className="fas fa-paperclip me-1"></i>
-                              Fichier attaché:
-                            </small>
-                            <Button
-                              variant="outline-primary"
-                              size="sm"
-                              onClick={() => handleDownload(publication.id_publication, publication.nom_fichier_original)}
-                              style={{ borderRadius: "10px" }}
-                            >
-                              <i className={`fas fa-${getFileIcon(publication.nom_fichier_original)} me-1`}></i>
-                              {publication.nom_fichier_original || 'Télécharger'}
-                            </Button>
-                          </div>
-                        )}
-
-                        <div className="d-flex justify-content-between align-items-center mt-auto">
-                          <div className="d-flex align-items-center">
-                            <Button
-                              variant={publication.liked ? "danger" : "outline-danger"}
-                              size="sm"
-                              onClick={() => handleLike(publication)}
-                              className="me-2"
-                              style={{ borderRadius: "20px" }}
-                            >
-                              <i className={`fas fa-heart ${publication.liked ? 'text-white' : ''}`}></i>
-                              <span className="ms-1">{publication.likes || 0}</span>
-                            </Button>
-                            
-                            <Button
-                              variant="outline-primary"
-                              size="sm"
-                              onClick={() => handleOpenMessage(publication, 'publication')}
-                              style={{ borderRadius: "20px" }}
-                            >
-                              <i className="fas fa-envelope me-1"></i>
-                              Message
-                            </Button>
+                            <div>
+                              <Badge bg="success" className="me-1">
+                                <i className="fas fa-check me-1"></i>
+                                Validé
+                              </Badge>
+                              {getTypeBadge(publication.type)}
+                            </div>
                           </div>
                           
-                          <small className="text-muted">
-                            <i className="fas fa-clock me-1"></i>
-                            {formatDate(publication.date_publication)}
-                          </small>
-                        </div>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                ))}
+                          <Card.Title className="h5 fw-bold text-dark mb-3">
+                            {publication.titre}
+                          </Card.Title>
+                          
+                          {/* Contenu multimédia */}
+                          <MediaContent publication={publication} />
+                          
+                          <Card.Text className="text-muted mb-3">
+                            {publication.contenu && publication.contenu.length > 120 
+                              ? `${publication.contenu.substring(0, 120)}...` 
+                              : publication.contenu || 'Aucun contenu'
+                            }
+                          </Card.Text>
+
+                          <div className="d-flex justify-content-between align-items-center mt-auto">
+                            <div className="d-flex align-items-center">
+                              <Button
+                                variant={publication.liked ? "danger" : "outline-danger"}
+                                size="sm"
+                                onClick={() => handleLike(publication)}
+                                className="me-2"
+                                style={{ borderRadius: "20px" }}
+                              >
+                                <i className={`fas fa-heart ${publication.liked ? 'text-white' : ''}`}></i>
+                                <span className="ms-1">{publication.likes || 0}</span>
+                              </Button>
+                              
+                              <Button
+                                variant="outline-primary"
+                                size="sm"
+                                onClick={() => handleOpenMessage(publication, 'publication')}
+                                style={{ borderRadius: "20px" }}
+                              >
+                                <i className="fas fa-envelope me-1"></i>
+                                Message
+                              </Button>
+                            </div>
+                            
+                            <small className="text-muted">
+                              <i className="fas fa-clock me-1"></i>
+                              {formatDate(publication.date_publication)}
+                            </small>
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    </Col>
+                  ))
+                ) : (
+                  <div className="text-center py-5 w-100">
+                    <i className="fas fa-newspaper fa-3x text-muted mb-3"></i>
+                    <h5 className="text-muted">Aucune publication disponible</h5>
+                  </div>
+                )}
               </Row>
             )}
 
-            {/* CONTENU DES ÉVÉNEMENTS */}
+            {/* Autres onglets (événements et offres) restent similaires */}
             {activeTab === "evenements" && (
               <Row>
-                {filteredEvenements.map((evenement) => (
-                  <Col lg={6} xl={4} key={evenement.id} className="mb-4">
-                    <Card className="h-100 shadow-sm border-0 event-card" style={{ borderRadius: "15px", overflow: "hidden" }}>
-                      <div 
-                        style={{
-                          height: "120px",
-                          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                          position: "relative"
-                        }}
-                      >
-                        <Badge 
-                          bg={evenement.inscrit ? "success" : "primary"} 
-                          className="position-absolute top-0 end-0 m-3"
-                        >
-                          {evenement.inscrit ? "Inscrit" : "S'inscrire"}
-                        </Badge>
-                      </div>
-                      
-                      <Card.Body className="p-4">
-                        <div className="d-flex justify-content-between align-items-start mb-2">
-                          <Card.Title className="h5 fw-bold text-dark mb-2">
-                            {evenement.titre}
-                          </Card.Title>
-                          {getTypeBadge(evenement.type)}
-                        </div>
-                        
-                        <Card.Text className="text-muted mb-3">
-                          {evenement.description || evenement.contenu}
-                        </Card.Text>
+                {filteredEvenements.length > 0 ? (
+                  filteredEvenements.map((evenement) => (
+                    <Col lg={6} xl={4} key={evenement.id} className="mb-4">
+                      <Card className="h-100 shadow-sm border-0 event-card" style={{ borderRadius: "15px" }}>
+                        <Card.Body className="p-4">
+                          <div className="d-flex justify-content-between align-items-start mb-2">
+                            <Card.Title className="h5 fw-bold text-dark mb-2">
+                              {evenement.titre}
+                            </Card.Title>
+                            {getTypeBadge(evenement.type)}
+                          </div>
+                          
+                          <Card.Text className="text-muted mb-3">
+                            {evenement.description}
+                          </Card.Text>
 
-                        <ListGroup variant="flush" className="mb-3">
-                          <ListGroup.Item className="px-0 border-0">
-                            <i className="fas fa-calendar text-primary me-2"></i>
-                            <strong>Date:</strong> {formatDate(evenement.date)}
-                          </ListGroup.Item>
-                          <ListGroup.Item className="px-0 border-0">
-                            <i className="fas fa-map-marker-alt text-primary me-2"></i>
-                            <strong>Lieu:</strong> {evenement.lieu || 'Non spécifié'}
-                          </ListGroup.Item>
-                          <ListGroup.Item className="px-0 border-0">
-                            <i className="fas fa-users text-primary me-2"></i>
-                            <strong>Participants:</strong> {evenement.participants || 0}
-                          </ListGroup.Item>
-                        </ListGroup>
+                          <ListGroup variant="flush" className="mb-3">
+                            <ListGroup.Item className="px-0 border-0">
+                              <i className="fas fa-calendar text-primary me-2"></i>
+                              <strong>Date:</strong> {formatDate(evenement.date)}
+                            </ListGroup.Item>
+                            <ListGroup.Item className="px-0 border-0">
+                              <i className="fas fa-map-marker-alt text-primary me-2"></i>
+                              <strong>Lieu:</strong> {evenement.lieu || 'Non spécifié'}
+                            </ListGroup.Item>
+                          </ListGroup>
 
-                        <div className="d-flex gap-2">
                           <Button
                             variant={evenement.inscrit ? "outline-secondary" : "primary"}
                             onClick={() => handleInscription(evenement)}
-                            className="flex-fill"
+                            className="w-100"
                             style={{ borderRadius: "10px" }}
                           >
-                            <i className={`fas ${evenement.inscrit ? 'fa-times' : 'fa-check'} me-1`}></i>
                             {evenement.inscrit ? "Se désinscrire" : "S'inscrire"}
                           </Button>
-                          
-                          <Button
-                            variant="outline-info"
-                            onClick={() => handleOpenMessage(evenement, 'événement')}
-                            style={{ borderRadius: "10px" }}
-                          >
-                            <i className="fas fa-envelope"></i>
-                          </Button>
-                        </div>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                ))}
+                        </Card.Body>
+                      </Card>
+                    </Col>
+                  ))
+                ) : (
+                  <div className="text-center py-5 w-100">
+                    <i className="fas fa-calendar-alt fa-3x text-muted mb-3"></i>
+                    <h5 className="text-muted">Aucun événement disponible</h5>
+                  </div>
+                )}
               </Row>
             )}
 
-            {/* CONTENU DES APPELS D'OFFRES */}
             {activeTab === "offres" && (
               <Row>
-                {filteredAppelsOffres.map((offre) => (
-                  <Col lg={6} key={offre.id} className="mb-4">
-                    <Card className="h-100 shadow-sm border-0 job-card" style={{ borderRadius: "15px" }}>
-                      <Card.Body className="p-4">
-                        <div className="d-flex justify-content-between align-items-start mb-3">
-                          <div>
+                {filteredAppelsOffres.length > 0 ? (
+                  filteredAppelsOffres.map((offre) => (
+                    <Col lg={6} key={offre.id} className="mb-4">
+                      <Card className="h-100 shadow-sm border-0 job-card" style={{ borderRadius: "15px" }}>
+                        <Card.Body className="p-4">
+                          <div className="d-flex justify-content-between align-items-start mb-3">
                             <Card.Title className="h4 fw-bold text-dark mb-1">
                               {offre.titre}
-                              {offre.urgent && (
-                                <Badge bg="danger" className="ms-2">
-                                  <i className="fas fa-exclamation-circle me-1"></i>
-                                  Urgent
-                                </Badge>
-                              )}
                             </Card.Title>
-                            <h6 className="text-primary mb-2">
-                              <i className="fas fa-building me-1"></i>
-                              {offre.entreprise || 'Entreprise'}
-                            </h6>
+                            {getTypeBadge(offre.type)}
                           </div>
-                          {getTypeBadge(offre.type)}
-                        </div>
 
-                        <div className="row mb-3">
-                          <div className="col-md-6">
-                            <small className="text-muted">
-                              <i className="fas fa-map-marker-alt me-1"></i>
-                              {offre.lieu || 'Lieu non spécifié'}
-                            </small>
-                          </div>
-                          <div className="col-md-6">
-                            <small className="text-muted">
-                              <i className="fas fa-euro-sign me-1"></i>
-                              {offre.salaire || 'Salaire à négocier'}
-                            </small>
-                          </div>
-                        </div>
-
-                        <Card.Text className="text-muted mb-3">
-                          {offre.description || offre.contenu}
-                        </Card.Text>
-
-                        {/* Fichiers attachés */}
-                        {offre.fichier && (
                           <div className="mb-3">
-                            <small className="text-muted d-block mb-2">
-                              <i className="fas fa-paperclip me-1"></i>
-                              Documents:
+                            <small className="text-muted">
+                              <i className="fas fa-building me-1"></i>
+                              {offre.entreprise}
                             </small>
-                            <Button
-                              variant="outline-primary"
-                              size="sm"
-                              onClick={() => handleDownload(offre.id, offre.nom_fichier_original)}
-                              style={{ borderRadius: "10px" }}
-                            >
-                              <i className={`fas fa-${getFileIcon(offre.nom_fichier_original)} me-1`}></i>
-                              {offre.nom_fichier_original || 'Télécharger le dossier'}
-                            </Button>
                           </div>
-                        )}
 
-                        <div className="d-flex justify-content-between align-items-center mt-auto">
-                          <small className="text-muted">
-                            <i className="fas fa-clock me-1"></i>
-                            Publié le {formatDate(offre.date_publication)}
-                          </small>
-                          
-                          <div className="d-flex gap-2">
-                            <Button
-                              variant="outline-primary"
-                              size="sm"
-                              onClick={() => handleOpenMessage(offre, 'appel d\'offres')}
-                              style={{ borderRadius: "10px" }}
-                            >
-                              <i className="fas fa-envelope me-1"></i>
-                              Postuler
-                            </Button>
+                          <Card.Text className="text-muted mb-3">
+                            {offre.description}
+                          </Card.Text>
+
+                          <div className="d-flex justify-content-between align-items-center mt-auto">
+                            <small className="text-muted">
+                              <i className="fas fa-clock me-1"></i>
+                              {formatDate(offre.date_publication)}
+                            </small>
                             
                             <Button
                               variant="primary"
-                              size="sm"
                               onClick={() => handleOpenMessage(offre, 'appel d\'offres')}
                               style={{ borderRadius: "10px" }}
                             >
@@ -746,40 +816,17 @@ const DashVisiteur = () => {
                               Plus d'infos
                             </Button>
                           </div>
-                        </div>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                ))}
-              </Row>
-            )}
-
-            {/* Message si aucun contenu */}
-            {(activeTab === "publications" && filteredPublications.length === 0) ||
-             (activeTab === "evenements" && filteredEvenements.length === 0) ||
-             (activeTab === "offres" && filteredAppelsOffres.length === 0) && (
-              <div className="text-center py-5">
-                <i className="fas fa-inbox fa-3x text-muted mb-3"></i>
-                <h5 className="text-muted">
-                  {searchTerm ? "Aucun résultat pour votre recherche" : "Aucun contenu disponible"}
-                </h5>
-                <p className="text-muted">
-                  {searchTerm 
-                    ? "Essayez avec d'autres termes de recherche." 
-                    : "Revenez plus tard pour découvrir de nouveaux contenus validés."
-                  }
-                </p>
-                {searchTerm && (
-                  <Button 
-                    variant="outline-primary" 
-                    onClick={() => setSearchTerm('')}
-                    style={{ borderRadius: "10px" }}
-                  >
-                    <i className="fas fa-times me-1"></i>
-                    Effacer la recherche
-                  </Button>
+                        </Card.Body>
+                      </Card>
+                    </Col>
+                  ))
+                ) : (
+                  <div className="text-center py-5 w-100">
+                    <i className="fas fa-briefcase fa-3x text-muted mb-3"></i>
+                    <h5 className="text-muted">Aucun appel d'offres disponible</h5>
+                  </div>
                 )}
-              </div>
+              </Row>
             )}
           </Card.Body>
         </Card>
@@ -797,10 +844,6 @@ const DashVisiteur = () => {
               <div className="mb-3">
                 <Alert variant="info" className="border-0">
                   <strong>À propos de:</strong> {selectedItem.titre}
-                  <br />
-                  <strong>Type:</strong> {selectedItem.type}
-                  <br />
-                  <strong>Statut:</strong> <Badge bg="success">Validé par l'admin</Badge>
                 </Alert>
                 
                 <Form.Group>
@@ -808,14 +851,11 @@ const DashVisiteur = () => {
                   <Form.Control
                     as="textarea"
                     rows={4}
-                    placeholder={`Dites-nous pourquoi vous êtes intéressé par ce ${selectedItem.type}...`}
+                    placeholder={`Dites-nous pourquoi vous êtes intéressé...`}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     style={{ borderRadius: "10px" }}
                   />
-                  <Form.Text className="text-muted">
-                    Votre message sera envoyé à l'administrateur pour traitement.
-                  </Form.Text>
                 </Form.Group>
               </div>
             )}
@@ -832,71 +872,13 @@ const DashVisiteur = () => {
               variant="primary" 
               onClick={handleSendMessage}
               disabled={!message.trim()}
-              style={{ 
-                borderRadius: "10px",
-                background: "linear-gradient(135deg, #667eea, #764ba2)",
-                border: "none"
-              }}
+              style={{ borderRadius: "10px" }}
             >
-              <i className="fas fa-paper-plane me-1"></i>
-              Envoyer le message
+              Envoyer
             </Button>
           </Modal.Footer>
         </Modal>
-
-        {/* Footer */}
-        <Row className="mt-5">
-          <Col>
-            <div className="text-center text-white">
-              <p className="mb-0">
-                <i className="fas fa-shield-alt me-1"></i>
-                Tous les contenus sont validés par l'administration
-              </p>
-              <small className="text-light">
-                © 2024 Plateforme Visiteur - Tous droits réservés
-              </small>
-            </div>
-          </Col>
-        </Row>
       </Container>
-
-      {/* Styles CSS */}
-      <style>
-        {`
-          .publication-card:hover, .event-card:hover, .job-card:hover {
-            transform: translateY(-5px);
-            transition: transform 0.3s ease;
-          }
-          
-          .nav-tabs .nav-link {
-            border: none;
-            color: #6c757d;
-            font-weight: 500;
-            padding: 12px 24px;
-            border-radius: 10px;
-            margin: 0 5px;
-          }
-          
-          .nav-tabs .nav-link.active {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-          }
-          
-          .nav-tabs .nav-link:hover {
-            border: none;
-            color: #667eea;
-          }
-          
-          .card {
-            transition: all 0.3s ease;
-          }
-          
-          .btn {
-            transition: all 0.3s ease;
-          }
-        `}
-      </style>
     </div>
   );
 };

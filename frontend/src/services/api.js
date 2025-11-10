@@ -16,84 +16,90 @@ export const apiClient = axios.create({
   },
 });
 
+// Intercepteur pour ajouter le token
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 // Intercepteur pour les erreurs
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     console.error('API Error:', error);
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
     return Promise.reject(error);
   }
 );
 
-// --- Membres ---
-export const fetchMembres = () => axios.get(`${API_URL}/membres`);
-export const addMembre = (data) =>
-  axios.post(`${API_URL}/membres`, data, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-export const updateMembre = (id, data) =>
-  axios.post(`${API_URL}/membres/${id}?_method=PUT`, data, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-export const deleteMembre = (id) => axios.delete(`${API_URL}/membres/${id}`);
+// --- Authentification ---
+export const loginUser = (credentials) => apiClient.post('/login', credentials);
+export const registerUser = (userData) => apiClient.post('/register', userData);
+export const getCurrentUser = () => apiClient.get('/user');
 
 // --- Publications ---
-export const fetchPublications = () => axios.get(`${API_URL}/publications`);
-export const fetchPublicationsValidees = () => axios.get(`${API_URL}/publications/validees`);
-export const addPublication = (data) =>
-  axios.post(`${API_URL}/publications`, data, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-export const updatePublication = (id, data) =>
-  axios.post(`${API_URL}/publications/${id}?_method=PUT`, data, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-export const deletePublication = (id) => axios.delete(`${API_URL}/publications/${id}`);
-export const validatePublication = (id) => axios.post(`${API_URL}/publications/${id}/validate`);
-export const downloadPublicationFile = (id) => 
-  axios.get(`${API_URL}/publications/${id}/download`, { responseType: 'blob' });
+export const fetchPublications = () => apiClient.get('/publications');
+export const fetchPublicationsValidees = () => apiClient.get('/publications/validees');
+export const addPublication = (data) => apiClient.post('/publications', data, {
+  headers: { "Content-Type": "multipart/form-data" },
+});
+export const updatePublication = (id, data) => apiClient.post(`/publications/${id}?_method=PUT`, data, {
+  headers: { "Content-Type": "multipart/form-data" },
+});
+export const deletePublication = (id) => apiClient.delete(`/publications/${id}`);
+export const validatePublication = (id) => apiClient.post(`/publications/${id}/validate`);
+export const downloadPublicationFile = (id) => apiClient.get(`/publications/${id}/download`, { responseType: 'blob' });
 
 // --- Événements ---
-export const fetchEvenements = () => axios.get(`${API_URL}/evenements`);
-export const fetchEvenementsValides = () => axios.get(`${API_URL}/evenements/valides`);
-export const addEvenement = (data) =>
-  axios.post(`${API_URL}/evenements`, data, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-export const updateEvenement = (id, data) =>
-  axios.post(`${API_URL}/evenements/${id}?_method=PUT`, data, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-export const deleteEvenement = (id) => axios.delete(`${API_URL}/evenements/${id}`);
-export const validateEvenement = (id) => axios.post(`${API_URL}/evenements/${id}/validate`);
+export const fetchEvenements = () => apiClient.get('/evenements');
+export const fetchEvenementsValides = () => apiClient.get('/evenements/valides');
+export const addEvenement = (data) => apiClient.post('/evenements', data, {
+  headers: { "Content-Type": "multipart/form-data" },
+});
+export const updateEvenement = (id, data) => apiClient.post(`/evenements/${id}?_method=PUT`, data, {
+  headers: { "Content-Type": "multipart/form-data" },
+});
+export const deleteEvenement = (id) => apiClient.delete(`/evenements/${id}`);
+export const validateEvenement = (id) => apiClient.post(`/evenements/${id}/validate`);
 
 // --- Appels d'offres ---
-export const fetchAppelOffres = () => axios.get(`${API_URL}/appeloffres`);
-export const fetchAppelsOffresValides = () => axios.get(`${API_URL}/appeloffres/valides`);
+export const fetchAppelOffres = () => apiClient.get('/appeloffres');
+export const fetchAppelsOffresValides = () => apiClient.get('/appeloffres/valides');
 
-// --- Utilisateurs ---
-export const fetchUtilisateurs = () => axios.get(`${API_URL}/utilisateurs`);
+// --- Messages ---
+export const envoyerMessageVisiteur = (data) => apiClient.post('/messages', data);
 
-// --- Statistiques ---
-export const fetchStatistiques = () => axios.get(`${API_URL}/statistiques`);
-
-// --- Services Visiteur ---
-export const envoyerMessageVisiteur = (data) => {
-  return axios.post(`${API_URL}/messages`, data);
-};
-
-// --- Gestion des likes (simulation) ---
+// --- Fonctions de simulation ---
 export const toggleLikePublication = (publicationId) => {
-  // Simulation - à adapter avec votre backend
   return Promise.resolve({
     data: { success: true, likes: Math.floor(Math.random() * 100) + 1 }
   });
 };
 
-// --- Inscription événements (simulation) ---
 export const inscrireEvenement = (evenementId) => {
-  // Simulation - à adapter avec votre backend
   return Promise.resolve({
     data: { success: true, inscrit: true }
   });
 };
+
+// --- Membres ---
+export const fetchMembres = () => apiClient.get('/membres');
+export const addMembre = (data) => apiClient.post('/membres', data, {
+  headers: { "Content-Type": "multipart/form-data" },
+});
+export const updateMembre = (id, data) => apiClient.post(`/membres/${id}?_method=PUT`, data, {
+  headers: { "Content-Type": "multipart/form-data" },
+});
+export const deleteMembre = (id) => apiClient.delete(`/membres/${id}`);
