@@ -42,11 +42,11 @@ class Publication extends Model
         if (!$this->fichier) {
             return null;
         }
-        
+
         if (str_starts_with($this->fichier, 'http')) {
             return $this->fichier;
         }
-        
+
         return asset('storage/' . $this->fichier);
     }
 
@@ -56,10 +56,10 @@ class Publication extends Model
         if (!$fileName) return null;
 
         $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-        
+
         $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
         $videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'];
-        
+
         if (in_array($extension, $imageExtensions)) {
             return 'image';
         } elseif (in_array($extension, $videoExtensions)) {
@@ -81,7 +81,7 @@ class Publication extends Model
         if (!$this->fichier) return 'fa-file';
 
         $extension = strtolower(pathinfo($this->fichier, PATHINFO_EXTENSION));
-        
+
         switch ($extension) {
             case 'pdf':
                 return 'fa-file-pdf';

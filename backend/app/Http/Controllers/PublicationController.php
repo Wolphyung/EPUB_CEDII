@@ -15,7 +15,7 @@ class PublicationController extends Controller
         $publications = Publication::all()->map(function ($publication) {
             return $this->formatPublicationResponse($publication);
         });
-        
+
         return response()->json($publications);
     }
 
@@ -61,10 +61,10 @@ class PublicationController extends Controller
             $file = $request->file('fichier');
             $fileName = time() . '_' . $file->getClientOriginalName();
             $path = $file->storeAs('publications', $fileName, 'public');
-            
+
             $validated['fichier'] = $path;
             $validated['nom_fichier_original'] = $file->getClientOriginalName();
-            
+
             // Déterminer automatiquement le type de fichier si non fourni
             if (empty($validated['type_fichier'])) {
                 $publication = new Publication();
@@ -108,10 +108,10 @@ class PublicationController extends Controller
             $file = $request->file('fichier');
             $fileName = time() . '_' . $file->getClientOriginalName();
             $path = $file->storeAs('publications', $fileName, 'public');
-            
+
             $validated['fichier'] = $path;
             $validated['nom_fichier_original'] = $file->getClientOriginalName();
-            
+
             // Déterminer automatiquement le type de fichier si non fourni
             if (empty($validated['type_fichier'])) {
                 $validated['type_fichier'] = $publication->getTypeFichierFromName($file->getClientOriginalName());
@@ -140,12 +140,12 @@ class PublicationController extends Controller
     public function destroy($id)
     {
         $publication = Publication::findOrFail($id);
-        
+
         // Supprimer le fichier associé s'il existe
         if ($publication->fichier && Storage::disk('public')->exists($publication->fichier)) {
             Storage::disk('public')->delete($publication->fichier);
         }
-        
+
         $publication->delete();
 
         return response()->json(['message' => 'Publication supprimée']);
@@ -168,7 +168,7 @@ class PublicationController extends Controller
     public function downloadFile($id)
     {
         $publication = Publication::findOrFail($id);
-        
+
         if (!$publication->fichier) {
             return response()->json(['message' => 'Aucun fichier associé à cette publication'], 404);
         }
@@ -177,7 +177,7 @@ class PublicationController extends Controller
             return response()->json(['message' => 'Fichier non trouvé'], 404);
         }
 
-        $filePath = Storage::disk('public')->path($publication->fichier);
+        $filePath = storage_path('app/public/' . $publication->fichier);
         $fileName = $publication->nom_fichier_original ?: basename($publication->fichier);
 
         return response()->download($filePath, $fileName);
