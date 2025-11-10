@@ -6,6 +6,7 @@ import MembreSidebar from "../../components/MembreSidebar";
 const ProfilMembre = () => {
   const navigate = useNavigate();
   const [membre, setMembre] = useState({
+    id: "",
     nom: "",
     prenom: "",
     email: "",
@@ -19,7 +20,9 @@ const ProfilMembre = () => {
     profession: "",
     site_web: "",
     linkedin: "",
-    twitter: ""
+    twitter: "",
+    type: "membre", // Toujours "membre" par défaut
+    statut: "actif"
   });
   
   const [editMode, setEditMode] = useState(false);
@@ -31,25 +34,100 @@ const ProfilMembre = () => {
 
   // Charger les données du membre
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem("user"));
-    if (userData) {
-      setMembre({
-        nom: userData.nom || "",
-        prenom: userData.prenom || "",
-        email: userData.email || "",
-        telephone: userData.telephone || "",
-        adresse: userData.adresse || "",
-        ville: userData.ville || "",
-        pays: userData.pays || "",
-        bio: userData.bio || "Aucune biographie disponible",
-        avatar: userData.avatar || null,
-        date_naissance: userData.date_naissance || "",
-        profession: userData.profession || "",
-        site_web: userData.site_web || "",
-        linkedin: userData.linkedin || "",
-        twitter: userData.twitter || ""
-      });
-    }
+    const fetchMembreData = async () => {
+      try {
+        // Récupérer l'ID du membre depuis le localStorage
+        const userData = JSON.parse(localStorage.getItem("user"));
+        if (userData && userData.id) {
+          const membreId = userData.id;
+
+          const response = await fetch(`http://localhost:8000/api/membres/${membreId}/profile`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              // S'assurer que toutes les valeurs sont définies et non null
+              const membreData = {
+                id: data.data.id || "",
+                nom: data.data.nom || "",
+                prenom: data.data.prenom || "",
+                email: data.data.email || "",
+                telephone: data.data.telephone || "",
+                adresse: data.data.adresse || "",
+                ville: data.data.ville || "",
+                pays: data.data.pays || "",
+                bio: data.data.bio || "",
+                avatar: data.data.avatar || null,
+                date_naissance: data.data.date_naissance || "",
+                profession: data.data.profession || "",
+                site_web: data.data.site_web || "",
+                linkedin: data.data.linkedin || "",
+                twitter: data.data.twitter || "",
+                type: "membre", // Forcer le type à "membre"
+                statut: data.data.statut || "actif"
+              };
+              setMembre(membreData);
+              localStorage.setItem('user', JSON.stringify(membreData));
+            }
+          } else {
+            throw new Error('Erreur lors du chargement du profil');
+          }
+        } else {
+          // Si pas d'ID, utiliser les données du localStorage
+          const localUserData = JSON.parse(localStorage.getItem("user"));
+          if (localUserData) {
+            const safeUserData = {
+              id: localUserData.id || "",
+              nom: localUserData.nom || "",
+              prenom: localUserData.prenom || "",
+              email: localUserData.email || "",
+              telephone: localUserData.telephone || "",
+              adresse: localUserData.adresse || "",
+              ville: localUserData.ville || "",
+              pays: localUserData.pays || "",
+              bio: localUserData.bio || "",
+              avatar: localUserData.avatar || null,
+              date_naissance: localUserData.date_naissance || "",
+              profession: localUserData.profession || "",
+              site_web: localUserData.site_web || "",
+              linkedin: localUserData.linkedin || "",
+              twitter: localUserData.twitter || "",
+              type: "membre", // Forcer le type à "membre"
+              statut: localUserData.statut || "actif"
+            };
+            setMembre(safeUserData);
+          }
+        }
+      } catch (error) {
+        console.error('Erreur:', error);
+        // Fallback sur localStorage avec valeurs sécurisées
+        const userData = JSON.parse(localStorage.getItem("user"));
+        if (userData) {
+          const safeUserData = {
+            id: userData.id || "",
+            nom: userData.nom || "",
+            prenom: userData.prenom || "",
+            email: userData.email || "",
+            telephone: userData.telephone || "",
+            adresse: userData.adresse || "",
+            ville: userData.ville || "",
+            pays: userData.pays || "",
+            bio: userData.bio || "",
+            avatar: userData.avatar || null,
+            date_naissance: userData.date_naissance || "",
+            profession: userData.profession || "",
+            site_web: userData.site_web || "",
+            linkedin: userData.linkedin || "",
+            twitter: userData.twitter || "",
+            type: "membre",
+            statut: userData.statut || "actif"
+          };
+          setMembre(safeUserData);
+        }
+      }
+    };
+
+    fetchMembreData();
   }, []);
 
   // Fonction pour afficher l'avatar
@@ -70,7 +148,7 @@ const ProfilMembre = () => {
     const { name, value } = e.target;
     setMembre(prev => ({
       ...prev,
-      [name]: value
+      [name]: value || "" // Toujours une chaîne vide si null/undefined
     }));
   };
 
@@ -79,24 +157,61 @@ const ProfilMembre = () => {
     setLoading(true);
     
     try {
-      // Simuler une requête API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mettre à jour le localStorage
-      const updatedUser = { ...JSON.parse(localStorage.getItem("user")), ...membre };
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      
-      setAlert({
-        show: true,
-        message: "Profil mis à jour avec succès!",
-        type: "success"
+      const userData = JSON.parse(localStorage.getItem("user"));
+      const membreId = userData?.id;
+
+      if (!membreId) {
+        throw new Error('ID membre non trouvé');
+      }
+
+      // Préparer les données avec des valeurs par défaut pour éviter les null
+      const dataToSend = {
+        nom: membre.nom || "",
+        prenom: membre.prenom || "",
+        email: membre.email || "",
+        telephone: membre.telephone || "",
+        adresse: membre.adresse || "",
+        ville: membre.ville || "",
+        pays: membre.pays || "",
+        bio: membre.bio || "",
+        date_naissance: membre.date_naissance || "",
+        profession: membre.profession || "",
+        site_web: membre.site_web || "",
+        linkedin: membre.linkedin || "",
+        twitter: membre.twitter || "",
+        type: "membre", // Toujours "membre"
+        statut: membre.statut || "actif"
+      };
+
+      const response = await fetch(`http://localhost:8000/api/membres/${membreId}/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(dataToSend)
       });
       
-      setEditMode(false);
+      const data = await response.json();
+      
+      if (data.success) {
+        // Mettre à jour le localStorage
+        localStorage.setItem('user', JSON.stringify(data.data));
+        
+        setAlert({
+          show: true,
+          message: data.message,
+          type: "success"
+        });
+        
+        setEditMode(false);
+      } else {
+        throw new Error(data.message || 'Erreur lors de la mise à jour');
+      }
     } catch (error) {
       setAlert({
         show: true,
-        message: "Erreur lors de la mise à jour du profil",
+        message: error.message,
         type: "danger"
       });
     } finally {
@@ -128,25 +243,44 @@ const ProfilMembre = () => {
     
     setLoading(true);
     try {
-      // Simuler l'upload
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Mettre à jour le localStorage
-      const updatedUser = { ...JSON.parse(localStorage.getItem("user")), avatar: URL.createObjectURL(avatarFile) };
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      
-      setAlert({
-        show: true,
-        message: "Photo de profil mise à jour avec succès!",
-        type: "success"
+      const userData = JSON.parse(localStorage.getItem("user"));
+      const membreId = userData?.id;
+
+      if (!membreId) {
+        throw new Error('ID membre non trouvé');
+      }
+
+      const formData = new FormData();
+      formData.append('avatar', avatarFile);
+
+      const response = await fetch(`http://localhost:8000/api/membres/${membreId}/avatar`, {
+        method: 'POST',
+        body: formData
       });
       
-      setShowAvatarModal(false);
-      setAvatarFile(null);
+      const data = await response.json();
+      
+      if (data.success) {
+        // Mettre à jour l'avatar dans l'état et le localStorage
+        const updatedUser = { ...membre, avatar: data.avatar_url };
+        setMembre(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        
+        setAlert({
+          show: true,
+          message: data.message,
+          type: "success"
+        });
+        
+        setShowAvatarModal(false);
+        setAvatarFile(null);
+      } else {
+        throw new Error(data.message || 'Erreur lors du changement de photo');
+      }
     } catch (error) {
       setAlert({
         show: true,
-        message: "Erreur lors du changement de photo",
+        message: error.message,
         type: "danger"
       });
     } finally {
@@ -296,7 +430,7 @@ const ProfilMembre = () => {
                           }}
                         >
                           <i className="fas fa-circle me-1" style={{ fontSize: "0.6rem" }}></i>
-                          Membre Actif
+                          {membre.statut === 'actif' ? 'Membre Actif' : membre.statut}
                         </span>
                       </div>
 
@@ -340,41 +474,44 @@ const ProfilMembre = () => {
                           <Row className="g-3">
                             <Col md={6}>
                               <Form.Group>
-                                <Form.Label className="fw-semibold">Prénom</Form.Label>
+                                <Form.Label className="fw-semibold">Prénom *</Form.Label>
                                 <Form.Control
                                   type="text"
                                   name="prenom"
-                                  value={membre.prenom}
+                                  value={membre.prenom || ""}
                                   onChange={handleInputChange}
                                   className="border-0 shadow-sm rounded-3 py-3"
                                   placeholder="Votre prénom"
+                                  required
                                 />
                               </Form.Group>
                             </Col>
                             <Col md={6}>
                               <Form.Group>
-                                <Form.Label className="fw-semibold">Nom</Form.Label>
+                                <Form.Label className="fw-semibold">Nom *</Form.Label>
                                 <Form.Control
                                   type="text"
                                   name="nom"
-                                  value={membre.nom}
+                                  value={membre.nom || ""}
                                   onChange={handleInputChange}
                                   className="border-0 shadow-sm rounded-3 py-3"
                                   placeholder="Votre nom"
+                                  required
                                 />
                               </Form.Group>
                             </Col>
                             
                             <Col md={6}>
                               <Form.Group>
-                                <Form.Label className="fw-semibold">Email</Form.Label>
+                                <Form.Label className="fw-semibold">Email *</Form.Label>
                                 <Form.Control
                                   type="email"
                                   name="email"
-                                  value={membre.email}
+                                  value={membre.email || ""}
                                   onChange={handleInputChange}
                                   className="border-0 shadow-sm rounded-3 py-3"
                                   placeholder="votre@email.com"
+                                  required
                                 />
                               </Form.Group>
                             </Col>
@@ -384,7 +521,7 @@ const ProfilMembre = () => {
                                 <Form.Control
                                   type="tel"
                                   name="telephone"
-                                  value={membre.telephone}
+                                  value={membre.telephone || ""}
                                   onChange={handleInputChange}
                                   className="border-0 shadow-sm rounded-3 py-3"
                                   placeholder="+33 1 23 45 67 89"
@@ -398,7 +535,7 @@ const ProfilMembre = () => {
                                 <Form.Control
                                   type="text"
                                   name="profession"
-                                  value={membre.profession}
+                                  value={membre.profession || ""}
                                   onChange={handleInputChange}
                                   className="border-0 shadow-sm rounded-3 py-3"
                                   placeholder="Votre profession"
@@ -411,7 +548,7 @@ const ProfilMembre = () => {
                                 <Form.Control
                                   type="date"
                                   name="date_naissance"
-                                  value={membre.date_naissance}
+                                  value={membre.date_naissance || ""}
                                   onChange={handleInputChange}
                                   className="border-0 shadow-sm rounded-3 py-3"
                                 />
@@ -424,7 +561,7 @@ const ProfilMembre = () => {
                                 <Form.Control
                                   type="text"
                                   name="adresse"
-                                  value={membre.adresse}
+                                  value={membre.adresse || ""}
                                   onChange={handleInputChange}
                                   className="border-0 shadow-sm rounded-3 py-3"
                                   placeholder="Votre adresse"
@@ -438,7 +575,7 @@ const ProfilMembre = () => {
                                 <Form.Control
                                   type="text"
                                   name="ville"
-                                  value={membre.ville}
+                                  value={membre.ville || ""}
                                   onChange={handleInputChange}
                                   className="border-0 shadow-sm rounded-3 py-3"
                                   placeholder="Votre ville"
@@ -451,7 +588,7 @@ const ProfilMembre = () => {
                                 <Form.Control
                                   type="text"
                                   name="pays"
-                                  value={membre.pays}
+                                  value={membre.pays || ""}
                                   onChange={handleInputChange}
                                   className="border-0 shadow-sm rounded-3 py-3"
                                   placeholder="Votre pays"
@@ -466,7 +603,7 @@ const ProfilMembre = () => {
                                   as="textarea"
                                   rows={4}
                                   name="bio"
-                                  value={membre.bio}
+                                  value={membre.bio || ""}
                                   onChange={handleInputChange}
                                   className="border-0 shadow-sm rounded-3 py-3"
                                   placeholder="Parlez-nous de vous..."
@@ -480,7 +617,7 @@ const ProfilMembre = () => {
                                 <Form.Control
                                   type="url"
                                   name="site_web"
-                                  value={membre.site_web}
+                                  value={membre.site_web || ""}
                                   onChange={handleInputChange}
                                   className="border-0 shadow-sm rounded-3 py-3"
                                   placeholder="https://votre-site.com"
@@ -493,13 +630,34 @@ const ProfilMembre = () => {
                                 <Form.Control
                                   type="url"
                                   name="linkedin"
-                                  value={membre.linkedin}
+                                  value={membre.linkedin || ""}
                                   onChange={handleInputChange}
                                   className="border-0 shadow-sm rounded-3 py-3"
                                   placeholder="https://linkedin.com/in/votre-profil"
                                 />
                               </Form.Group>
                             </Col>
+
+                            {/* Champ statut uniquement (type est caché et toujours "membre") */}
+                            <Col md={6}>
+                              <Form.Group>
+                                <Form.Label className="fw-semibold">Statut *</Form.Label>
+                                <Form.Select
+                                  name="statut"
+                                  value={membre.statut || "actif"}
+                                  onChange={handleInputChange}
+                                  className="border-0 shadow-sm rounded-3 py-3"
+                                  required
+                                >
+                                  <option value="actif">Actif</option>
+                                  <option value="inactif">Inactif</option>
+                                  <option value="suspendu">Suspendu</option>
+                                </Form.Select>
+                              </Form.Group>
+                            </Col>
+
+                            {/* Champ type caché mais toujours envoyé */}
+                            <input type="hidden" name="type" value="membre" />
                           </Row>
                           
                           <div className="d-flex gap-3 mt-4">
@@ -553,7 +711,7 @@ const ProfilMembre = () => {
                                 </div>
                                 <div>
                                   <small className="text-muted d-block">Email</small>
-                                  <strong>{membre.email}</strong>
+                                  <strong>{membre.email || "Non renseigné"}</strong>
                                 </div>
                               </div>
                             </Col>
@@ -599,6 +757,19 @@ const ProfilMembre = () => {
                                 </div>
                               </div>
                             </Col>
+
+                            {/* Statut uniquement */}
+                            <Col md={6}>
+                              <div className="d-flex align-items-center mb-3 p-3 rounded-3" style={{ background: "rgba(40, 167, 69, 0.05)" }}>
+                                <div className="bg-success bg-opacity-10 rounded-circle p-3 me-3">
+                                  <i className="fas fa-circle text-success"></i>
+                                </div>
+                                <div>
+                                  <small className="text-muted d-block">Statut</small>
+                                  <strong className="text-capitalize">{membre.statut || "actif"}</strong>
+                                </div>
+                              </div>
+                            </Col>
                             
                             {/* Biographie */}
                             <Col md={12}>
@@ -608,7 +779,7 @@ const ProfilMembre = () => {
                                   À propos de moi
                                 </h5>
                                 <p className="text-white mb-0" style={{ lineHeight: "1.6" }}>
-                                  {membre.bio}
+                                  {membre.bio || "Aucune biographie disponible pour le moment."}
                                 </p>
                               </div>
                             </Col>

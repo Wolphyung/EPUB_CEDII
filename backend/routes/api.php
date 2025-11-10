@@ -27,6 +27,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Vos autres routes...
 });
 
+Route::get('membres/{id}/profile', [MembreController::class, 'show']);
+Route::put('membres/{id}/profile', [MembreController::class, 'updateProfile']);
+Route::post('membres/{id}/avatar', [MembreController::class, 'updateAvatar']);
+
 Route::apiResource('publications', PublicationController::class);
 Route::post('/publications/{id}/validate', [PublicationController::class, 'validatePublication']);
 Route::get('/publications/{id}/download', [PublicationController::class, 'downloadFile']);
