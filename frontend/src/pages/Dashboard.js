@@ -1,8 +1,32 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import Navbar from "../components/Navbar";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const navigate = useNavigate();
+
+  // Vérifier l'état de connexion au chargement
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = () => {
+    const token = localStorage.getItem("token");
+    const user = localStorage.getItem("user");
+    
+    // Si l'utilisateur n'est pas connecté, on affiche seulement les boutons login/signup
+    if (!token && !user) {
+      setIsLoggedIn(false);
+    } else {
+      setIsLoggedIn(true);
+    }
+  };
+
+  const handleAccessDashboard = () => {
+    // Rediriger TOUJOURS vers login pour accéder aux dashboards
+    navigate('/login');
+  };
+
   const features = [
     {
       icon: "📊",
@@ -35,8 +59,6 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard">
-  
-      
       {/* Hero Section */}
       <section className="hero">
         <div className="hero-content">
@@ -49,20 +71,16 @@ const Dashboard = () => {
               qui propulsera votre carrière et votre entreprise.
             </p>
             <div className="hero-buttons">
-              {!localStorage.getItem("token") ? (
-                <>
-                  <Link to="/signup" className="btn btn-primary">
-                    Créer un Compte Gratuit
-                  </Link>
-                  <Link to="/login" className="btn btn-secondary">
-                    Se Connecter
-                  </Link>
-                </>
-              ) : (
-                <Link to="/actualite" className="btn btn-primary">
-                  Explorer le Contenu
-                </Link>
-              )}
+              {/* TOUJOURS afficher login/signup sur la page d'accueil */}
+              <Link to="/signup" className="btn btn-primary">
+                Créer un Compte Gratuit
+              </Link>
+              <Link to="/login" className="btn btn-secondary">
+                Se Connecter
+              </Link>
+            </div>
+            <div className="login-required-note">
+              <p>🔒 <strong>Accès sécurisé :</strong> Connectez-vous pour accéder à votre espace personnel</p>
             </div>
           </div>
           <div className="hero-visual">
@@ -108,6 +126,17 @@ const Dashboard = () => {
           <div className="value-content">
             <div className="value-text">
               <div className="value-point">
+                <div className="point-icon">🔐</div>
+                <div className="point-content">
+                  <h3>Accès Sécurisé</h3>
+                  <p>
+                    Tous les accès aux espaces membres, administrateurs et visiteurs 
+                    passent par une authentification sécurisée.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="value-point">
                 <div className="point-icon">👥</div>
                 <div className="point-content">
                   <h3>Relations Directes</h3>
@@ -139,34 +168,33 @@ const Dashboard = () => {
                   </p>
                 </div>
               </div>
-              
-              <div className="value-point">
-                <div className="point-icon">📱</div>
-                <div className="point-content">
-                  <h3>Accès Multicanaux</h3>
-                  <p>
-                    Consultez vos publications suivies, événements favoris et 
-                    appels d'offre depuis n'importe quel appareil.
-                  </p>
-                </div>
-              </div>
             </div>
             
             <div className="value-visual">
               <div className="visual-card">
                 <div className="card-header">
-                  <div className="user-avatar">👤</div>
+                  <div className="user-avatar">🔒</div>
                   <div className="user-info">
-                    <div className="user-name">Marie Lambert</div>
-                    <div className="user-role">Expert Sectoriel</div>
+                    <div className="user-name">Authentification Requise</div>
+                    <div className="user-role">Accès sécurisé</div>
                   </div>
                 </div>
                 <div className="card-content">
-                  <h4>Publication Suivie</h4>
-                  <p>Nouvelles tendances du marché 2024</p>
-                  <div className="engagement-stats">
-                    <span>📊 245 vues</span>
-                    <span>💬 45 commentaires</span>
+                  <h4>Connectez-vous pour accéder</h4>
+                  <p>Veuillez vous connecter pour accéder à votre espace personnel et aux fonctionnalités premium.</p>
+                  <div className="access-types">
+                    <div className="access-type">
+                      <span className="type-icon">👑</span>
+                      <span>Administrateurs</span>
+                    </div>
+                    <div className="access-type">
+                      <span className="type-icon">👤</span>
+                      <span>Membres</span>
+                    </div>
+                    <div className="access-type">
+                      <span className="type-icon">👁️</span>
+                      <span>Visiteurs</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -203,25 +231,17 @@ const Dashboard = () => {
               Rejoignez dès aujourd'hui notre communauté d'experts et accédez 
               à un monde d'opportunités exclusives.
             </p>
-            {!localStorage.getItem("token") ? (
-              <div className="cta-buttons">
-                <Link to="/signup" className="btn btn-large btn-primary">
-                  Commencer Maintenant
-                </Link>
-                <Link to="/apropos" className="btn btn-large btn-outline">
-                  En Savoir Plus
-                </Link>
-              </div>
-            ) : (
-              <div className="cta-buttons">
-                <Link to="/publication" className="btn btn-large btn-primary">
-                  Explorer les Publications
-                </Link>
-                <Link to="/evenement" className="btn btn-large btn-outline">
-                  Voir les Événements
-                </Link>
-              </div>
-            )}
+            <div className="cta-buttons">
+              <Link to="/signup" className="btn btn-large btn-primary">
+                Créer un Compte
+              </Link>
+              <Link to="/login" className="btn btn-large btn-outline">
+                Se Connecter
+              </Link>
+            </div>
+            <div className="security-note">
+              <p>🛡️ <strong>Sécurité :</strong> Tous les accès passent par notre page de connexion sécurisée</p>
+            </div>
           </div>
         </div>
       </section>
@@ -275,6 +295,20 @@ const Dashboard = () => {
           display: flex;
           gap: 1rem;
           flex-wrap: wrap;
+          margin-bottom: 1rem;
+        }
+
+        .login-required-note {
+          background: rgba(255, 255, 255, 0.1);
+          padding: 1rem;
+          border-radius: 10px;
+          border-left: 4px solid #10b981;
+        }
+
+        .login-required-note p {
+          color: rgba(255, 255, 255, 0.9);
+          margin: 0;
+          font-size: 0.9rem;
         }
 
         .btn {
@@ -506,12 +540,24 @@ const Dashboard = () => {
           margin-bottom: 0.5rem;
         }
 
-        .engagement-stats {
+        .access-types {
           display: flex;
-          gap: 1rem;
+          flex-direction: column;
+          gap: 0.5rem;
           margin-top: 1rem;
-          font-size: 0.9rem;
-          color: #64748b;
+        }
+
+        .access-type {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem;
+          background: #f8fafc;
+          border-radius: 8px;
+        }
+
+        .type-icon {
+          font-size: 1.2rem;
         }
 
         /* Features Section */
@@ -586,6 +632,20 @@ const Dashboard = () => {
           gap: 1rem;
           justify-content: center;
           flex-wrap: wrap;
+          margin-bottom: 1.5rem;
+        }
+
+        .security-note {
+          background: rgba(255, 255, 255, 0.1);
+          padding: 1rem;
+          border-radius: 10px;
+          display: inline-block;
+        }
+
+        .security-note p {
+          margin: 0;
+          font-size: 0.9rem;
+          color: rgba(255, 255, 255, 0.8);
         }
 
         /* Responsive */
