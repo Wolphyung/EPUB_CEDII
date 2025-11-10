@@ -124,3 +124,21 @@ Route::post('/messages/{id}/reply', [MessageController::class, 'reply']);
 Route::put('/messages/{id}/read', [MessageController::class, 'markAsRead']);
 Route::put('/messages/mark-all-read/{membreId}', [MessageController::class, 'markAllAsRead']);
 Route::delete('/messages/{id}', [MessageController::class, 'destroy']);
+
+
+// Publications validées pour les visiteurs
+Route::get('/publications/validees', [PublicationController::class, 'getPublicationsValidees']);
+
+// Événements validés (à adapter selon votre structure)
+Route::get('/evenements/valides', [EvenementController::class, 'getEvenementsValides']);
+
+// Appels d'offres validés (à adapter selon votre structure)
+Route::get('/appeloffres/valides', [AppelOffreController::class, 'getAppelsOffresValides']);
+
+Route::get('/publications', [PublicationController::class, 'index']);        // lister
+Route::post('/publications', [PublicationController::class, 'store']);       // créer
+Route::get('/publications/{id}', [PublicationController::class, 'show']);   // voir un seul
+Route::put('/publications/{id}', [PublicationController::class, 'update']); // modifier
+Route::delete('/publications/{id}', [PublicationController::class, 'destroy']); // supprimer
+Route::post('/publications/{id}/validate', [PublicationController::class, 'validatePublication']);
+Route::get('/publications/{id}/download', [PublicationController::class, 'downloadFile']);
