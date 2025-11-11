@@ -381,30 +381,50 @@ const Evenement = () => {
   const handleEditEvent = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
-    try {
-      const formData = new FormData();
-      Object.keys(selectedEvent).forEach(key => {
-        if (selectedEvent[key] !== null && key !== 'id') {
-          formData.append(key, selectedEvent[key]);
-        }
-      });
 
-      // Utiliser POST avec un endpoint spécifique pour la modification
-      const res = await axios.post(`${API_URL}/evenements/${selectedEvent.id}/update`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      
-      setEvenements(prev => prev.map(ev => ev.id === selectedEvent.id ? (res.data.data || res.data) : ev));
-      showNotification("success", t('success_edit_event'));
-      handleCloseEditModal();
+    try {
+        const formData = new FormData();
+        const { id, fichier, ...dataToSend } = selectedEvent;
+
+        // Ajouter tous les champs sauf id et fichier
+        Object.keys(dataToSend).forEach(key => {
+        if (dataToSend[key] !== null && dataToSend[key] !== undefined) {
+            formData.append(key, dataToSend[key]);
+        }
+        });
+
+        // Format date
+        if (selectedEvent.date_heure) {
+        const formatted = selectedEvent.date_heure.replace('T', ' ') + ':00';
+        formData.append('date_heure', formatted);
+        }
+
+        // N'envoyer fichier QUE si c'est un vrai File (nouvel upload)
+        if (fichier instanceof File) {
+        formData.append('fichier', fichier);
+        }
+        // Sinon → on ne touche pas au fichier existant
+
+        const res = await axios.post(
+        `${API_URL}/evenements/${id}/update`,
+        formData,
+        {
+            headers: { "Content-Type": "multipart/form-data" },
+        }
+        );
+
+        setEvenements(prev =>
+        prev.map(ev => (ev.id === id ? (res.data.data || res.data) : ev))
+        );
+        showNotification("success", t('success_edit_event'));
+        handleCloseEditModal();
     } catch (err) {
-      console.error('Erreur modification:', err);
-      showNotification("error", err.response?.data?.message || t('error_edit_event'));
+        console.error('Erreur:', err.response?.data || err);
+        showNotification("error", err.response?.data?.message || t('error_edit_event'));
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+    };
 
   // Supprimer événement
   const handleDeleteEvent = async (id) => {
@@ -422,32 +442,25 @@ const Evenement = () => {
   // SOLUTION CORRIGÉE : Changer statut avec POST uniquement
   const handleChangeStatus = async (id, newStatus) => {
     try {
-      // Utiliser POST avec un endpoint spécifique pour le changement de statut
       const res = await axios.post(`${API_URL}/evenements/${id}/status`, {
         statut: newStatus
       });
-      
-      setEvenements(prev => prev.map(ev => ev.id === id ? (res.data.data || res.data) : ev));
+
+      setEvenements(prev =>
+        prev.map(ev => (ev.id === id ? (res.data.data || res.data) : ev))
+      );
       showNotification("success", t('success_change_status', { status: newStatus }));
     } catch (err) {
-      console.error('Erreur changement statut:', err);
-      
-      // Si l'endpoint spécifique n'existe pas, essayer avec l'endpoint général update
-      try {
-        const res = await axios.post(`${API_URL}/evenements/${id}/update`, {
-          statut: newStatus
-        });
-        setEvenements(prev => prev.map(ev => ev.id === id ? (res.data.data || res.data) : ev));
-        showNotification("success", t('success_change_status', { status: newStatus }));
-      } catch (secondErr) {
-        console.error('Erreur secondaire:', secondErr);
-        showNotification("error", t('error_change_status'));
-      }
+      console.error(err);
+      showNotification("error", t('error_change_status'));
     }
   };
 
   const handleShowEditModal = (event) => {
-    setSelectedEvent({ ...event });
+    setSelectedEvent({
+        ...event,
+        date_heure: event.date_heure ? event.date_heure.slice(0, 16) : '',
+    });
     setShowEditModal(true);
     setPreviewFile(null);
   };
