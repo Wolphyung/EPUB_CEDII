@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\RegisterController;
@@ -11,7 +12,22 @@ use App\Http\Controllers\AppelOffreController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 
-// Routes publiques
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "api" middleware group. Make something great!
+|
+*/
+
+// =========================================================================
+// ROUTES PUBLIQUES (Sans authentification)
+// =========================================================================
+
+// Route de test
 Route::get('/test', function () {
     return response()->json(['message' => 'API Laravel fonctionne ✅']);
 });
@@ -24,30 +40,31 @@ Route::post('/login', [LoginController::class, 'login']);
 Route::get('/publications', [PublicationController::class, 'index']);
 Route::get('/publications/{id}', [PublicationController::class, 'show']);
 Route::get('/publications/{id}/download', [PublicationController::class, 'downloadFile']);
+Route::get('/publications/validees', [PublicationController::class, 'getPublicationsValidees']);
 
 // Événements (publics)
 Route::get('/evenements', [EvenementController::class, 'index']);
 Route::get('/evenements/{evenement}', [EvenementController::class, 'show']);
+Route::get('/evenements/valides', [EvenementController::class, 'getEvenementsValides']);
 
 // Appels d'offres (publics)
 Route::get('/appeloffres', [AppelOffreController::class, 'index']);
+Route::get('/appeloffres/valides', [AppelOffreController::class, 'getAppelsOffresValides']);
 
 // Messages visiteurs
 Route::post('/messages', [MessageController::class, 'store']);
 
-// Routes protégées par Sanctum
+// Membres (publics - lecture seulement)
+Route::get('/membres', [MembreController::class, 'index']);
+Route::get('/membres/{id}/profile', [MembreController::class, 'show']);
+
+// =========================================================================
+// ROUTES PROTÉGÉES PAR SANCTUM (Authentification requise)
+// =========================================================================
+
 Route::middleware('auth:sanctum')->group(function () {
-    // Routes pour les notifications
-    Route::prefix('notifications')->group(function () {
-        Route::get('/', [NotificationController::class, 'index']);
-        Route::post('/', [NotificationController::class, 'store']);
-        Route::put('/{id}/read', [NotificationController::class, 'markAsRead']);
-        Route::put('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
-        Route::delete('/clear', [NotificationController::class, 'clearAll']);
-        Route::delete('/{id}', [NotificationController::class, 'destroy']);
-    });
     
-    // User info
+    // Informations utilisateur
     Route::get('/user', function (Request $request) {
         return response()->json([
             'user' => [
@@ -59,60 +76,98 @@ Route::middleware('auth:sanctum')->group(function () {
         ]);
     });
 
-    // Publications protégées
-    Route::post('/publications', [PublicationController::class, 'store']);
-    Route::put('/publications/{id}', [PublicationController::class, 'update']);
-    Route::delete('/publications/{id}', [PublicationController::class, 'destroy']);
-    Route::post('/publications/{id}/validate', [PublicationController::class, 'validatePublication']);
+    // ==================== PUBLICATIONS ====================
+    Route::prefix('publications')->group(function () {
+        Route::post('/', [PublicationController::class, 'store']);
+        Route::put('/{id}', [PublicationController::class, 'update']);
+        Route::delete('/{id}', [PublicationController::class, 'destroy']);
+        Route::post('/{id}/validate', [PublicationController::class, 'validatePublication']);
+    });
 
-    // Événements protégés
-    Route::post('/evenements', [EvenementController::class, 'store']);
-    Route::post('/evenements/{evenement}', [EvenementController::class, 'update']);
-    Route::delete('/evenements/{evenement}', [EvenementController::class, 'destroy']);
+    // ==================== ÉVÉNEMENTS ====================
+    Route::prefix('evenements')->group(function () {
+        Route::post('/', [EvenementController::class, 'store']);
+        Route::put('/{evenement}', [EvenementController::class, 'update']);
+        Route::delete('/{evenement}', [EvenementController::class, 'destroy']);
+        // Routes POST spécifiques pour les mises à jour
+        Route::post('/{id}/status', [EvenementController::class, 'updateStatus']);
+        Route::post('/{id}/update', [EvenementController::class, 'updateEvent']);
+    });
 
-    // Appels d'offres protégés
-    Route::post('/appeloffres', [AppelOffreController::class, 'store']);
-    Route::put('/appeloffres/{id}', [AppelOffreController::class, 'update']);
-    Route::delete('/appeloffres/{id}', [AppelOffreController::class, 'destroy']);
+    // ==================== APPELS D'OFFRES ====================
+    Route::prefix('appeloffres')->group(function () {
+        Route::post('/', [AppelOffreController::class, 'store']);
+        Route::put('/{id}', [AppelOffreController::class, 'update']);
+        Route::delete('/{id}', [AppelOffreController::class, 'destroy']);
+    });
 
-    // Messages protégés
-    Route::get('/messages', [MessageController::class, 'index']);
-    Route::delete('/messages/{id}', [MessageController::class, 'destroy']);
-    Route::put('/messages/{id}/read', [MessageController::class, 'markAsRead']);
-    Route::put('/messages/mark-all-read', [MessageController::class, 'markAllAsRead']);
-    Route::post('/messages/{id}/reply', [MessageController::class, 'reply']);
+    // ==================== MESSAGES ====================
+    Route::prefix('messages')->group(function () {
+        Route::get('/', [MessageController::class, 'index']);
+        Route::delete('/{id}', [MessageController::class, 'destroy']);
+        Route::put('/{id}/read', [MessageController::class, 'markAsRead']);
+        Route::put('/mark-all-read', [MessageController::class, 'markAllAsRead']);
+        Route::post('/{id}/reply', [MessageController::class, 'reply']);
+        
+        // Messages entre membres
+        Route::get('/member/{memberId}', [MessageController::class, 'getMemberConversations']);
+        Route::post('/start-conversation', [MessageController::class, 'startConversation']);
+        Route::get('/conversation/{membreId}', [MessageController::class, 'getConversation']);
+        Route::post('/send-to/{membreId}', [MessageController::class, 'sendToMembre']);
+        Route::get('/conversation-detail/{conversationId}', [MessageController::class, 'getConversationDetail']);
+        Route::put('/mark-all-read/{membreId}', [MessageController::class, 'markAllAsRead']);
+        Route::post('/send-admin', [MessageController::class, 'sendAdminMessage']);
+        Route::get('/members', [MessageController::class, 'listMembers']);
+    });
+
+    // ==================== NOTIFICATIONS ====================
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::post('/', [NotificationController::class, 'store']);
+        Route::put('/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::put('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+        Route::delete('/clear', [NotificationController::class, 'clearAll']);
+        Route::delete('/{id}', [NotificationController::class, 'destroy']);
+    });
+
+    // ==================== MEMBRES (Opérations CRUD) ====================
+    Route::prefix('membres')->group(function () {
+        Route::post('/', [MembreController::class, 'store']);
+        Route::put('/{id}', [MembreController::class, 'update']);
+        Route::delete('/{id}', [MembreController::class, 'destroy']);
+        Route::put('/{id}/profile', [MembreController::class, 'updateProfile']);
+        Route::post('/{id}/avatar', [MembreController::class, 'updateAvatar']);
+    });
+
 });
 
-// Routes admin pour notifications
-Route::prefix('admin/notifications')->group(function () {
-    Route::get('/', [NotificationController::class, 'index']);
-    Route::put('/{id}/read', [NotificationController::class, 'markAsRead']);
-    Route::put('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
-    Route::delete('/clear', [NotificationController::class, 'clearAll']);
-    Route::delete('/{id}', [NotificationController::class, 'destroy']);
-    Route::post('/', [NotificationController::class, 'store']);
+// =========================================================================
+// ROUTES ADMIN (Peut nécessiter des permissions supplémentaires)
+// =========================================================================
+
+Route::prefix('admin')->group(function () {
+    
+    // Notifications admin
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::put('/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::put('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+        Route::delete('/clear', [NotificationController::class, 'clearAll']);
+        Route::delete('/{id}', [NotificationController::class, 'destroy']);
+        Route::post('/', [NotificationController::class, 'store']);
+    });
+
+    // Autres routes admin peuvent être ajoutées ici...
+
 });
 
-// Membres
-Route::get('/membres', [MembreController::class, 'index']);
-Route::post('/membres', [MembreController::class, 'store']);
-Route::put('/membres/{id}', [MembreController::class, 'update']);
-Route::delete('/membres/{id}', [MembreController::class, 'destroy']);
-Route::get('membres/{id}/profile', [MembreController::class, 'show']);
-Route::put('membres/{id}/profile', [MembreController::class, 'updateProfile']);
-Route::post('membres/{id}/avatar', [MembreController::class, 'updateAvatar']);
+// =========================================================================
+// ROUTES DE FALLBACK (Pour les routes non trouvées)
+// =========================================================================
 
-// Messages supplémentaires
-Route::get('/messages/member/{memberId}', [MessageController::class, 'getMemberConversations']);
-Route::post('/messages/start-conversation', [MessageController::class, 'startConversation']);
-Route::get('/messages/conversation/{membreId}', [MessageController::class, 'getConversation']);
-Route::post('/messages/send-to/{membreId}', [MessageController::class, 'sendToMembre']);
-Route::get('/messages/conversation-detail/{conversationId}', [MessageController::class, 'getConversationDetail']);
-Route::put('/messages/mark-all-read/{membreId}', [MessageController::class, 'markAllAsRead']);
-Route::post('/messages/send-admin', [MessageController::class, 'sendAdminMessage']);
-Route::get('/members', [MessageController::class, 'listMembers']);
-
-// Contenus validés pour visiteurs
-Route::get('/publications/validees', [PublicationController::class, 'getPublicationsValidees']);
-Route::get('/evenements/valides', [EvenementController::class, 'getEvenementsValides']);
-Route::get('/appeloffres/valides', [AppelOffreController::class, 'getAppelsOffresValides']);
+Route::fallback(function () {
+    return response()->json([
+        'message' => 'Route API non trouvée. Veuillez vérifier l\'URL.',
+        'status' => 404
+    ], 404);
+});

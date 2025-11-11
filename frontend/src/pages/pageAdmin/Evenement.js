@@ -377,27 +377,29 @@ const Evenement = () => {
     }
   };
 
-  // Modifier événement
+  // SOLUTION CORRIGÉE : Modifier événement avec POST uniquement
   const handleEditEvent = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const formData = new FormData();
-    Object.keys(selectedEvent).forEach(key => {
-      if (selectedEvent[key] !== null && key !== 'id') formData.append(key, selectedEvent[key]);
-    });
-    formData.append("_method", "PUT");
-    if (selectedEvent.fichier instanceof File) {
-      formData.append("fichier", selectedEvent.fichier);
-    }
+    
     try {
-      const res = await axios.post(`${API_URL}/evenements/${selectedEvent.id}`, formData, {
+      const formData = new FormData();
+      Object.keys(selectedEvent).forEach(key => {
+        if (selectedEvent[key] !== null && key !== 'id') {
+          formData.append(key, selectedEvent[key]);
+        }
+      });
+
+      // Utiliser POST avec un endpoint spécifique pour la modification
+      const res = await axios.post(`${API_URL}/evenements/${selectedEvent.id}/update`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+      
       setEvenements(prev => prev.map(ev => ev.id === selectedEvent.id ? (res.data.data || res.data) : ev));
       showNotification("success", t('success_edit_event'));
       handleCloseEditModal();
     } catch (err) {
-      console.error(err);
+      console.error('Erreur modification:', err);
       showNotification("error", err.response?.data?.message || t('error_edit_event'));
     } finally {
       setLoading(false);
@@ -417,20 +419,30 @@ const Evenement = () => {
     }
   };
 
-  // Changer statut
+  // SOLUTION CORRIGÉE : Changer statut avec POST uniquement
   const handleChangeStatus = async (id, newStatus) => {
     try {
-      const formData = new FormData();
-      formData.append("statut", newStatus);
-      formData.append("_method", "PUT");
-      const res = await axios.post(`${API_URL}/evenements/${id}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+      // Utiliser POST avec un endpoint spécifique pour le changement de statut
+      const res = await axios.post(`${API_URL}/evenements/${id}/status`, {
+        statut: newStatus
       });
+      
       setEvenements(prev => prev.map(ev => ev.id === id ? (res.data.data || res.data) : ev));
       showNotification("success", t('success_change_status', { status: newStatus }));
     } catch (err) {
-      console.error(err);
-      showNotification("error", t('error_change_status'));
+      console.error('Erreur changement statut:', err);
+      
+      // Si l'endpoint spécifique n'existe pas, essayer avec l'endpoint général update
+      try {
+        const res = await axios.post(`${API_URL}/evenements/${id}/update`, {
+          statut: newStatus
+        });
+        setEvenements(prev => prev.map(ev => ev.id === id ? (res.data.data || res.data) : ev));
+        showNotification("success", t('success_change_status', { status: newStatus }));
+      } catch (secondErr) {
+        console.error('Erreur secondaire:', secondErr);
+        showNotification("error", t('error_change_status'));
+      }
     }
   };
 

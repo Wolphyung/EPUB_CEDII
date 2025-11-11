@@ -36,7 +36,6 @@ class EvenementController extends Controller
 
             $evenements = $query->latest()->get();
             
-            // Retourner les événements avec EvenementResource
             return EvenementResource::collection($evenements);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -46,22 +45,29 @@ class EvenementController extends Controller
     // 🔹 Création
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'titre' => 'required|string|max:255',
-            'description' => 'required|string',
-            'date_heure' => 'required|date',
-            'lieu' => 'required|string|max:255',
-            'type' => ['required', Rule::in(['Présentiel', 'En ligne', 'Hybride'])],
-            'statut' => ['required', Rule::in(['En attente', 'Validé', 'Rejeté'])],
-            'fichier' => 'nullable|file|mimes:pdf,doc,docx,jpg,png,jpeg|max:5120',
-        ]);
+        try {
+            $validated = $request->validate([
+                'titre' => 'required|string|max:255',
+                'description' => 'required|string',
+                'date_heure' => 'required|date',
+                'lieu' => 'required|string|max:255',
+                'type' => ['required', Rule::in(['Présentiel', 'En ligne', 'Hybride'])],
+                'statut' => ['required', Rule::in(['En attente', 'Validé', 'Rejeté'])],
+                'fichier' => 'nullable|file|mimes:pdf,doc,docx,jpg,png,jpeg|max:5120',
+            ]);
 
-        if ($request->hasFile('fichier')) {
-            $validated['fichier'] = $request->file('fichier')->store('evenements', 'public');
+            if ($request->hasFile('fichier')) {
+                $validated['fichier'] = $request->file('fichier')->store('evenements', 'public');
+            }
+
+            $evenement = Evenement::create($validated);
+            return new EvenementResource($evenement);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors de la création',
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        $evenement = Evenement::create($validated);
-        return new EvenementResource($evenement);
     }
 
     // 🔹 Afficher un événement
@@ -70,42 +76,120 @@ class EvenementController extends Controller
         return new EvenementResource($evenement);
     }
 
-    // 🔹 Mise à jour (ajustée pour accepter MAJ partielle)
+    // 🔹 Mise à jour standard (PUT/PATCH)
     public function update(Request $request, Evenement $evenement)
     {
-        // ⚙️ Validation assouplie pour la mise à jour partielle
-        $validated = $request->validate([
-            'titre' => 'sometimes|required|string|max:255',
-            'description' => 'sometimes|required|string',
-            'date_heure' => 'sometimes|required|date',
-            'lieu' => 'sometimes|required|string|max:255',
-            'type' => ['sometimes', 'required', Rule::in(['Présentiel', 'En ligne', 'Hybride'])],
-            'statut' => ['sometimes', 'required', Rule::in(['En attente', 'Validé', 'Rejeté'])],
-            'fichier' => 'nullable|file|mimes:pdf,doc,docx,jpg,png,jpeg|max:5120',
-        ]);
+        try {
+            $validated = $request->validate([
+                'titre' => 'sometimes|required|string|max:255',
+                'description' => 'sometimes|required|string',
+                'date_heure' => 'sometimes|required|date',
+                'lieu' => 'sometimes|required|string|max:255',
+                'type' => ['sometimes', 'required', Rule::in(['Présentiel', 'En ligne', 'Hybride'])],
+                'statut' => ['sometimes', 'required', Rule::in(['En attente', 'Validé', 'Rejeté'])],
+                'fichier' => 'nullable|file|mimes:pdf,doc,docx,jpg,png,jpeg|max:5120',
+            ]);
 
-        // 📎 Gestion du fichier s'il existe
-        if ($request->hasFile('fichier')) {
-            if ($evenement->fichier && Storage::disk('public')->exists($evenement->fichier)) {
-                Storage::disk('public')->delete($evenement->fichier);
+            if ($request->hasFile('fichier')) {
+                if ($evenement->fichier && Storage::disk('public')->exists($evenement->fichier)) {
+                    Storage::disk('public')->delete($evenement->fichier);
+                }
+                $validated['fichier'] = $request->file('fichier')->store('evenements', 'public');
             }
-            $validated['fichier'] = $request->file('fichier')->store('evenements', 'public');
+
+            $evenement->update($validated);
+            return new EvenementResource($evenement);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors de la mise à jour',
+                'message' => $e->getMessage()
+            ], 500);
         }
+    }
 
-        // 🔁 Mise à jour des champs présents uniquement
-        $evenement->update($validated);
+    // 🔹 NOUVELLE MÉTHODE : Mise à jour du statut uniquement
+    public function updateStatus(Request $request, $id)
+    {
+        try {
+            $evenement = Evenement::findOrFail($id);
+            
+            $validated = $request->validate([
+                'statut' => ['required', Rule::in(['En attente', 'Validé', 'Rejeté'])]
+            ]);
 
-        return new EvenementResource($evenement);
+            $evenement->update(['statut' => $validated['statut']]);
+            
+            return new EvenementResource($evenement);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors de la mise à jour du statut',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // 🔹 NOUVELLE MÉTHODE : Mise à jour complète avec POST
+    public function updateEvent(Request $request, $id)
+    {
+        try {
+            $evenement = Evenement::findOrFail($id);
+            
+            $validated = $request->validate([
+                'titre' => 'sometimes|required|string|max:255',
+                'description' => 'sometimes|required|string',
+                'date_heure' => 'sometimes|required|date',
+                'lieu' => 'sometimes|required|string|max:255',
+                'type' => ['sometimes', 'required', Rule::in(['Présentiel', 'En ligne', 'Hybride'])],
+                'statut' => ['sometimes', 'required', Rule::in(['En attente', 'Validé', 'Rejeté'])],
+                'fichier' => 'nullable|file|mimes:pdf,doc,docx,jpg,png,jpeg|max:5120',
+            ]);
+
+            if ($request->hasFile('fichier')) {
+                if ($evenement->fichier && Storage::disk('public')->exists($evenement->fichier)) {
+                    Storage::disk('public')->delete($evenement->fichier);
+                }
+                $validated['fichier'] = $request->file('fichier')->store('evenements', 'public');
+            }
+
+            $evenement->update($validated);
+            return new EvenementResource($evenement);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors de la mise à jour de l\'événement',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
     // 🔹 Suppression
     public function destroy(Evenement $evenement)
     {
-        if ($evenement->fichier && Storage::disk('public')->exists($evenement->fichier)) {
-            Storage::disk('public')->delete($evenement->fichier);
-        }
+        try {
+            if ($evenement->fichier && Storage::disk('public')->exists($evenement->fichier)) {
+                Storage::disk('public')->delete($evenement->fichier);
+            }
 
-        $evenement->delete();
-        return response()->json(['message' => 'Événement supprimé avec succès']);
+            $evenement->delete();
+            return response()->json(['message' => 'Événement supprimé avec succès']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors de la suppression',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // 🔹 Événements validés pour visiteurs
+    public function getEvenementsValides()
+    {
+        try {
+            $evenements = Evenement::where('statut', 'Validé')
+                ->latest()
+                ->get();
+            
+            return EvenementResource::collection($evenements);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 }

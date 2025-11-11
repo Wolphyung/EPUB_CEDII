@@ -12,7 +12,7 @@ class Membre extends Authenticatable
 
     protected $fillable = [
         'nom',
-        'prenom',
+        'prenom', // Champ ajouté
         'type',
         'email',
         'password',
@@ -34,4 +34,25 @@ class Membre extends Authenticatable
         'password',
         'remember_token',
     ];
+
+    protected $casts = [
+        'date_naissance' => 'date',
+        'email_verified_at' => 'datetime',
+    ];
+
+    // Accesseur pour l'avatar - retourne l'URL complète
+    public function getAvatarAttribute($value)
+    {
+        if (!$value) {
+            return null;
+        }
+        
+        // Si c'est déjà une URL complète, la retourner telle quelle
+        if (str_starts_with($value, 'http')) {
+            return $value;
+        }
+        
+        // Sinon, construire l'URL complète
+        return asset('storage/' . $value);
+    }
 }

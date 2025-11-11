@@ -35,12 +35,14 @@ const MembrePage = () => {
   const [currentMembre, setCurrentMembre] = useState({
     id: null,
     nom: "",
-    type: "",
+    prenom: "-", // Valeur par défaut forcée
+    type: "membre",
     statut: "Actif",
     avatar: null,
     email: "",
     password: "",
   });
+  const [avatarError, setAvatarError] = useState("");
 
   // Charger les membres depuis Laravel
   useEffect(() => {
@@ -72,12 +74,14 @@ const MembrePage = () => {
     setCurrentMembre({
       id: null,
       nom: "",
-      type: "",
+      prenom: "-", // Toujours initialiser avec une valeur
+      type: "membre",
       statut: "Actif",
       avatar: null,
       email: "",
       password: "",
     });
+    setAvatarError("");
     setShowModal(true);
   };
 
@@ -86,48 +90,145 @@ const MembrePage = () => {
       ...m,
       password: "" // Ne pas afficher le mot de passe existant
     });
+    setAvatarError("");
     setShowModal(true);
   };
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
+    
     if (name === "avatar" && files.length > 0) {
-      setCurrentMembre({ ...currentMembre, avatar: files[0] });
+      const file = files[0];
+      
+      // Validation de la taille du fichier (2MB max)
+      const maxSize = 2 * 1024 * 1024; // 2MB en bytes
+      if (file.size > maxSize) {
+        setAvatarError("L'image ne doit pas dépasser 2MB");
+        setCurrentMembre({ ...currentMembre, avatar: null });
+        // Réinitialiser l'input file
+        e.target.value = '';
+        return;
+      }
+      
+      // Validation du type de fichier
+      const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
+      if (!validTypes.includes(file.type)) {
+        setAvatarError("Format d'image non supporté (JPEG, PNG, GIF uniquement)");
+        setCurrentMembre({ ...currentMembre, avatar: null });
+        e.target.value = '';
+        return;
+      }
+      
+      setAvatarError("");
+      setCurrentMembre({ ...currentMembre, avatar: file });
     } else {
       setCurrentMembre({ ...currentMembre, [name]: value });
+    }
+
+    // Effacer les erreurs quand l'utilisateur tape
+    if (name !== "avatar" && avatarError) {
+      setAvatarError("");
     }
   };
 
   const handleSave = async () => {
+    // Validation côté client
+    if (!currentMembre.nom?.trim()) {
+      showNotification("error", "Le nom est requis");
+      return;
+    }
+
+    if (!currentMembre.email?.trim()) {
+      showNotification("error", "L'email est requis");
+      return;
+    }
+
+    if (!currentMembre.type) {
+      showNotification("error", "Le type est requis");
+      return;
+    }
+
+    if (!currentMembre.id && !currentMembre.password) {
+      showNotification("error", "Le mot de passe est requis pour un nouveau membre");
+      return;
+    }
+
+    if (avatarError) {
+      showNotification("error", avatarError);
+      return;
+    }
+
     try {
       const formData = new FormData();
-      formData.append("nom", currentMembre.nom);
+      
+      // Ajouter tous les champs requis
+      formData.append("nom", currentMembre.nom.trim());
+      formData.append("prenom", currentMembre.prenom || "-"); // Toujours envoyer une valeur
       formData.append("type", currentMembre.type);
       formData.append("statut", currentMembre.statut);
-      formData.append("email", currentMembre.email);
+      formData.append("email", currentMembre.email.trim());
       
+      // Mot de passe (requis pour la création, optionnel pour la modification)
       if (currentMembre.password) {
         formData.append("password", currentMembre.password);
       }
 
+      // Avatar (optionnel) - seulement si c'est un nouveau fichier
       if (currentMembre.avatar && typeof currentMembre.avatar !== "string") {
+        console.log("📸 Avatar à envoyer:", {
+          name: currentMembre.avatar.name,
+          size: currentMembre.avatar.size,
+          type: currentMembre.avatar.type
+        });
         formData.append("avatar", currentMembre.avatar);
       }
 
+      // Log des données envoyées pour débogage
+      const formDataObj = {};
+      for (let [key, value] of formData.entries()) {
+        if (key === 'avatar') {
+          formDataObj[key] = `File: ${value.name}`;
+        } else if (key === 'password') {
+          formDataObj[key] = '***';
+        } else {
+          formDataObj[key] = value;
+        }
+      }
+      console.log("📤 Données envoyées:", formDataObj);
+
+      let response;
       if (currentMembre.id) {
-        await updateMembre(currentMembre.id, formData);
+        // Modification
+        console.log(`🔄 Modification du membre #${currentMembre.id}`);
+        response = await updateMembre(currentMembre.id, formData);
         showNotification("success", t('success_edit_member'));
       } else {
-        await addMembre(formData);
+        // Création
+        console.log("🆕 Création d'un nouveau membre");
+        response = await addMembre(formData);
         showNotification("success", t('success_add_member'));
       }
+
+      console.log("✅ Réponse du serveur:", response.data);
 
       loadMembres();
       setShowModal(false);
     } catch (err) {
-      console.error("Erreur sauvegarde membre:", err.response?.data || err.message);
-      showNotification("error", t('error_save_member') + ": " + 
-        (err.response?.data?.message || err.message));
+      console.error("❌ Erreur détaillée:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      
+      // Afficher les erreurs détaillées du serveur
+      if (err.response?.data?.errors) {
+        const errorMessages = Object.values(err.response.data.errors).flat().join(', ');
+        showNotification("error", `Erreurs de validation: ${errorMessages}`);
+      } else if (err.response?.data?.message) {
+        showNotification("error", err.response.data.message);
+      } else {
+        showNotification("error", t('error_save_member') + ": " + err.message);
+      }
     }
   };
 
@@ -146,9 +247,10 @@ const MembrePage = () => {
   // Filtrer les membres selon la recherche et les filtres
   const filteredMembres = membres.filter(membre => {
     const matchesSearch = 
-      membre.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      membre.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      membre.type.toLowerCase().includes(searchTerm.toLowerCase());
+      membre.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (membre.prenom && membre.prenom.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      membre.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      membre.type?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatut = filterStatut === "Tous" || membre.statut === filterStatut;
     const matchesType = filterType === "Tous" || membre.type === filterType;
@@ -214,6 +316,11 @@ const MembrePage = () => {
     setSearchTerm("");
     setFilterStatut("Tous");
     setFilterType("Tous");
+  };
+
+  const removeAvatar = () => {
+    setCurrentMembre({ ...currentMembre, avatar: null });
+    setAvatarError("");
   };
 
   return (
@@ -508,7 +615,7 @@ const MembrePage = () => {
                         <td style={{ padding: "15px" }}>
                           {m.avatar ? (
                             <Image
-                              src={m.avatar.startsWith("http") ? m.avatar : `http://localhost:8000${m.avatar}`}
+                              src={m.avatar}
                               roundedCircle
                               width={50}
                               height={50}
@@ -534,7 +641,7 @@ const MembrePage = () => {
                           <div>
                             <strong className="d-block">{m.nom}</strong>
                             <small className="text-muted">
-                              {t('registered_on')} {new Date().toLocaleDateString()}
+                              {t('registered_on')} {new Date(m.created_at).toLocaleDateString()}
                             </small>
                           </div>
                         </td>
@@ -618,15 +725,16 @@ const MembrePage = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-user me-2 text-primary"></i>
-                      {t('full_name')}
+                      {t('name')} *
                     </Form.Label>
                     <Form.Control
                       type="text"
                       name="nom"
                       value={currentMembre.nom}
                       onChange={handleChange}
-                      placeholder={t('full_name_placeholder')}
+                      placeholder={t('name_placeholder')}
                       style={{ borderRadius: "10px", padding: "12px" }}
+                      required
                     />
                   </Form.Group>
                 </Col>
@@ -634,17 +742,17 @@ const MembrePage = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-tag me-2 text-primary"></i>
-                      {t('type_label')}
+                      {t('type_label')} *
                     </Form.Label>
                     <Form.Select
                       name="type"
                       value={currentMembre.type}
                       onChange={handleChange}
                       style={{ borderRadius: "10px", padding: "12px" }}
+                      required
                     >
-                      <option value="">{t('select_type')}</option>
-                      <option value="admin">{t('admin')}</option>
                       <option value="membre">{t('membre')}</option>
+                      <option value="admin">{t('admin')}</option>
                       <option value="moderateur">{t('moderateur')}</option>
                     </Form.Select>
                   </Form.Group>
@@ -656,7 +764,7 @@ const MembrePage = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-envelope me-2 text-primary"></i>
-                      {t('email')}
+                      {t('email')} *
                     </Form.Label>
                     <Form.Control
                       type="email"
@@ -665,6 +773,7 @@ const MembrePage = () => {
                       onChange={handleChange}
                       placeholder={t('email_placeholder')}
                       style={{ borderRadius: "10px", padding: "12px" }}
+                      required
                     />
                   </Form.Group>
                 </Col>
@@ -672,7 +781,7 @@ const MembrePage = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-lock me-2 text-primary"></i>
-                      {t('password')}
+                      {t('password')} {!currentMembre.id && '*'}
                     </Form.Label>
                     <Form.Control
                       type="password"
@@ -691,13 +800,14 @@ const MembrePage = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-chart-line me-2 text-primary"></i>
-                      {t('status_label')}
+                      {t('status_label')} *
                     </Form.Label>
                     <Form.Select
                       name="statut"
                       value={currentMembre.statut}
                       onChange={handleChange}
                       style={{ borderRadius: "10px", padding: "12px" }}
+                      required
                     >
                       <option value="Actif">{t('Actif')}</option>
                       <option value="En attente">{t('En attente')}</option>
@@ -709,34 +819,63 @@ const MembrePage = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-camera me-2 text-primary"></i>
-                      {t('avatar')}
+                      {t('avatar')} (max 2MB)
                     </Form.Label>
                     <Form.Control
                       type="file"
                       name="avatar"
-                      accept="image/*"
+                      accept="image/jpeg, image/png, image/jpg, image/gif"
                       onChange={handleChange}
                       style={{ borderRadius: "10px", padding: "12px" }}
                     />
+                    {avatarError && (
+                      <div className="text-danger small mt-2">
+                        <i className="fas fa-exclamation-triangle me-1"></i>
+                        {avatarError}
+                      </div>
+                    )}
                     {currentMembre.avatar && (
                       <div className="mt-3 text-center">
-                        <Image
-                          src={
-                            typeof currentMembre.avatar === "string"
-                              ? currentMembre.avatar
-                              : URL.createObjectURL(currentMembre.avatar)
-                          }
-                          roundedCircle
-                          width={80}
-                          height={80}
-                          className="border shadow-sm"
-                          style={{ objectFit: "cover" }}
-                        />
+                        <div className="position-relative d-inline-block">
+                          <Image
+                            src={
+                              typeof currentMembre.avatar === "string"
+                                ? currentMembre.avatar
+                                : URL.createObjectURL(currentMembre.avatar)
+                            }
+                            roundedCircle
+                            width={80}
+                            height={80}
+                            className="border shadow-sm"
+                            style={{ objectFit: "cover" }}
+                          />
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            className="position-absolute top-0 end-0 rounded-circle"
+                            style={{ width: "24px", height: "24px", padding: 0 }}
+                            onClick={removeAvatar}
+                          >
+                            <i className="fas fa-times"></i>
+                          </Button>
+                        </div>
+                        {typeof currentMembre.avatar !== "string" && (
+                          <div className="mt-2 small text-muted">
+                            Taille: {(currentMembre.avatar.size / 1024 / 1024).toFixed(2)} MB
+                          </div>
+                        )}
                       </div>
                     )}
                   </Form.Group>
                 </Col>
               </Row>
+
+              {/* Champ prenom masqué mais requis */}
+              <input
+                type="hidden"
+                name="prenom"
+                value={currentMembre.prenom || "-"}
+              />
             </Form>
           </Modal.Body>
           <Modal.Footer className="border-0">

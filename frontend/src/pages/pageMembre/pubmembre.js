@@ -35,6 +35,50 @@ const PubMembre = () => {
     categorie: "Actualité",
   });
 
+  /* -------------------------- CONFIGURATION AXIOS -------------------------- */
+  // Fonction pour obtenir les headers avec le token
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+    return {
+      'Content-Type': 'multipart/form-data',
+      'Authorization': token ? `Bearer ${token}` : '',
+      'Accept': 'application/json'
+    };
+  };
+
+  // Instance axios configurée
+  const apiClient = axios.create({
+    baseURL: 'http://localhost:8000/api',
+    timeout: 10000,
+  });
+
+  // Intercepteur pour ajouter le token automatiquement
+  apiClient.interceptors.request.use(
+    (config) => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
+    }
+  );
+
+  // Intercepteur pour les erreurs d'authentification
+  apiClient.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
+    }
+  );
+
   /* -------------------------- CLEANUP -------------------------- */
   useEffect(() => {
     return () => {
@@ -47,7 +91,7 @@ const PubMembre = () => {
   /* -------------------------- FETCH -------------------------- */
   const fetchPublications = useCallback(async () => {
     try {
-      const { data } = await axios.get(API_URL);
+      const { data } = await apiClient.get('/publications');
       const adapted = data.map((pub) => ({
         id: pub.id_publication,
         titre: pub.titre,
@@ -64,7 +108,12 @@ const PubMembre = () => {
       }));
       setPublications(adapted.reverse());
     } catch (err) {
-      showAlert("Erreur de chargement des publications.", "danger");
+      console.error('Erreur fetch publications:', err);
+      if (err.response?.status === 401) {
+        showAlert("Session expirée. Veuillez vous reconnecter.", "danger");
+      } else {
+        showAlert("Erreur de chargement des publications.", "danger");
+      }
     }
   }, []);
 
@@ -95,14 +144,17 @@ const PubMembre = () => {
   const handleAddPublication = async () => {
     setIsSubmitting(true);
     try {
-      await axios.post(API_URL, createFormData(), {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await apiClient.post('/publications', createFormData());
       await fetchPublications();
       showAlert("Créée ! En attente de validation.", "success");
       handleClose();
     } catch (err) {
-      showAlert(`Échec : ${err.response?.data?.message || err.message}`, "danger");
+      console.error('Erreur création publication:', err);
+      if (err.response?.status === 401) {
+        showAlert("Session expirée. Veuillez vous reconnecter.", "danger");
+      } else {
+        showAlert(`Échec : ${err.response?.data?.message || err.message}`, "danger");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -113,14 +165,17 @@ const PubMembre = () => {
     try {
       const fd = createFormData();
       fd.append("_method", "PUT");
-      await axios.post(`${API_URL}/${editingPub.id}`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await apiClient.post(`/publications/${editingPub.id}`, fd);
       await fetchPublications();
       showAlert("Modifiée avec succès !", "success");
       handleClose();
     } catch (err) {
-      showAlert(`Échec : ${err.response?.data?.message || err.message}`, "danger");
+      console.error('Erreur modification publication:', err);
+      if (err.response?.status === 401) {
+        showAlert("Session expirée. Veuillez vous reconnecter.", "danger");
+      } else {
+        showAlert(`Échec : ${err.response?.data?.message || err.message}`, "danger");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -129,15 +184,27 @@ const PubMembre = () => {
   const handleDeletePublication = async (id) => {
     if (!window.confirm("Supprimer cette publication ?")) return;
     try {
-      await axios.delete(`${API_URL}/${id}`);
+      await apiClient.delete(`/publications/${id}`);
       setPublications((prev) => prev.filter((p) => p.id !== id));
       showAlert("Supprimée.", "success");
     } catch (err) {
-      showAlert("Erreur de suppression.", "danger");
+      console.error('Erreur suppression publication:', err);
+      if (err.response?.status === 401) {
+        showAlert("Session expirée. Veuillez vous reconnecter.", "danger");
+      } else {
+        showAlert("Erreur de suppression.", "danger");
+      }
     }
   };
 
   const handleSavePublication = () => {
+    // Vérifier si l'utilisateur est connecté
+    const token = localStorage.getItem('token');
+    if (!token) {
+      showAlert("Vous devez être connecté pour publier.", "warning");
+      return;
+    }
+
     if (!newPub.titre || !newPub.contenu) {
       showAlert("Titre et contenu obligatoires.", "warning");
       return;

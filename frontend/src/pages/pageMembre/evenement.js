@@ -6,6 +6,15 @@ import MembreSidebar from "../../components/MembreSidebar";
 const BASE_API_URL = "http://127.0.0.1:8000/api"; 
 const EVENEMENTS_API_URL = `${BASE_API_URL}/evenements`;
 
+// Configuration axios pour l'authentification
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    'Authorization': token ? `Bearer ${token}` : '',
+    'Accept': 'application/json'
+  };
+};
+
 const EvenementMembre = () => {
   const [showModal, setShowModal] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -52,7 +61,13 @@ const EvenementMembre = () => {
         showAlert("❌ Fichier non disponible", "error");
         return;
       }
-      const response = await fetch(fileUrl);
+      
+      const response = await fetch(fileUrl, {
+        headers: getAuthHeaders()
+      });
+      
+      if (!response.ok) throw new Error('Erreur de téléchargement');
+      
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -202,7 +217,12 @@ const EvenementMembre = () => {
   };
 
   const formatDate = (dateString) => {
-    try { const date = new Date(dateString); return date.getTime() > 0 ? date.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}) : dateString.split(' ')[0]; } catch(e){ return dateString.split(' ')[0] || ''; }
+    try { 
+      const date = new Date(dateString); 
+      return date.getTime() > 0 ? date.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}) : dateString.split(' ')[0]; 
+    } catch(e){ 
+      return dateString.split(' ')[0] || ''; 
+    }
   };
 
   const getFileName = (fichier) => {
@@ -215,8 +235,20 @@ const EvenementMembre = () => {
   const fetchEvenements = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(EVENEMENTS_API_URL);
-      if (!response.ok) throw new Error("Échec du chargement des événements.");
+      const response = await fetch(EVENEMENTS_API_URL, {
+        headers: getAuthHeaders()
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          showAlert("Session expirée. Veuillez vous reconnecter.", "danger");
+          localStorage.removeItem('token');
+          window.location.href = '/login';
+          return;
+        }
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
 
       // ✅ Gestion sécurisée de la réponse
@@ -229,20 +261,81 @@ const EvenementMembre = () => {
 
       setEvenements(formattedData);
     } catch (error) {
+      console.error('Erreur fetch evenements:', error);
       showAlert(`Erreur de chargement: ${error.message}`, "danger");
       setEvenements([]);
-    } finally { setLoading(false); }
+    } finally { 
+      setLoading(false); 
+    }
   }, []);
 
-  useEffect(() => { fetchEvenements(); }, [fetchEvenements]);
+  useEffect(() => { 
+    fetchEvenements(); 
+  }, [fetchEvenements]);
 
-  const handleShowAdd = () => { setEditMode(false); setCurrentEvent(null); setNouvelEvenement({ titre:"", lieu:"", description:"", date:"", heure:"09:00", type:"Présentiel", image:null }); setPreviewFile(null); setShowModal(true); };
-  const handleShowEdit = (event) => { setEditMode(true); setCurrentEvent(event); setNouvelEvenement({ ...event, image:null }); setPreviewFile(null); setShowModal(true); };
-  const handleClose = () => { setShowModal(false); setEditMode(false); setCurrentEvent(null); setPreviewFile(null); };
-  const handleChange = (e) => { const { name,value,files }=e.target; if(name==="image"){ const file=files[0]; setNouvelEvenement({ ...nouvelEvenement, image:file }); if(file){ setPreviewFile({ url:URL.createObjectURL(file), name:file.name, type:file.type }); } else { setPreviewFile(null); } } else { setNouvelEvenement({ ...nouvelEvenement, [name]:value }); } };
+  const handleShowAdd = () => { 
+    setEditMode(false); 
+    setCurrentEvent(null); 
+    setNouvelEvenement({ 
+      titre:"", 
+      lieu:"", 
+      description:"", 
+      date:"", 
+      heure:"09:00", 
+      type:"Présentiel", 
+      image:null 
+    }); 
+    setPreviewFile(null); 
+    setShowModal(true); 
+  };
+
+  const handleShowEdit = (event) => { 
+    setEditMode(true); 
+    setCurrentEvent(event); 
+    setNouvelEvenement({ ...event, image:null }); 
+    setPreviewFile(null); 
+    setShowModal(true); 
+  };
+
+  const handleClose = () => { 
+    setShowModal(false); 
+    setEditMode(false); 
+    setCurrentEvent(null); 
+    setPreviewFile(null); 
+  };
+
+  const handleChange = (e) => { 
+    const { name, value, files } = e.target; 
+    if (name === "image") { 
+      const file = files[0]; 
+      setNouvelEvenement({ ...nouvelEvenement, image: file }); 
+      if (file) { 
+        setPreviewFile({ 
+          url: URL.createObjectURL(file), 
+          name: file.name, 
+          type: file.type 
+        }); 
+      } else { 
+        setPreviewFile(null); 
+      } 
+    } else { 
+      setNouvelEvenement({ ...nouvelEvenement, [name]: value }); 
+    } 
+  };
 
   const handleAdd = async () => {
-    if(!nouvelEvenement.titre||!nouvelEvenement.lieu||!nouvelEvenement.date||!nouvelEvenement.description){ showAlert("Veuillez remplir tous les champs obligatoires","warning"); return; }
+    // Vérifier l'authentification
+    const token = localStorage.getItem('token');
+    if (!token) {
+      showAlert("Vous devez être connecté pour créer un événement", "warning");
+      return;
+    }
+
+    if (!nouvelEvenement.titre || !nouvelEvenement.lieu || !nouvelEvenement.date || !nouvelEvenement.description) { 
+      showAlert("Veuillez remplir tous les champs obligatoires", "warning"); 
+      return; 
+    }
+
     const dateHeure = `${nouvelEvenement.date} ${nouvelEvenement.heure}:00`;
     const formData = new FormData();
     formData.append('titre', nouvelEvenement.titre);
@@ -250,49 +343,121 @@ const EvenementMembre = () => {
     formData.append('date_heure', dateHeure);
     formData.append('lieu', nouvelEvenement.lieu);
     formData.append('type', nouvelEvenement.type);
-    formData.append('statut','En attente');
-    if(nouvelEvenement.image) formData.append('fichier', nouvelEvenement.image);
+    formData.append('statut', 'En attente');
+    if (nouvelEvenement.image) formData.append('fichier', nouvelEvenement.image);
+    
     setLoading(true);
-    try{
-      const response = await fetch(EVENEMENTS_API_URL,{ method:'POST', body:formData });
+    try {
+      const response = await fetch(EVENEMENTS_API_URL, { 
+        method: 'POST', 
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
       const data = await response.json();
-      if(response.ok){ showAlert(`Événement créé avec succès ! Statut: ${data.statut||'En attente'}`,"success"); fetchEvenements(); } 
-      else { const errorMessages = data.errors ? Object.values(data.errors).flat().join(' ') : (data.message || 'La création a échoué.'); showAlert(`Erreur: ${errorMessages}`,"danger"); }
-    } catch(error){ showAlert("Erreur de connexion au serveur ou problème réseau.","danger"); } 
-    finally{ setLoading(false); handleClose(); }
+      
+      if (response.ok) { 
+        showAlert(`Événement créé avec succès ! Statut: ${data.statut || 'En attente'}`, "success"); 
+        fetchEvenements(); 
+      } else { 
+        const errorMessages = data.errors ? Object.values(data.errors).flat().join(' ') : (data.message || 'La création a échoué.'); 
+        showAlert(`Erreur: ${errorMessages}`, "danger"); 
+      }
+    } catch (error) { 
+      console.error('Erreur création événement:', error);
+      showAlert("Erreur de connexion au serveur ou problème réseau.", "danger"); 
+    } finally { 
+      setLoading(false); 
+      handleClose(); 
+    }
   };
 
   const handleEdit = async () => {
-    if(!nouvelEvenement.titre||!nouvelEvenement.lieu||!nouvelEvenement.date||!nouvelEvenement.description){ showAlert("Veuillez remplir tous les champs obligatoires","warning"); return; }
+    // Vérifier l'authentification
+    const token = localStorage.getItem('token');
+    if (!token) {
+      showAlert("Vous devez être connecté pour modifier un événement", "warning");
+      return;
+    }
+
+    if (!nouvelEvenement.titre || !nouvelEvenement.lieu || !nouvelEvenement.date || !nouvelEvenement.description) { 
+      showAlert("Veuillez remplir tous les champs obligatoires", "warning"); 
+      return; 
+    }
+
     const dateHeure = `${nouvelEvenement.date} ${nouvelEvenement.heure}:00`;
     const formData = new FormData();
-    formData.append('_method','PUT');
+    formData.append('_method', 'PUT');
     formData.append('titre', nouvelEvenement.titre);
     formData.append('description', nouvelEvenement.description);
     formData.append('date_heure', dateHeure);
     formData.append('lieu', nouvelEvenement.lieu);
     formData.append('type', nouvelEvenement.type);
     formData.append('statut', currentEvent.statut);
-    if(nouvelEvenement.image) formData.append('fichier', nouvelEvenement.image);
+    if (nouvelEvenement.image) formData.append('fichier', nouvelEvenement.image);
+    
     setLoading(true);
-    try{
-      const response = await fetch(`${EVENEMENTS_API_URL}/${currentEvent.id}`,{ method:'POST', body:formData });
+    try {
+      const response = await fetch(`${EVENEMENTS_API_URL}/${currentEvent.id}`, { 
+        method: 'POST', 
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
       const data = await response.json();
-      if(response.ok){ showAlert("Événement modifié avec succès !","success"); fetchEvenements(); } 
-      else { const errorMessages = data.errors ? Object.values(data.errors).flat().join(' ') : (data.message || 'La modification a échoué.'); showAlert(`Erreur: ${errorMessages}`,"danger"); }
-    } catch(error){ showAlert("Erreur de connexion au serveur ou problème réseau.","danger"); } 
-    finally{ setLoading(false); handleClose(); }
+      
+      if (response.ok) { 
+        showAlert("Événement modifié avec succès !", "success"); 
+        fetchEvenements(); 
+      } else { 
+        const errorMessages = data.errors ? Object.values(data.errors).flat().join(' ') : (data.message || 'La modification a échoué.'); 
+        showAlert(`Erreur: ${errorMessages}`, "danger"); 
+      }
+    } catch (error) { 
+      console.error('Erreur modification événement:', error);
+      showAlert("Erreur de connexion au serveur ou problème réseau.", "danger"); 
+    } finally { 
+      setLoading(false); 
+      handleClose(); 
+    }
   };
 
   const handleDelete = async (id) => {
-    if(!window.confirm("Êtes-vous sûr de vouloir supprimer cet événement ?")) return;
+    // Vérifier l'authentification
+    const token = localStorage.getItem('token');
+    if (!token) {
+      showAlert("Vous devez être connecté pour supprimer un événement", "warning");
+      return;
+    }
+
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet événement ?")) return;
+    
     setLoading(true);
-    try{
-      const response = await fetch(`${EVENEMENTS_API_URL}/${id}`, { method:'DELETE' });
-      if(response.ok || response.status===204){ showAlert("Événement supprimé avec succès !","success"); fetchEvenements(); } 
-      else { const data = await response.json(); showAlert(`Erreur: ${data.message||'La suppression a échoué.'}`,"danger"); }
-    } catch(error){ showAlert("Erreur de connexion au serveur ou problème réseau.","danger"); } 
-    finally{ setLoading(false); }
+    try {
+      const response = await fetch(`${EVENEMENTS_API_URL}/${id}`, { 
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok || response.status === 204) { 
+        showAlert("Événement supprimé avec succès !", "success"); 
+        fetchEvenements(); 
+      } else { 
+        const data = await response.json(); 
+        showAlert(`Erreur: ${data.message || 'La suppression a échoué.'}`, "danger"); 
+      }
+    } catch (error) { 
+      console.error('Erreur suppression événement:', error);
+      showAlert("Erreur de connexion au serveur ou problème réseau.", "danger"); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   return (
@@ -717,7 +882,6 @@ const EvenementMembre = () => {
           </Modal.Footer>
         </Modal>
       </div>
-      <style>{`/* Styles CSS inchangés */`}</style>
     </div>
   );
 };
