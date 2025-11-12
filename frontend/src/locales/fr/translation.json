@@ -369,5 +369,13 @@
   "delete": "Supprimer",
   "edit_button": "Modifier",
   "add_button": "Ajouter",
-  "delete_member_confirmation": "Voulez-vous vraiment supprimer ce membre ?"
+  "delete_member_confirmation": "Voulez-vous vraiment supprimer ce membre ?",
+
+  
+  "edit_offer_modal": "Modifier l'Appel d'Offre",
+  "success_edit_offer": "Appel d'offre modifié avec succès",
+  "offer_title": "Titre de l'offre",
+  "issuing_member": "Membre émetteur",
+  "closing_date": "Date de clôture",
+  "description_label": "Description"
 }
