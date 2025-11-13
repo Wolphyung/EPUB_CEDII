@@ -79,6 +79,42 @@ const PubMembre = () => {
     }
   );
 
+  /* -------------------------- FONCTIONS UTILITAIRES -------------------------- */
+  // Vérifier si l'utilisateur est l'auteur de la publication
+  const isUserAuthor = (publication) => {
+    const currentUser = JSON.parse(localStorage.getItem('user'));
+    if (!currentUser) return false;
+    
+    // Si l'utilisateur est admin, il peut tout voir
+    if (currentUser.type === 'admin') return true;
+    
+    // Comparaison par membre_id (meilleure pratique)
+    if (publication.membre_id && currentUser.id) {
+      return publication.membre_id === currentUser.id;
+    }
+    
+    // Fallback: comparaison par nom d'auteur
+    return publication.auteur === currentUser.nom_complet || 
+           publication.auteur === currentUser.nom || 
+           publication.auteur === currentUser.email;
+  };
+
+  // Badge indicateur "Votre publication"
+  const getUserBadge = (publication) => {
+    if (isUserAuthor(publication)) {
+      return (
+        <Badge 
+          bg="info" 
+          className="ms-2 d-inline-flex align-items-center px-2 py-1"
+          style={{ borderRadius: "10px", fontSize: "0.6rem" }}
+        >
+          <i className="fas fa-user me-1"></i>Votre publication
+        </Badge>
+      );
+    }
+    return null;
+  };
+
   /* -------------------------- CLEANUP -------------------------- */
   useEffect(() => {
     return () => {
@@ -105,6 +141,7 @@ const PubMembre = () => {
         auteur: pub.auteur || "Anonyme",
         statut: (pub.statut || "En attente").toLowerCase().replace(/\s+/g, "_"),
         categorie: pub.categorie || "Actualité",
+        membre_id: pub.membre_id, // Important pour la vérification d'auteur
       }));
       setPublications(adapted.reverse());
     } catch (err) {
@@ -487,6 +524,7 @@ const PubMembre = () => {
             const fileUrl = pub.fichier_url;
             const isImage = pub.type_fichier === "image";
             const isVideo = pub.type_fichier === "video";
+            const userIsAuthor = isUserAuthor(pub);
 
             return (
               <Col xl={4} lg={6} key={pub.id}>
@@ -512,7 +550,10 @@ const PubMembre = () => {
 
                   <Card.Body className="p-4">
                     <div className="d-flex justify-content-between align-items-start mb-3">
-                      {getCategoryBadge(pub.categorie)}
+                      <div className="d-flex align-items-center">
+                        {getCategoryBadge(pub.categorie)}
+                        {getUserBadge(pub)}
+                      </div>
                       {getStatusBadge(pub.statut)}
                     </div>
 
@@ -541,13 +582,34 @@ const PubMembre = () => {
                       <span><i className="fas fa-user me-1"></i>{pub.auteur}</span>
                     </div>
 
+                    {/* Boutons conditionnels - seulement pour l'auteur ou l'admin */}
                     <div className="d-flex justify-content-end gap-2">
-                      <Button variant="outline-primary" size="sm" className="rounded-pill" onClick={() => handleShowEdit(pub)}>
-                        <i className="fas fa-edit"></i>
-                      </Button>
-                      <Button variant="outline-danger" size="sm" className="rounded-pill" onClick={() => handleDeletePublication(pub.id)}>
-                        <i className="fas fa-trash"></i>
-                      </Button>
+                      {userIsAuthor && (
+                        <>
+                          <Button 
+                            variant="outline-primary" 
+                            size="sm" 
+                            className="rounded-pill" 
+                            onClick={() => handleShowEdit(pub)}
+                          >
+                            <i className="fas fa-edit"></i>
+                          </Button>
+                          <Button 
+                            variant="outline-danger" 
+                            size="sm" 
+                            className="rounded-pill" 
+                            onClick={() => handleDeletePublication(pub.id)}
+                          >
+                            <i className="fas fa-trash"></i>
+                          </Button>
+                        </>
+                      )}
+                      {!userIsAuthor && (
+                        <small className="text-muted">
+                          <i className="fas fa-info-circle me-1"></i>
+                          Lecture seule
+                        </small>
+                      )}
                     </div>
                   </Card.Body>
                 </Card>
@@ -655,197 +717,197 @@ const PubMembre = () => {
 
               <Form.Group className="mt-4">
                 <Form.Label className="fw-semibold" style={{ color: "#5E5E5E" }}>
-                  <i className="fas fa-paperclip me-2"></i>Type de fichier
-                </Form.Label>
-                <div className="d-flex gap-2">
-                  {["image", "video", "document"].map((t) => (
-                    <Button
-                      key={t}
-                      variant={newPub.type_fichier === t ? "primary" : "outline-secondary"}
-                      size="sm"
-                      onClick={() => handleFileTypeChange(t)}
-                      className="rounded-pill px-4"
+                      <i className="fas fa-paperclip me-2"></i>Type de fichier
+                    </Form.Label>
+                    <div className="d-flex gap-2">
+                      {["image", "video", "document"].map((t) => (
+                        <Button
+                          key={t}
+                          variant={newPub.type_fichier === t ? "primary" : "outline-secondary"}
+                          size="sm"
+                          onClick={() => handleFileTypeChange(t)}
+                          className="rounded-pill px-4"
+                          style={{
+                            fontWeight: "600",
+                            border: newPub.type_fichier === t ? "none" : "2px solid #ced4da",
+                            background: newPub.type_fichier === t ? "linear-gradient(135deg, #5B11EE, #0405BF)" : "white",
+                            color: newPub.type_fichier === t ? "white" : "#5E5E5E",
+                          }}
+                        >
+                          <i
+                            className={`fas fa-${
+                              t === "image" ? "image" : t === "video" ? "video" : "file-alt"
+                            } me-1`}
+                          ></i>
+                          {t.charAt(0).toUpperCase() + t.slice(1)}
+                        </Button>
+                      ))}
+                    </div>
+                  </Form.Group>
+
+                  <Row className="g-4 mt-3">
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label className="fw-semibold" style={{ color: "#5B11EE" }}>
+                          <i className="fas fa-upload me-2"></i>Fichier
+                        </Form.Label>
+                        <Form.Control
+                          type="file"
+                          name="fichier"
+                          onChange={handleChange}
+                          accept={
+                            newPub.type_fichier === "image"
+                              ? "image/*"
+                              : newPub.type_fichier === "video"
+                              ? "video/*"
+                              : ".pdf,.doc,.docx,.xls,.xlsx"
+                          }
+                          className="shadow-sm"
+                          style={{
+                            borderRadius: "15px",
+                            border: "2px solid #e9ecef",
+                            padding: "0.75rem 1rem",
+                            background: "white",
+                          }}
+                        />
+                        {editingPub?.nom_fichier_original && !newPub.fichier && (
+                          <small className="text-muted d-block mt-1">
+                            <i className="fas fa-check text-success me-1"></i>
+                            Actuel : {editingPub.nom_fichier_original}
+                          </small>
+                        )}
+                      </Form.Group>
+                    </Col>
+
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label className="fw-semibold" style={{ color: "#0405BF" }}>
+                          <i className="fas fa-calendar me-2"></i>Date de publication
+                        </Form.Label>
+                        <Form.Control
+                          type="date"
+                          name="date"
+                          value={newPub.date}
+                          onChange={handleChange}
+                          className="shadow-sm"
+                          style={{
+                            borderRadius: "15px",
+                            border: "2px solid #e9ecef",
+                            padding: "0.75rem 1rem",
+                            background: "white",
+                          }}
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
+
+                  {previewFile && (
+                    <div
+                      className="mt-4 p-4 border rounded shadow-sm"
                       style={{
-                        fontWeight: "600",
-                        border: newPub.type_fichier === t ? "none" : "2px solid #ced4da",
-                        background: newPub.type_fichier === t ? "linear-gradient(135deg, #5B11EE, #0405BF)" : "white",
-                        color: newPub.type_fichier === t ? "white" : "#5E5E5E",
+                        background: "white",
+                        borderRadius: "15px",
+                        border: "2px solid #e9ecef",
                       }}
                     >
-                      <i
-                        className={`fas fa-${
-                          t === "image" ? "image" : t === "video" ? "video" : "file-alt"
-                        } me-1`}
-                      ></i>
-                      {t.charAt(0).toUpperCase() + t.slice(1)}
-                    </Button>
-                  ))}
-                </div>
-              </Form.Group>
+                      <h6 className="fw-bold mb-3" style={{ color: "#5B11EE" }}>
+                        <i className="fas fa-eye me-2"></i>Aperçu du fichier
+                      </h6>
+                      <div className="text-center">
+                        {previewFile.type.startsWith("image/") ? (
+                          <img
+                            src={previewFile.url}
+                            alt="Aperçu"
+                            style={{
+                              maxHeight: "220px",
+                              borderRadius: "12px",
+                              boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+                            }}
+                          />
+                        ) : previewFile.type.startsWith("video/") ? (
+                          <video
+                            src={previewFile.url}
+                            controls
+                            className="w-100"
+                            style={{
+                              maxHeight: "220px",
+                              borderRadius: "12px",
+                              boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+                            }}
+                          />
+                        ) : (
+                          <div className="p-4">
+                            <i
+                              className={`fas ${getFileIcon(previewFile.name)} fa-4x mb-3`}
+                              style={{ color: "#0671B6" }}
+                            ></i>
+                            <p className="fw-semibold">{previewFile.name}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </Form>
+              </Modal.Body>
 
-              <Row className="g-4 mt-3">
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label className="fw-semibold" style={{ color: "#5B11EE" }}>
-                      <i className="fas fa-upload me-2"></i>Fichier
-                    </Form.Label>
-                    <Form.Control
-                      type="file"
-                      name="fichier"
-                      onChange={handleChange}
-                      accept={
-                        newPub.type_fichier === "image"
-                          ? "image/*"
-                          : newPub.type_fichier === "video"
-                          ? "video/*"
-                          : ".pdf,.doc,.docx,.xls,.xlsx"
-                      }
-                      className="shadow-sm"
-                      style={{
-                        borderRadius: "15px",
-                        border: "2px solid #e9ecef",
-                        padding: "0.75rem 1rem",
-                        background: "white",
-                      }}
-                    />
-                    {editingPub?.nom_fichier_original && !newPub.fichier && (
-                      <small className="text-muted d-block mt-1">
-                        <i className="fas fa-check text-success me-1"></i>
-                        Actuel : {editingPub.nom_fichier_original}
-                      </small>
-                    )}
-                  </Form.Group>
-                </Col>
-
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label className="fw-semibold" style={{ color: "#0405BF" }}>
-                      <i className="fas fa-calendar me-2"></i>Date de publication
-                    </Form.Label>
-                    <Form.Control
-                      type="date"
-                      name="date"
-                      value={newPub.date}
-                      onChange={handleChange}
-                      className="shadow-sm"
-                      style={{
-                        borderRadius: "15px",
-                        border: "2px solid #e9ecef",
-                        padding: "0.75rem 1rem",
-                        background: "white",
-                      }}
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-
-              {previewFile && (
-                <div
-                  className="mt-4 p-4 border rounded shadow-sm"
+              <Modal.Footer className="border-0 p-4" style={{ background: "#f8f9fa", borderBottomLeftRadius: "20px", borderBottomRightRadius: "20px" }}>
+                <Button variant="outline-secondary" onClick={handleClose} className="rounded-pill px-5 py-2" disabled={isSubmitting}>
+                  <i className="fas fa-times me-2"></i>Annuler
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleSavePublication}
+                  disabled={isSubmitting}
+                  className="rounded-pill px-5 py-2 shadow-lg"
                   style={{
-                    background: "white",
-                    borderRadius: "15px",
-                    border: "2px solid #e9ecef",
+                    background: "linear-gradient(135deg, #5B11EE 0%, #0405BF 100%)",
+                    border: "none",
+                    fontWeight: "600"
                   }}
                 >
-                  <h6 className="fw-bold mb-3" style={{ color: "#5B11EE" }}>
-                    <i className="fas fa-eye me-2"></i>Aperçu du fichier
-                  </h6>
-                  <div className="text-center">
-                    {previewFile.type.startsWith("image/") ? (
-                      <img
-                        src={previewFile.url}
-                        alt="Aperçu"
-                        style={{
-                          maxHeight: "220px",
-                          borderRadius: "12px",
-                          boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
-                        }}
-                      />
-                    ) : previewFile.type.startsWith("video/") ? (
-                      <video
-                        src={previewFile.url}
-                        controls
-                        className="w-100"
-                        style={{
-                          maxHeight: "220px",
-                          borderRadius: "12px",
-                          boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
-                        }}
-                      />
-                    ) : (
-                      <div className="p-4">
-                        <i
-                          className={`fas ${getFileIcon(previewFile.name)} fa-4x mb-3`}
-                          style={{ color: "#0671B6" }}
-                        ></i>
-                        <p className="fw-semibold">{previewFile.name}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </Form>
-          </Modal.Body>
+                  <i className={`fas ${isSubmitting ? 'fa-spinner fa-spin' : 'fa-paper-plane'} me-2`}></i>
+                  {isSubmitting ? "Envoi..." : editingPub ? "Sauvegarder" : "Publier"}
+                </Button>
+              </Modal.Footer>
+            </Modal>
+          </div>
 
-          <Modal.Footer className="border-0 p-4" style={{ background: "#f8f9fa", borderBottomLeftRadius: "20px", borderBottomRightRadius: "20px" }}>
-            <Button variant="outline-secondary" onClick={handleClose} className="rounded-pill px-5 py-2" disabled={isSubmitting}>
-              <i className="fas fa-times me-2"></i>Annuler
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleSavePublication}
-              disabled={isSubmitting}
-              className="rounded-pill px-5 py-2 shadow-lg"
-              style={{
-                background: "linear-gradient(135deg, #5B11EE 0%, #0405BF 100%)",
-                border: "none",
-                fontWeight: "600"
-              }}
-            >
-              <i className={`fas ${isSubmitting ? 'fa-spinner fa-spin' : 'fa-paper-plane'} me-2`}></i>
-              {isSubmitting ? "Envoi..." : editingPub ? "Sauvegarder" : "Publier"}
-            </Button>
-          </Modal.Footer>
-        </Modal>
-      </div>
+          {/* CSS CEDII 2025 */}
+          <style jsx>{`
+            :root {
+              --cedii-purple: #5B11EE;
+              --cedii-blue: #0405BF;
+              --cedii-dark: #02061E;
+              --cedii-cyan: #0671B6;
+              --cedii-gray: #5E5E5E;
+            }
+            .modern-modal .modal-content {
+              border-radius: 20px !important;
+              border: none !important;
+              box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2) !important;
+              overflow: hidden;
+            }
+            .form-control:focus,
+            .form-select:focus {
+              border-color: var(--cedii-purple) !important;
+              box-shadow: 0 0 0 0.25rem rgba(91, 17, 238, 0.25) !important;
+            }
+            .card {
+              transition: transform 0.3s ease, box-shadow 0.3s ease;
+            }
+            .card:hover {
+              transform: translateY(-10px);
+              box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15) !important;
+            }
+            .btn {
+              transition: all 0.2s ease;
+            }
+            .btn:hover {
+              transform: translateY(-2px);
+            }
+          `}</style>
+        </div>
+      );
+    };
 
-      {/* CSS CEDII 2025 */}
-      <style jsx>{`
-        :root {
-          --cedii-purple: #5B11EE;
-          --cedii-blue: #0405BF;
-          --cedii-dark: #02061E;
-          --cedii-cyan: #0671B6;
-          --cedii-gray: #5E5E5E;
-        }
-        .modern-modal .modal-content {
-          border-radius: 20px !important;
-          border: none !important;
-          box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2) !important;
-          overflow: hidden;
-        }
-        .form-control:focus,
-        .form-select:focus {
-          border-color: var(--cedii-purple) !important;
-          box-shadow: 0 0 0 0.25rem rgba(91, 17, 238, 0.25) !important;
-        }
-        .card {
-          transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        .card:hover {
-          transform: translateY(-10px);
-          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15) !important;
-        }
-        .btn {
-          transition: all 0.2s ease;
-        }
-        .btn:hover {
-          transform: translateY(-2px);
-        }
-      `}</style>
-    </div>
-  );
-};
-
-export default PubMembre;
+    export default PubMembre;

@@ -13,7 +13,8 @@ class Publication extends Model
 
     protected $fillable = [
         'titre','contenu','type','date_publication','source','categorie','statut',
-        'fichier','type_fichier','nom_fichier_original','auteur','id_utilisateur',
+        'fichier','type_fichier','nom_fichier_original','auteur','id_utilisateur', 
+    'membre_id',
         'total_reactions','vues'
     ];
 
@@ -21,6 +22,11 @@ class Publication extends Model
         'date_publication' => 'datetime',
     ];
 
+
+    public function membre()
+{
+    return $this->belongsTo(Membre::class, 'membre_id');
+}
     // Relation avec l'utilisateur
     public function utilisateur()
     {
