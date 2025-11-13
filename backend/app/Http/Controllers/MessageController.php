@@ -474,4 +474,30 @@ class MessageController extends Controller
             ], 500);
         }
     }
+    
+    public function getContactsForVisitor()
+{
+    try {
+        // Récupérer tous les membres
+        $membres = Membre::select('id', 'nom', 'email', 'type')
+            ->orderBy('nom')
+            ->get();
+
+        // Récupérer les admins
+        $admins = DB::table('admins')
+            ->select('id', 'nom', 'email', DB::raw("'admin' as type"))
+            ->orderBy('nom')
+            ->get();
+
+        // Fusionner les deux collections
+        $contacts = $membres->concat($admins)->sortBy('nom')->values();
+
+        return response()->json($contacts);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => 'Erreur lors du chargement des contacts: ' . $e->getMessage()
+        ], 500);
+    }
+}
 }

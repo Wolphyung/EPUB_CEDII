@@ -12,18 +12,9 @@ class Publication extends Model
     protected $primaryKey = 'id_publication';
 
     protected $fillable = [
-        'titre',
-        'contenu',
-        'type',
-        'date_publication',
-        'source',
-        'categorie',
-        'statut',
-        'fichier', // Nouveau
-        'type_fichier', // Nouveau
-        'nom_fichier_original', // Nouveau
-        'auteur',
-        'id_utilisateur',
+        'titre','contenu','type','date_publication','source','categorie','statut',
+        'fichier','type_fichier','nom_fichier_original','auteur','id_utilisateur',
+        'total_reactions','vues'
     ];
 
     protected $casts = [

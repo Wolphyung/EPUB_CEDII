@@ -76,7 +76,7 @@ class LoginController extends Controller
                         'type' => 'visiteur',
                     ],
                     'token' => $token,
-                    'redirect_to' => '/dashvisiteur'
+                    'redirect_to' => '/pubvisiteur'
                 ]);
             }
         }

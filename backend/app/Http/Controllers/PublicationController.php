@@ -242,6 +242,24 @@ class PublicationController extends Controller
     ];
 }
 
+
+ public function view(Request $request, $id) {
+        $pub = Publication::findOrFail($id);
+        $pub->increment('vues');
+        return response()->json(['vues'=>$pub->vues]);
+    }
+
+        public function react(Request $request, $id) {
+        $pub = Publication::findOrFail($id);
+        $user = Auth::user();
+
+        if(!$pub->reactedUsers()->where('user_id',$user->id)->exists()){
+            $pub->reactedUsers()->attach($user->id);
+            $pub->increment('total_reactions');
+        }
+
+        return response()->json(['total_reactions'=>$pub->total_reactions]);
+    }
 // 🎯 Obtenir l'icône du fichier
 private function getFileIcon($fileName)
 {

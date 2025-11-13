@@ -11,6 +11,7 @@ use App\Http\Controllers\EvenementController;
 use App\Http\Controllers\AppelOffreController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProfileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,6 +27,23 @@ use App\Http\Controllers\NotificationController;
 // =========================================================================
 // ROUTES PUBLIQUES (Sans authentification)
 // =========================================================================
+
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'getProfile']);
+    Route::put('/profile', [ProfileController::class, 'updateProfile']);
+    Route::put('/profile/password', [ProfileController::class, 'changePassword']);
+});
+Route::middleware('auth:sanctum')->group(function(){
+    Route::post('/publications','PublicationController@store');
+    Route::post('/publications/{id}/react','PublicationController@react');
+    Route::post('/publications/{id}/view','PublicationController@view');
+});
+
+Route::get('/publications/validees', [PublicationController::class, 'getPublicationsValidees']);
+Route::get('/appels-offre-valides', [App\Http\Controllers\AppelOffreController::class, 'getAppelsOffreValides']);
+Route::get('/evenements-valides', [EvenementController::class, 'getEvenementsValides']);
+Route::get('/contacts-visiteur', [MessageController::class, 'getContactsForVisitor']);
 
 // Route de test
 Route::get('/test', function () {

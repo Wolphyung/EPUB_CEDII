@@ -242,7 +242,7 @@ export default function Login() {
                       <i className="fas fa-key"></i>
                       Mot de passe oublié ?
                     </Link>
-                    <Link to="/dashvisiteur" className={`option-link visitor ${isNightMode ? 'night-visitor' : 'day-visitor'}`}>
+                    <Link to="/pubvisiteur" className={`option-link visitor ${isNightMode ? 'night-visitor' : 'day-visitor'}`}>
                       <i className="fas fa-globe"></i>
                       Accès visiteur
                     </Link>

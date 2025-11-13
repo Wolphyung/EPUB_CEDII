@@ -14,9 +14,11 @@ import MessageAdmin from "./pages/pageAdmin/message"
 import NotificationgeAdmin from "./pages/pageAdmin/notification"
 import AdminEv from "./pages/pageAdmin/Evenement"
 
-
-import DashVisiteur from "./pages/pageVisiteur/dashVisiteur"
-
+import EventVisiteur from './pages/pageVisiteur/EventVisiteur';
+import PubVisiteur from './pages/pageVisiteur/PubVisiteur';
+import AppelOffreVisiteur from './pages/pageVisiteur/AppelOffreVisiteur';
+import MessageVisiteur from './pages/pageVisiteur/MessageVisiteur';
+import ProfilVisiteur from './pages/pageVisiteur/ProfilVisiteur';
 
 import DashMembre from "./pages/pageMembre/dashMembre"
 import PubMembre from "./pages/pageMembre/pubmembre"
@@ -32,7 +34,16 @@ function App() {
     <BrowserRouter>
       <Routes>
 
-        <Route path="/dashvisiteur" element={<DashVisiteur />} />
+
+
+  <Route path="/eventvisiteur" element={<EventVisiteur />} />
+  <Route path="/pubvisiteur" element={<PubVisiteur />} />
+  <Route path="/appeloffrevisiteur" element={<AppelOffreVisiteur />} />
+  <Route path="/messagevisiteur" element={<MessageVisiteur />} />
+  <Route path="/profilvisiteur" element={<ProfilVisiteur />} />
+
+
+
          <Route path="/signup" element={<Signup />} />
         <Route path="/" element={<Dashboard />} />
         <Route path="/publications" element={<PublicationsList />} />

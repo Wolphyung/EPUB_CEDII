@@ -145,4 +145,16 @@ class AppelOffreController extends Controller
 
         return response()->json(['message' => "Appel d'offre supprimé"]);
     }
+
+
+      public function getAppelsOffreValides()
+{
+    $offresValides = AppelOffre::where('statut', 'validé')
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+
+    // renvoyer le tableau directement
+    return response()->json($offresValides);
+}
+
 }
