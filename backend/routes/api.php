@@ -81,7 +81,7 @@ Route::get('/membres/{id}/profile', [MembreController::class, 'show']);
 // =========================================================================
 
 Route::middleware('auth:sanctum')->group(function () {
-    
+
     // Informations utilisateur
     Route::get('/user', function (Request $request) {
         return response()->json([
@@ -126,7 +126,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}/read', [MessageController::class, 'markAsRead']);
         Route::put('/mark-all-read', [MessageController::class, 'markAllAsRead']);
         Route::post('/{id}/reply', [MessageController::class, 'reply']);
-        
+
         // Messages entre membres
         Route::get('/member/{memberId}', [MessageController::class, 'getMemberConversations']);
         Route::post('/start-conversation', [MessageController::class, 'startConversation']);
@@ -137,6 +137,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/send-admin', [MessageController::class, 'sendAdminMessage']);
         Route::get('/members', [MessageController::class, 'listMembers']);
     });
+    Route::get('/messages/members', [MessageController::class, 'listMembers']);
 
     // ==================== NOTIFICATIONS ====================
     Route::prefix('notifications')->group(function () {
@@ -164,7 +165,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // =========================================================================
 
 Route::prefix('admin')->group(function () {
-    
+
     // Notifications admin
     Route::prefix('notifications')->group(function () {
         Route::get('/', [NotificationController::class, 'index']);

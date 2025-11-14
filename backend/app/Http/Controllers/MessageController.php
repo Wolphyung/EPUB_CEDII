@@ -190,7 +190,7 @@ class MessageController extends Controller
                 'sender' => 'Admin',
                 'email' => 'admin@system.com',
                 'category' => 'Admin',
-                'content' => $request->content,
+                'content'      => $request->input('content'),
                 'read' => false, // Le membre ne l'a pas encore lu
                 'is_from_admin' => true,
             ]);
@@ -232,7 +232,7 @@ class MessageController extends Controller
                 'sender' => $request->sender,
                 'email' => $request->email,
                 'category' => $request->category,
-                'content' => $request->content,
+                'content'      => $request->input('content'),
                 'read' => false, // L'admin ne l'a pas encore lu
                 'is_from_admin' => false,
             ]);
@@ -275,7 +275,7 @@ class MessageController extends Controller
             // Créer la réponse de l'admin
             $reply = AdminReply::create([
                 'message_id' => $message->id,
-                'content' => $request->content,
+                'content'      => $request->input('content'),
                 'is_from_admin' => true,
             ]);
 
@@ -319,7 +319,7 @@ class MessageController extends Controller
                 'sender' => $membre->nom,
                 'email' => $membre->email,
                 'category' => $request->subject,
-                'content' => $request->content,
+                'content'      => $request->input('content'),
                 'read' => false,
                 'is_from_admin' => false,
             ]);

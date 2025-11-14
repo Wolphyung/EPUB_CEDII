@@ -1,5 +1,3 @@
-// src/pages/MessageAdmin.jsx
-
 import React, { useState, useEffect } from "react";
 import { Card, Button, Form, ListGroup, Row, Col, Badge, InputGroup, Alert, Spinner, Modal } from "react-bootstrap"; 
 import AdminSidebar from "../../components/AdminSidebar";
@@ -20,19 +18,17 @@ const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showN
     useEffect(() => {
         if (show) {
             setLoadingMembers(true);
-            axios.get(`${API_URL}/members`)
+            axios.get(`${API_URL}/messages/members`) // CORRIGÉ : /messages/members
                 .then(res => {
                     setMembers(res.data);
                     if (res.data.length > 0) {
-                        setRecipientId(res.data[0].id); 
-                    } else {
-                        setRecipientId("");
+                        setRecipientId(res.data[0].id);
                     }
                     setError(null);
                 })
                 .catch(err => {
                     console.error("Erreur de chargement des membres:", err);
-                    setError("Impossible de charger la liste des membres. Vérifiez la route /api/members.");
+                    setError("Impossible de charger la liste des membres.");
                 })
                 .finally(() => setLoadingMembers(false));
         }
@@ -189,12 +185,10 @@ const MessageAdmin = () => {
     };
 
     // --- Fonctions API ---
-
     const fetchMembres = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${API_URL}/messages`);
-            console.log("Membres chargés:", res.data);
+            const res = await axios.get(`${API_URL}/messages`); // OK
             setMembres(res.data || []);
         } catch (err) {
             console.error("Erreur chargement membres:", err);
@@ -232,19 +226,17 @@ const MessageAdmin = () => {
                 content: newMessage
             });
 
-            console.log("Message envoyé:", res.data);
-
-            // Ajouter le nouveau message à la conversation
             const newMsg = {
                 ...res.data,
                 created_at: new Date().toISOString()
             };
-            
+
             setConversation(prev => [...prev, newMsg]);
             setNewMessage("");
             showNotification("success", "Message envoyé avec succès");
-            
-            // Rafraîchir la liste des membres
+
+            // Rafraîchir la conversation
+            fetchConversation(selectedMembre.id);
             fetchMembres();
         } catch (err) {
             console.error("Erreur envoi message:", err);

@@ -46,13 +46,18 @@ class Membre extends Authenticatable
         if (!$value) {
             return null;
         }
-        
+
         // Si c'est déjà une URL complète, la retourner telle quelle
         if (str_starts_with($value, 'http')) {
             return $value;
         }
-        
+
         // Sinon, construire l'URL complète
         return asset('storage/' . $value);
+    }
+
+    public function messages()
+    {
+        return $this->hasMany(Message::class);
     }
 }
