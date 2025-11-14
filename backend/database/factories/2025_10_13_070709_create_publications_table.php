@@ -17,17 +17,17 @@ class CreatePublicationsTable extends Migration
             $table->string('source')->nullable();
             $table->string('categorie')->nullable();
             $table->enum('statut', ['Brouillon', 'En attente', 'Validé', 'Rejeté'])->default('Brouillon');
-            
+
             // Nouveaux champs pour les fichiers
             $table->string('fichier')->nullable(); // Chemin du fichier
             $table->enum('type_fichier', ['image', 'video', 'document'])->nullable(); // Type de fichier
             $table->string('nom_fichier_original')->nullable(); // Nom original du fichier
-            
+
             // Champs existants
             $table->string('auteur')->nullable();
             $table->unsignedBigInteger('id_utilisateur')->nullable();
-            $table->foreign('id_utilisateur')->references('id')->on('users')->onDelete('set null');
-            
+            $table->foreign('id_utilisateur')->references('id')->on('membres')->onDelete('set null');
+
             $table->timestamps();
         });
     }

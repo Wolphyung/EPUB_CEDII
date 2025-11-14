@@ -14,15 +14,15 @@ return new class extends Migration
     {
         // 🎯 On utilise Schema::table pour MODIFIER la table existante
         Schema::table('appel_offres', function (Blueprint $table) {
-            
+
             // Ajout des nouveaux champs (String)
-            $table->string('type', 100)->nullable(); 
+            $table->string('type', 100)->nullable();
             $table->string('localisation')->nullable();
             $table->string('salaire')->nullable();
 
             // Ajout du champ Booléen avec une valeur par défaut
             // Cela permet de garantir qu'une valeur existe même pour les lignes anciennes
-            $table->boolean('urgent')->default(false); 
+            $table->boolean('urgent')->default(false);
         });
     }
 

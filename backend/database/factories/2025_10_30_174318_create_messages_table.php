@@ -26,10 +26,10 @@ return new class extends Migration {
         Schema::create('admin_replies', function (Blueprint $table) {
             $table->id();
             // Clé étrangère vers le message initial
-            $table->foreignId('message_id')->constrained()->onDelete('cascade'); 
+            $table->foreignId('message_id')->constrained()->onDelete('cascade');
             // admin_id est optionnel ici car nous n'avons pas d'Auth Admin complète pour l'instant
-            $table->foreignId('admin_id')->nullable()->constrained('users')->onDelete('set null'); 
-            
+            $table->foreignId('admin_id')->nullable()->constrained('membres')->onDelete('set null');
+
             $table->text('content'); // Contenu de la réponse
             $table->timestamps();
         });
