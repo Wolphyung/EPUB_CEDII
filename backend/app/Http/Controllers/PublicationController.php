@@ -19,9 +19,9 @@ class PublicationController extends Controller
                 ->map(function ($publication) {
                     return $this->formatPublicationResponse($publication);
                 });
-            
+
             return response()->json($publications);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Erreur lors du chargement des publications'
@@ -39,12 +39,12 @@ class PublicationController extends Controller
                 ->map(function ($publication) {
                     return $this->formatPublicationResponse($publication);
                 });
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $publications
             ]);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -88,7 +88,7 @@ class PublicationController extends Controller
 
         // Récupérer l'utilisateur connecté
         $user = Auth::user();
-        
+
         // Attribution automatique selon le rôle
         if ($user) {
             if ($user->type === 'admin') {
@@ -296,7 +296,7 @@ class PublicationController extends Controller
     private function getFileIcon($fileName)
     {
         if (!$fileName) return 'file';
-        
+
         $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
         $icons = [
             'pdf' => 'file-pdf',
@@ -310,7 +310,7 @@ class PublicationController extends Controller
             'zip' => 'file-archive',
             'rar' => 'file-archive',
         ];
-        
+
         return $icons[$ext] ?? 'file';
     }
 }

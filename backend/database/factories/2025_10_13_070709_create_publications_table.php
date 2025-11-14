@@ -16,7 +16,7 @@ class CreatePublicationsTable extends Migration
             $table->timestamp('date_publication')->useCurrent();
             $table->string('source')->nullable();
             $table->string('categorie')->nullable();
-            $table->enum('statut', ['Brouillon', 'En attente', 'Validé', 'Rejeté'])->default('Brouillon');
+            $table->enum('statut', ['Brouillon', 'En attente', 'Validé', 'Rejeté'])->default('En attente');
 
             // Nouveaux champs pour les fichiers
             $table->string('fichier')->nullable(); // Chemin du fichier
