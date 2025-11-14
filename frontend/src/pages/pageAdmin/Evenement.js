@@ -222,13 +222,14 @@ const Evenement = () => {
   const [filterType, setFilterType] = useState("Tous");
   const [previewFile, setPreviewFile] = useState(null);
 
+  // ✅ MODIFIÉ : Statut "Validé" par défaut pour l'admin
   const [newEvent, setNewEvent] = useState({
     titre: "",
     description: "",
     date_heure: "",
     lieu: "",
     type: "Présentiel",
-    statut: "En attente",
+    statut: "Validé", // ✅ Statut validé par défaut
     fichier: null,
   });
 
@@ -276,13 +277,14 @@ const Evenement = () => {
 
   const handleCloseAddModal = () => {
     setShowAddModal(false);
+    // ✅ MODIFIÉ : Réinitialiser avec statut "Validé"
     setNewEvent({
       titre: "",
       description: "",
       date_heure: "",
       lieu: "",
       type: "Présentiel",
-      statut: "En attente",
+      statut: "Validé", // ✅ Statut validé par défaut
       fichier: null,
     });
     setPreviewFile(null);
@@ -354,18 +356,31 @@ const Evenement = () => {
     setSelectedEvent(prev => ({ ...prev, [name]: value }));
   };
 
-  // Ajouter événement
+  // ✅ CORRIGÉ : Ajouter événement sans envoyer 'auteur'
   const handleAddEvent = async (e) => {
     e.preventDefault();
     setLoading(true);
+    
     const formData = new FormData();
-    Object.keys(newEvent).forEach(key => {
-      if (newEvent[key] !== null) formData.append(key, newEvent[key]);
-    });
+    
+    // ✅ CORRIGÉ : Supprimer l'envoi de 'auteur'
+    formData.append('titre', newEvent.titre);
+    formData.append('description', newEvent.description);
+    formData.append('date_heure', newEvent.date_heure);
+    formData.append('lieu', newEvent.lieu);
+    formData.append('type', newEvent.type);
+    formData.append('statut', newEvent.statut);
+    // ❌ SUPPRIMÉ: formData.append('auteur', 'Administration');
+    
+    if (newEvent.fichier) {
+      formData.append('fichier', newEvent.fichier);
+    }
+    
     try {
       const res = await axios.post(`${API_URL}/evenements`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+      
       setEvenements(prev => [res.data.data || res.data, ...prev]);
       showNotification("success", t('success_add_event'));
       handleCloseAddModal();
@@ -377,54 +392,55 @@ const Evenement = () => {
     }
   };
 
-  // SOLUTION CORRIGÉE : Modifier événement avec POST uniquement
+  // ✅ CORRIGÉ : Modifier événement sans envoyer 'auteur'
   const handleEditEvent = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-        const formData = new FormData();
-        const { id, fichier, ...dataToSend } = selectedEvent;
+      const formData = new FormData();
+      const { id, fichier, ...dataToSend } = selectedEvent;
 
-        // Ajouter tous les champs sauf id et fichier
-        Object.keys(dataToSend).forEach(key => {
+      // ✅ CORRIGÉ : Supprimer l'envoi de 'auteur'
+      Object.keys(dataToSend).forEach(key => {
         if (dataToSend[key] !== null && dataToSend[key] !== undefined) {
-            formData.append(key, dataToSend[key]);
+          formData.append(key, dataToSend[key]);
         }
-        });
+      });
+      
+      // ❌ SUPPRIMÉ: formData.append('auteur', 'Administration');
 
-        // Format date
-        if (selectedEvent.date_heure) {
+      // Format date
+      if (selectedEvent.date_heure) {
         const formatted = selectedEvent.date_heure.replace('T', ' ') + ':00';
         formData.append('date_heure', formatted);
-        }
+      }
 
-        // N'envoyer fichier QUE si c'est un vrai File (nouvel upload)
-        if (fichier instanceof File) {
+      // N'envoyer fichier QUE si c'est un vrai File (nouvel upload)
+      if (fichier instanceof File) {
         formData.append('fichier', fichier);
-        }
-        // Sinon → on ne touche pas au fichier existant
+      }
 
-        const res = await axios.post(
+      const res = await axios.post(
         `${API_URL}/evenements/${id}/update`,
         formData,
         {
-            headers: { "Content-Type": "multipart/form-data" },
+          headers: { "Content-Type": "multipart/form-data" },
         }
-        );
+      );
 
-        setEvenements(prev =>
+      setEvenements(prev =>
         prev.map(ev => (ev.id === id ? (res.data.data || res.data) : ev))
-        );
-        showNotification("success", t('success_edit_event'));
-        handleCloseEditModal();
+      );
+      showNotification("success", t('success_edit_event'));
+      handleCloseEditModal();
     } catch (err) {
-        console.error('Erreur:', err.response?.data || err);
-        showNotification("error", err.response?.data?.message || t('error_edit_event'));
+      console.error('Erreur:', err.response?.data || err);
+      showNotification("error", err.response?.data?.message || t('error_edit_event'));
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-    };
+  };
 
   // Supprimer événement
   const handleDeleteEvent = async (id) => {
@@ -439,7 +455,7 @@ const Evenement = () => {
     }
   };
 
-  // SOLUTION CORRIGÉE : Changer statut avec POST uniquement
+  // Changer statut
   const handleChangeStatus = async (id, newStatus) => {
     try {
       const res = await axios.post(`${API_URL}/evenements/${id}/status`, {
@@ -853,6 +869,14 @@ const Evenement = () => {
                         <span>{t(ev.type.toLowerCase())}</span>
                       </div>
 
+                      {/* ✅ AJOUTÉ : Affichage de l'auteur */}
+                      <div className="d-flex align-items-center mb-2">
+                        <i className="fas fa-user text-primary me-2" style={{ width: "16px" }}></i>
+                        <span className="small text-muted">
+                          Auteur: <strong>{ev.auteur || 'Administration'}</strong>
+                        </span>
+                      </div>
+
                       {/* Section Fichier avec aperçu VISUEL */}
                       {ev.fichier && (
                         <FilePreviewCard 
@@ -1004,6 +1028,7 @@ const Evenement = () => {
                   </Form.Group>
                 </Col>
                 <Col md={4}>
+                  {/* ✅ MODIFIÉ : Sélecteur de statut avec "Validé" par défaut */}
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-chart-line me-2 text-primary"></i>
@@ -1015,10 +1040,14 @@ const Evenement = () => {
                       onChange={handleInputChange}
                       style={{ borderRadius: "10px", padding: "12px" }}
                     >
-                      <option value="En attente">{t('En attente')}</option>
                       <option value="Validé">{t('Validé')}</option>
+                      <option value="En attente">{t('En attente')}</option>
                       <option value="Rejeté">{t('Rejeté')}</option>
                     </Form.Select>
+                    <Form.Text className="text-muted">
+                      <i className="fas fa-info-circle me-1"></i>
+                      Les événements créés par l'administration sont validés par défaut
+                    </Form.Text>
                   </Form.Group>
                 </Col>
               </Row>
@@ -1194,8 +1223,8 @@ const Evenement = () => {
                         onChange={handleEditInputChange}
                         style={{ borderRadius: "10px", padding: "12px" }}
                       >
-                        <option value="En attente">{t('En attente')}</option>
                         <option value="Validé">{t('Validé')}</option>
+                        <option value="En attente">{t('En attente')}</option>
                         <option value="Rejeté">{t('Rejeté')}</option>
                       </Form.Select>
                     </Form.Group>

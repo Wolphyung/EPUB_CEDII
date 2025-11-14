@@ -6,12 +6,6 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class EvenementResource extends JsonResource
 {
-    /**
-     * Transform the resource into an array.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return array
-     */
     public function toArray($request)
     {
         return [
@@ -22,8 +16,16 @@ class EvenementResource extends JsonResource
             'lieu' => $this->lieu,
             'type' => $this->type,
             'statut' => $this->statut,
-            'fichier' => $this->fichier ? url('storage/' . $this->fichier) : null,
-            'file_name' => $this->fichier ? basename($this->fichier) : null,
+            'fichier' => $this->fichier,
+            'fichier_url' => $this->fichier_url,
+            'auteur' => $this->auteur,
+            'membre' => $this->whenLoaded('membre', function () {
+                return [
+                    'id' => $this->membre->id,
+                    'nom_complet' => $this->membre->nom_complet,
+                    'email' => $this->membre->email,
+                ];
+            }),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

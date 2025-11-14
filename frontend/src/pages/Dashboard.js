@@ -79,7 +79,7 @@ const Dashboard = () => {
                 d'actualités professionnelles à Fianarantsoa.
               </p>
               <div className="hero-buttons">
-                <Link to="/signup" className="btn btn-primary">
+                <Link to="/register" className="btn btn-primary">
                   Devenir Membre
                 </Link>
                 <Link to="/login" className="btn btn-secondary">
@@ -227,7 +227,7 @@ const Dashboard = () => {
               de l'écosystème informationnel institutionnel
             </p>
             <div className="cta-buttons">
-              <Link to="/signup" className="btn btn-large btn-primary">
+              <Link to="/register" className="btn btn-large btn-primary">
                 Adhérer au CEDII
               </Link>
               <Link to="/login" className="btn btn-large btn-outline">

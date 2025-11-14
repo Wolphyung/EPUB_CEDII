@@ -4,6 +4,7 @@ import MembreSidebar from "../../components/MembreSidebar";
 
 // 🚀 URL API CORRIGÉE
 const BASE_API_URL = "http://127.0.0.1:8000/api"; 
+const BASE_STORAGE_URL = "http://127.0.0.1:8000/storage"; // ✅ URL pour les fichiers
 const EVENEMENTS_API_URL = `${BASE_API_URL}/evenements`;
 
 // Configuration axios pour l'authentification
@@ -25,6 +26,7 @@ const EvenementMembre = () => {
   const [previewFile, setPreviewFile] = useState(null);
   
   const [evenements, setEvenements] = useState([]); 
+  const [membres, setMembres] = useState({});
 
   const [nouvelEvenement, setNouvelEvenement] = useState({
     titre: "",
@@ -36,6 +38,51 @@ const EvenementMembre = () => {
     image: null 
   });
 
+  /* -------------------------- FONCTIONS UTILITAIRES -------------------------- */
+  const isUserAuthor = (evenement) => {
+    const currentUser = JSON.parse(localStorage.getItem('user'));
+    if (!currentUser) return false;
+    if (currentUser.type === 'admin') return true;
+    if (evenement.membre_id && currentUser.id) {
+      return evenement.membre_id === currentUser.id;
+    }
+    return false;
+  };
+
+  const getUserBadge = (evenement) => {
+    if (isUserAuthor(evenement)) {
+      return (
+        <Badge bg="info" className="ms-2 d-inline-flex align-items-center px-2 py-1" style={{ borderRadius: "10px", fontSize: "0.6rem" }}>
+          <i className="fas fa-user me-1"></i>Votre événement
+        </Badge>
+      );
+    }
+    return null;
+  };
+
+  // ✅ FONCTION CORRIGÉE : Obtenir l'URL complète du fichier
+  const getFileUrl = (fichier) => {
+    if (!fichier) return null;
+    if (typeof fichier === 'string') {
+      if (fichier.startsWith('http')) return fichier;
+      // ✅ Utiliser BASE_STORAGE_URL pour les fichiers
+      return `${BASE_STORAGE_URL}/${fichier.replace(/^\//, '')}`;
+    }
+    return null;
+  };
+
+  const getAuteurName = (evenement) => {
+    if (!evenement.membre_id) return 'Auteur inconnu';
+    if (evenement.auteur && evenement.auteur !== 'Auteur inconnu') {
+      return evenement.auteur;
+    }
+    const membre = membres[evenement.membre_id];
+    if (membre) {
+      return membre.nom_complet || membre.name || membre.email || 'Auteur inconnu';
+    }
+    return 'Auteur inconnu';
+  };
+
   const handleSidebarCollapse = (isCollapsed) => {
     setSidebarCollapsed(isCollapsed);
   };
@@ -43,15 +90,6 @@ const EvenementMembre = () => {
   const showAlert = (message, type) => {
     setAlert({ show: true, message, type });
     setTimeout(() => setAlert({ ...alert, show: false }), 4000);
-  };
-
-  const getFileUrl = (fichier) => {
-    if (!fichier) return null;
-    if (typeof fichier === 'string') {
-      if (fichier.startsWith('http')) return fichier;
-      return `${BASE_API_URL}/storage/${fichier.replace(/^\//, '')}`;
-    }
-    return null;
   };
 
   const handleDownloadFile = async (fichier, fileName) => {
@@ -62,9 +100,7 @@ const EvenementMembre = () => {
         return;
       }
       
-      const response = await fetch(fileUrl, {
-        headers: getAuthHeaders()
-      });
+      const response = await fetch(fileUrl);
       
       if (!response.ok) throw new Error('Erreur de téléchargement');
       
@@ -89,24 +125,13 @@ const EvenementMembre = () => {
     const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
       case 'pdf': return 'fa-file-pdf';
-      case 'doc':
-      case 'docx': return 'fa-file-word';
-      case 'xls':
-      case 'xlsx': return 'fa-file-excel';
-      case 'ppt':
-      case 'pptx': return 'fa-file-powerpoint';
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif':
-      case 'bmp': return 'fa-file-image';
-      case 'mp4':
-      case 'avi':
-      case 'mov': return 'fa-file-video';
-      case 'mp3':
-      case 'wav': return 'fa-file-audio';
-      case 'zip':
-      case 'rar': return 'fa-file-archive';
+      case 'doc': case 'docx': return 'fa-file-word';
+      case 'xls': case 'xlsx': return 'fa-file-excel';
+      case 'ppt': case 'pptx': return 'fa-file-powerpoint';
+      case 'jpg': case 'jpeg': case 'png': case 'gif': case 'bmp': return 'fa-file-image';
+      case 'mp4': case 'avi': case 'mov': return 'fa-file-video';
+      case 'mp3': case 'wav': return 'fa-file-audio';
+      case 'zip': case 'rar': return 'fa-file-archive';
       default: return 'fa-file';
     }
   };
@@ -116,29 +141,29 @@ const EvenementMembre = () => {
     const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
       case 'pdf': return 'danger';
-      case 'doc':
-      case 'docx': return 'primary';
-      case 'xls':
-      case 'xlsx': return 'success';
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif': return 'info';
+      case 'doc': case 'docx': return 'primary';
+      case 'xls': case 'xlsx': return 'success';
+      case 'jpg': case 'jpeg': case 'png': case 'gif': return 'info';
       default: return 'secondary';
     }
   };
 
+  // ✅ COMPOSANT AMÉLIORÉ : Aperçu des fichiers avec affichage correct
   const FilePreviewCard = ({ fichier, fileName }) => {
     if (!fichier) return null;
+    
     const fileUrl = getFileUrl(fichier);
-    const isImage = fileName?.match(/\.(jpg|jpeg|png|gif|bmp)$/i);
+    const isImage = fileName?.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i);
+    const isVideo = fileName?.match(/\.(mp4|avi|mov|wmv|flv|webm)$/i);
     const isPDF = fileName?.match(/\.pdf$/i);
+    const isDocument = fileName?.match(/\.(doc|docx|xls|xlsx|ppt|pptx)$/i);
+
     return (
       <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
         <div className="d-flex justify-content-between align-items-center mb-2">
           <div className="d-flex align-items-center">
             <i className={`fas ${getFileIcon(fileName)} text-${getFileBadgeVariant(fileName)} me-2`}></i>
-            <span className="small fw-semibold">Document joint:</span>
+            <span className="small fw-semibold">Fichier joint:</span>
           </div>
           <Button
             variant="outline-primary"
@@ -152,14 +177,61 @@ const EvenementMembre = () => {
           </Button>
         </div>
         <p className="small text-muted mb-2">{fileName}</p>
+        
         {fileUrl && (
           <div className="text-center">
             {isImage ? (
-              <img src={fileUrl} alt="Aperçu" style={{ maxWidth:'100%', maxHeight:'150px', objectFit:'contain', borderRadius:'6px', border:'1px solid #dee2e6' }} />
+              <div>
+                <img 
+                  src={fileUrl} 
+                  alt="Aperçu" 
+                  style={{ 
+                    maxWidth: '100%', 
+                    maxHeight: '200px', 
+                    objectFit: 'contain', 
+                    borderRadius: '6px', 
+                    border: '1px solid #dee2e6' 
+                  }} 
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'block';
+                  }}
+                />
+                <div style={{ display: 'none' }} className="py-2">
+                  <i className={`fas ${getFileIcon(fileName)} fa-3x text-${getFileBadgeVariant(fileName)} mb-2`}></i>
+                  <p className="small text-muted mb-0">Impossible de charger l'image</p>
+                </div>
+              </div>
+            ) : isVideo ? (
+              <div>
+                <video 
+                  controls 
+                  style={{ 
+                    maxWidth: '100%', 
+                    maxHeight: '200px', 
+                    borderRadius: '6px',
+                    border: '1px solid #dee2e6'
+                  }}
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'block';
+                  }}
+                >
+                  <source src={fileUrl} type="video/mp4" />
+                  Votre navigateur ne supporte pas la lecture vidéo.
+                </video>
+                <div style={{ display: 'none' }} className="py-2">
+                  <i className={`fas ${getFileIcon(fileName)} fa-3x text-${getFileBadgeVariant(fileName)} mb-2`}></i>
+                  <p className="small text-muted mb-0">Impossible de charger la vidéo</p>
+                </div>
+              </div>
             ) : (
               <div className="py-2">
                 <i className={`fas ${getFileIcon(fileName)} fa-3x text-${getFileBadgeVariant(fileName)} mb-2`}></i>
-                <p className="small text-muted mb-0">Cliquez sur "Télécharger" pour voir le document</p>
+                <p className="small text-muted mb-0">
+                  {isPDF ? 'Document PDF - ' : isDocument ? 'Document Office - ' : 'Fichier - '}
+                  Cliquez sur "Télécharger" pour voir le fichier
+                </p>
               </div>
             )}
           </div>
@@ -171,18 +243,36 @@ const EvenementMembre = () => {
   const FilePreviewModal = ({ file }) => {
     if (!file) return null;
     const isImage = file.type.startsWith('image/');
-    const isPDF = file.type === 'application/pdf';
+    const isVideo = file.type.startsWith('video/');
+    
     return (
       <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
         <h6 className="mb-3"><i className="fas fa-eye me-2"></i>Aperçu du fichier</h6>
         {isImage ? (
           <div className="text-center">
-            <img src={file.url} alt="Aperçu" style={{ maxWidth:'100%', maxHeight:'200px', objectFit:'contain', borderRadius:'8px' }} />
+            <img 
+              src={file.url} 
+              alt="Aperçu" 
+              style={{ 
+                maxWidth: '100%', 
+                maxHeight: '200px', 
+                objectFit: 'contain', 
+                borderRadius: '8px' 
+              }} 
+            />
             <p className="mt-2 mb-0 small text-muted">{file.name}</p>
           </div>
-        ) : isPDF ? (
+        ) : isVideo ? (
           <div className="text-center">
-            <iframe src={file.url} title="Aperçu PDF" style={{ width:'100%', height:'300px', border:'none', borderRadius:'8px' }} />
+            <video 
+              src={file.url} 
+              controls 
+              style={{ 
+                maxWidth: '100%', 
+                maxHeight: '200px', 
+                borderRadius: '8px' 
+              }}
+            />
             <p className="mt-2 mb-0 small text-muted">{file.name}</p>
           </div>
         ) : (
@@ -232,6 +322,26 @@ const EvenementMembre = () => {
     return 'Fichier joint';
   };
 
+  /* -------------------------- FETCH DONNÉES -------------------------- */
+  const fetchMembres = useCallback(async () => {
+    try {
+      const response = await fetch(`${BASE_API_URL}/membres`, {
+        headers: getAuthHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const membresMap = {};
+        data.forEach(membre => {
+          membresMap[membre.id] = membre;
+        });
+        setMembres(membresMap);
+      }
+    } catch (error) {
+      console.error('Erreur fetch membres:', error);
+    }
+  }, []);
+
   const fetchEvenements = useCallback(async () => {
     setLoading(true);
     try {
@@ -251,12 +361,13 @@ const EvenementMembre = () => {
       
       const data = await response.json();
 
-      // ✅ Gestion sécurisée de la réponse
       const eventsArray = Array.isArray(data) ? data : data.evenements || data.data || [];
       const formattedData = eventsArray.map(evt => ({
         ...evt,
         date: evt.date_heure ? evt.date_heure.split(' ')[0] : '',
-        heure: evt.date_heure ? evt.date_heure.split(' ')[1]?.substring(0,5) : '09:00'
+        heure: evt.date_heure ? evt.date_heure.split(' ')[1]?.substring(0,5) : '09:00',
+        auteur: evt.auteur || 'Auteur inconnu',
+        membre_id: evt.membre_id
       }));
 
       setEvenements(formattedData);
@@ -270,9 +381,11 @@ const EvenementMembre = () => {
   }, []);
 
   useEffect(() => { 
-    fetchEvenements(); 
-  }, [fetchEvenements]);
+    fetchEvenements();
+    fetchMembres();
+  }, [fetchEvenements, fetchMembres]);
 
+  /* -------------------------- GESTION MODAL -------------------------- */
   const handleShowAdd = () => { 
     setEditMode(false); 
     setCurrentEvent(null); 
@@ -290,6 +403,11 @@ const EvenementMembre = () => {
   };
 
   const handleShowEdit = (event) => { 
+    if (!isUserAuthor(event)) {
+      showAlert("Vous n'êtes pas autorisé à modifier cet événement", "warning");
+      return;
+    }
+    
     setEditMode(true); 
     setCurrentEvent(event); 
     setNouvelEvenement({ ...event, image:null }); 
@@ -323,8 +441,8 @@ const EvenementMembre = () => {
     } 
   };
 
+  /* -------------------------- CRUD ÉVÉNEMENTS -------------------------- */
   const handleAdd = async () => {
-    // Vérifier l'authentification
     const token = localStorage.getItem('token');
     if (!token) {
       showAlert("Vous devez être connecté pour créer un événement", "warning");
@@ -375,10 +493,14 @@ const EvenementMembre = () => {
   };
 
   const handleEdit = async () => {
-    // Vérifier l'authentification
     const token = localStorage.getItem('token');
     if (!token) {
       showAlert("Vous devez être connecté pour modifier un événement", "warning");
+      return;
+    }
+
+    if (!currentEvent || !isUserAuthor(currentEvent)) {
+      showAlert("Vous n'êtes pas autorisé à modifier cet événement", "warning");
       return;
     }
 
@@ -427,10 +549,15 @@ const EvenementMembre = () => {
   };
 
   const handleDelete = async (id) => {
-    // Vérifier l'authentification
     const token = localStorage.getItem('token');
     if (!token) {
       showAlert("Vous devez être connecté pour supprimer un événement", "warning");
+      return;
+    }
+
+    const eventToDelete = evenements.find(evt => evt.id === id);
+    if (!eventToDelete || !isUserAuthor(eventToDelete)) {
+      showAlert("Vous n'êtes pas autorisé à supprimer cet événement", "warning");
       return;
     }
 
@@ -460,6 +587,7 @@ const EvenementMembre = () => {
     }
   };
 
+  /* -------------------------- RENDER -------------------------- */
   return (
     <div className="d-flex min-vh-100" style={{ 
       background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)"
@@ -582,106 +710,130 @@ const EvenementMembre = () => {
         {/* ✅ Liste des événements */}
         {!loading && evenements.length > 0 && (
             <Row>
-              {evenements.map((evt) => (
-                <Col xl={4} lg={6} className="mb-4" key={evt.id}>
-                  <Card 
-                    className="shadow-lg border-0 h-100"
-                    style={{ 
-                      borderRadius: "20px",
-                      transition: "all 0.3s ease",
-                      overflow: "hidden",
-                      borderLeft: `4px solid ${
-                        evt.statut === "Validé" ? "#28a745" :
-                        evt.statut === "En attente" ? "#ffc107" :
-                        "#dc3545"
-                      }`
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "translateY(-8px)";
-                      e.currentTarget.style.boxShadow = "0 12px 35px rgba(0, 0, 0, 0.15)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.1)";
-                    }}
-                  >
-                    <Card.Body className="p-4">
-                      <div className="d-flex justify-content-between align-items-start mb-3">
-                        {getTypeBadge(evt.type)}
-                        {getStatusBadge(evt.statut)}
-                      </div>
-                      
-                      <Card.Title 
-                        className="fw-bold mb-3"
-                        style={{ 
-                          color: "#2c3e50",
-                          fontSize: "1.3rem",
-                          lineHeight: "1.4"
-                        }}
-                      >
-                        {evt.titre}
-                      </Card.Title>
-                      
-                      <div className="mb-3">
-                        <div className="d-flex align-items-center mb-2">
-                          <i className="fas fa-map-marker-alt text-danger me-2"></i>
-                          <span className="fw-semibold">{evt.lieu}</span>
-                        </div>
-                        <div className="d-flex align-items-center mb-2">
-                          <i className="fas fa-calendar text-primary me-2"></i>
-                          <span>{formatDate(evt.date)}</span>
-                        </div>
-                        <div className="d-flex align-items-center mb-3">
-                          <i className="fas fa-clock text-warning me-2"></i>
-                          <span>{evt.heure}</span>
-                        </div>
-                      </div>
+              {evenements.map((evt) => {
+                const userIsAuthor = isUserAuthor(evt);
+                const auteurName = getAuteurName(evt);
 
-                      <Card.Text 
-                        className="text-muted mb-4"
-                        style={{ 
-                          lineHeight: "1.6",
-                          fontSize: "0.95rem"
-                        }}
-                      >
-                        {evt.description?.length > 120 ? `${evt.description.substring(0, 120)}...` : evt.description}
-                      </Card.Text>
-
-                      {/* Section Fichier avec aperçu VISUEL - COMME DANS APPEL D'OFFRE */}
-                      {evt.fichier && (
-                        <FilePreviewCard 
-                          fichier={evt.fichier} 
-                          fileName={getFileName(evt.fichier)} 
-                        />
-                      )}
-
-                      {/* Actions */}
-                      <div className="d-flex gap-2">
-                        <Button 
-                          variant="outline-primary" 
-                          size="sm"
-                          onClick={() => handleShowEdit(evt)}
-                          className="rounded-pill flex-grow-1"
-                          disabled={evt.statut !== 'En attente' || loading}
+                return (
+                  <Col xl={4} lg={6} className="mb-4" key={evt.id}>
+                    <Card 
+                      className="shadow-lg border-0 h-100"
+                      style={{ 
+                        borderRadius: "20px",
+                        transition: "all 0.3s ease",
+                        overflow: "hidden",
+                        borderLeft: `4px solid ${
+                          evt.statut === "Validé" ? "#28a745" :
+                          evt.statut === "En attente" ? "#ffc107" :
+                          "#dc3545"
+                        }`
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = "translateY(-8px)";
+                        e.currentTarget.style.boxShadow = "0 12px 35px rgba(0, 0, 0, 0.15)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = "translateY(0)";
+                        e.currentTarget.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.1)";
+                      }}
+                    >
+                      <Card.Body className="p-4">
+                        <div className="d-flex justify-content-between align-items-start mb-3">
+                          <div className="d-flex align-items-center">
+                            {getTypeBadge(evt.type)}
+                            {getUserBadge(evt)}
+                          </div>
+                          {getStatusBadge(evt.statut)}
+                        </div>
+                        
+                        <Card.Title 
+                          className="fw-bold mb-3"
+                          style={{ 
+                            color: "#2c3e50",
+                            fontSize: "1.3rem",
+                            lineHeight: "1.4"
+                          }}
                         >
-                          <i className="fas fa-edit me-1"></i>
-                          Modifier
-                        </Button>
-                        <Button 
-                          variant="outline-danger" 
-                          size="sm"
-                          onClick={() => handleDelete(evt.id)}
-                          className="rounded-pill"
-                          style={{ width: "45px" }}
-                          disabled={loading}
+                          {evt.titre}
+                        </Card.Title>
+                        
+                        <div className="mb-3">
+                          <div className="d-flex align-items-center mb-2">
+                            <i className="fas fa-map-marker-alt text-danger me-2"></i>
+                            <span className="fw-semibold">{evt.lieu}</span>
+                          </div>
+                          <div className="d-flex align-items-center mb-2">
+                            <i className="fas fa-calendar text-primary me-2"></i>
+                            <span>{formatDate(evt.date)}</span>
+                          </div>
+                          <div className="d-flex align-items-center mb-2">
+                            <i className="fas fa-clock text-warning me-2"></i>
+                            <span>{evt.heure}</span>
+                          </div>
+                          <div className="d-flex align-items-center mb-3">
+                            <i className="fas fa-user text-success me-2"></i>
+                            <span className="small text-muted">
+                              Auteur: <strong>{auteurName}</strong>
+                            </span>
+                          </div>
+                        </div>
+
+                        <Card.Text 
+                          className="text-muted mb-4"
+                          style={{ 
+                            lineHeight: "1.6",
+                            fontSize: "0.95rem"
+                          }}
                         >
-                          <i className="fas fa-trash"></i>
-                        </Button>
-                      </div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              ))}
+                          {evt.description?.length > 120 ? `${evt.description.substring(0, 120)}...` : evt.description}
+                        </Card.Text>
+
+                        {/* ✅ Section Fichier AMÉLIORÉE */}
+                        {evt.fichier && (
+                          <FilePreviewCard 
+                            fichier={evt.fichier} 
+                            fileName={getFileName(evt.fichier)} 
+                          />
+                        )}
+
+                        {/* Actions conditionnelles */}
+                        <div className="d-flex gap-2">
+                          {userIsAuthor && (
+                            <>
+                              <Button 
+                                variant="outline-primary" 
+                                size="sm"
+                                onClick={() => handleShowEdit(evt)}
+                                className="rounded-pill flex-grow-1"
+                                disabled={evt.statut !== 'En attente' || loading}
+                              >
+                                <i className="fas fa-edit me-1"></i>
+                                Modifier
+                              </Button>
+                              <Button 
+                                variant="outline-danger" 
+                                size="sm"
+                                onClick={() => handleDelete(evt.id)}
+                                className="rounded-pill"
+                                style={{ width: "45px" }}
+                                disabled={loading}
+                              >
+                                <i className="fas fa-trash"></i>
+                              </Button>
+                            </>
+                          )}
+                          {!userIsAuthor && (
+                            <small className="text-muted">
+                              <i className="fas fa-info-circle me-1"></i>
+                              Lecture seule
+                            </small>
+                          )}
+                        </div>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                );
+              })}
             </Row>
         )}
 
@@ -833,16 +985,19 @@ const EvenementMembre = () => {
               <Form.Group className="mb-4">
                 <Form.Label className="fw-semibold">
                   <i className="fas fa-image me-2 text-warning"></i>
-                  Image illustrative
+                  Fichier joint
                 </Form.Label>
                 <Form.Control
                   type="file"
                   name="image"
-                  accept="image/*"
+                  accept="*/*" // ✅ Accepter tous les types de fichiers
                   onChange={handleChange}
                   className="border-0 shadow-sm rounded-3 py-3"
                   style={{ background: "#f8f9fa" }}
                 />
+                <Form.Text className="text-muted">
+                  Formats acceptés: images, PDF, documents, vidéos
+                </Form.Text>
               </Form.Group>
 
               {/* Aperçu du fichier sélectionné */}

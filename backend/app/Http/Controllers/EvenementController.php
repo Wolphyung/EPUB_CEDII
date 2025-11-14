@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EvenementResource;
 use App\Models\Evenement;
+use App\Models\Membre;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -15,7 +16,7 @@ class EvenementController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Evenement::query();
+            $query = Evenement::with('membre');
 
             if ($request->has('search')) {
                 $search = $request->get('search');
@@ -56,12 +57,15 @@ class EvenementController extends Controller
                 'fichier' => 'nullable|file|mimes:pdf,doc,docx,jpg,png,jpeg|max:5120',
             ]);
 
+            // ✅ Utiliser un membre_id fixe (remplacez 1 par l'ID du membre admin)
+            $validated['membre_id'] = 1;
+
             if ($request->hasFile('fichier')) {
                 $validated['fichier'] = $request->file('fichier')->store('evenements', 'public');
             }
 
             $evenement = Evenement::create($validated);
-            return new EvenementResource($evenement);
+            return new EvenementResource($evenement->load('membre'));
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Erreur lors de la création',
@@ -73,7 +77,7 @@ class EvenementController extends Controller
     // 🔹 Afficher un événement
     public function show(Evenement $evenement)
     {
-        return new EvenementResource($evenement);
+        return new EvenementResource($evenement->load('membre'));
     }
 
     // 🔹 Mise à jour standard (PUT/PATCH)
@@ -98,7 +102,7 @@ class EvenementController extends Controller
             }
 
             $evenement->update($validated);
-            return new EvenementResource($evenement);
+            return new EvenementResource($evenement->load('membre'));
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Erreur lors de la mise à jour',
@@ -107,7 +111,7 @@ class EvenementController extends Controller
         }
     }
 
-    // 🔹 NOUVELLE MÉTHODE : Mise à jour du statut uniquement
+    // 🔹 Mise à jour du statut uniquement
     public function updateStatus(Request $request, $id)
     {
         try {
@@ -119,7 +123,7 @@ class EvenementController extends Controller
 
             $evenement->update(['statut' => $validated['statut']]);
             
-            return new EvenementResource($evenement);
+            return new EvenementResource($evenement->load('membre'));
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Erreur lors de la mise à jour du statut',
@@ -128,7 +132,7 @@ class EvenementController extends Controller
         }
     }
 
-    // 🔹 NOUVELLE MÉTHODE : Mise à jour complète avec POST
+    // 🔹 Mise à jour complète avec POST
     public function updateEvent(Request $request, $id)
     {
         try {
@@ -152,7 +156,7 @@ class EvenementController extends Controller
             }
 
             $evenement->update($validated);
-            return new EvenementResource($evenement);
+            return new EvenementResource($evenement->load('membre'));
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Erreur lors de la mise à jour de l\'événement',
@@ -183,7 +187,8 @@ class EvenementController extends Controller
     public function getEvenementsValides()
     {
         try {
-            $evenements = Evenement::where('statut', 'Validé')
+            $evenements = Evenement::with('membre')
+                ->where('statut', 'Validé')
                 ->latest()
                 ->get();
             

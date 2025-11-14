@@ -90,7 +90,7 @@ const SignUp = () => {
       }
 
       setTimeout(() => {
-        navigate("/dashvisiteur");
+        navigate("/login");
       }, 2000);
 
     } catch (error) {
@@ -398,7 +398,7 @@ const SignUp = () => {
                       <i className="fas fa-sign-in-alt"></i>
                       Déjà un compte ? Se connecter
                     </Link>
-                    <Link to="/dashvisiteur" className={`option-link visitor ${isNightMode ? 'night-visitor' : 'day-visitor'}`}>
+                    <Link to="/login" className={`option-link visitor ${isNightMode ? 'night-visitor' : 'day-visitor'}`}>
                       <i className="fas fa-globe"></i>
                       Accès visiteur
                     </Link>

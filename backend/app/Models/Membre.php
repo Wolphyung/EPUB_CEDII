@@ -60,4 +60,15 @@ class Membre extends Authenticatable
     {
         return $this->hasMany(Message::class);
     }
+    
+   public function evenements()
+    {
+        return $this->hasMany(Evenement::class, 'membre_id');
+    }
+
+    // Accesseur pour compatibilité
+    public function getNomCompletAttribute()
+    {
+        return $this->nom;
+    }
 }
