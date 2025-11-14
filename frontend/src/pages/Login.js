@@ -1,14 +1,16 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
+import { ThemeProvider, ThemeToggle, useTheme } from '../components/journuit';
 
-export default function Login() {
+// Composant Login principal
+const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isNightMode, setIsNightMode] = useState(false);
   const navigate = useNavigate();
+  const { isDarkMode } = useTheme();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -58,7 +60,10 @@ export default function Login() {
   };
 
   return (
-    <div className={`login-container ${isNightMode ? 'night-mode' : 'day-mode'}`}>
+    <div className={`login-container ${isDarkMode ? 'dark-mode' : ''}`}>
+      {/* Theme Toggle Button */}
+      <ThemeToggle />
+      
       {/* Background avec effets modernes */}
       <div className="background-wrapper">
         <div className="gradient-bg"></div>
@@ -69,20 +74,21 @@ export default function Login() {
         </div>
         
         {/* Éléments jour/nuit */}
-        <div className="sun"></div>
-        <div className="moon"></div>
+        <div className={`celestial-body ${isDarkMode ? 'moon' : 'sun'}`}></div>
         
-        <div className="stars">
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-          <div className="star"></div>
-        </div>
+        {isDarkMode && (
+          <div className="stars">
+            <div className="star"></div>
+            <div className="star"></div>
+            <div className="star"></div>
+            <div className="star"></div>
+            <div className="star"></div>
+            <div className="star"></div>
+            <div className="star"></div>
+            <div className="star"></div>
+            <div className="star"></div>
+          </div>
+        )}
       </div>
 
       {/* Container Principal */}
@@ -95,21 +101,6 @@ export default function Login() {
                 <div className="scene-title">
                   <h1>CEDII Messenger</h1>
                   <p>Connecter le monde institutionnel</p>
-                </div>
-                
-                <div className="controls">
-                  <button 
-                    className={`mode-btn ${!isNightMode ? 'active' : ''}`}
-                    onClick={() => setIsNightMode(false)}
-                  >
-                    <i className="fas fa-sun"></i> Jour
-                  </button>
-                  <button 
-                    className={`mode-btn ${isNightMode ? 'active' : ''}`}
-                    onClick={() => setIsNightMode(true)}
-                  >
-                    <i className="fas fa-moon"></i> Nuit
-                  </button>
                 </div>
                 
                 <div className="earth-orbit-container">
@@ -144,9 +135,9 @@ export default function Login() {
 
           {/* Section Login à Droite */}
           <div className="login-section">
-            <div className={`login-card ${isNightMode ? 'night-card' : 'day-card'}`}>
+            <div className="login-card">
               {/* En-tête */}
-              <div className={`card-header ${isNightMode ? 'night-header' : 'day-header'}`}>
+              <div className="card-header">
                 <div className="logo-section">
                   <div className="logo-icon">
                     <i className="fas fa-exchange-alt"></i>
@@ -161,13 +152,13 @@ export default function Login() {
               {/* Corps du Formulaire */}
               <div className="card-body">
                 <div className="welcome-section">
-                  <h2 className={isNightMode ? 'night-text' : 'day-text'}>Bienvenue</h2>
-                  <p className={isNightMode ? 'night-subtext' : 'day-subtext'}>Connectez-vous à votre espace institutionnel</p>
+                  <h2>Bienvenue</h2>
+                  <p>Connectez-vous à votre espace institutionnel</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="login-form">
                   <div className="form-group">
-                    <label htmlFor="email" className={isNightMode ? 'night-label' : 'day-label'}>
+                    <label htmlFor="email">
                       <i className="fas fa-envelope"></i>
                       Email Institutionnel
                     </label>
@@ -180,14 +171,14 @@ export default function Login() {
                         required
                         disabled={loading}
                         placeholder="votre@institution.mg"
-                        className={`form-input ${isNightMode ? 'night-input' : 'day-input'}`}
+                        className="form-input"
                       />
-                      <div className={`input-focus ${isNightMode ? 'night-focus' : 'day-focus'}`}></div>
+                      <div className="input-focus"></div>
                     </div>
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="password" className={isNightMode ? 'night-label' : 'day-label'}>
+                    <label htmlFor="password">
                       <i className="fas fa-lock"></i>
                       Mot de passe
                     </label>
@@ -200,14 +191,14 @@ export default function Login() {
                         required
                         disabled={loading}
                         placeholder="Votre mot de passe"
-                        className={`form-input ${isNightMode ? 'night-input' : 'day-input'}`}
+                        className="form-input"
                       />
-                      <div className={`input-focus ${isNightMode ? 'night-focus' : 'day-focus'}`}></div>
+                      <div className="input-focus"></div>
                     </div>
                   </div>
 
                   {error && (
-                    <div className={`error-message ${isNightMode ? 'night-error' : 'day-error'}`}>
+                    <div className="error-message">
                       <i className="fas fa-exclamation-triangle"></i>
                       <div>
                         <strong>Erreur de connexion</strong>
@@ -219,7 +210,7 @@ export default function Login() {
                   <button 
                     type="submit" 
                     disabled={loading}
-                    className={`login-button ${isNightMode ? 'night-button' : 'day-button'}`}
+                    className="login-button"
                   >
                     {loading ? (
                       <>
@@ -238,21 +229,21 @@ export default function Login() {
                 {/* Options supplémentaires */}
                 <div className="login-options">
                   <div className="option-links">
-                    <Link to="/forgot-password" className={`option-link ${isNightMode ? 'night-link' : 'day-link'}`}>
+                    <Link to="/forgot-password" className="option-link">
                       <i className="fas fa-key"></i>
                       Mot de passe oublié ?
                     </Link>
-                    <Link to="/pubvisiteur" className={`option-link visitor ${isNightMode ? 'night-visitor' : 'day-visitor'}`}>
+                    <Link to="/pubvisiteur" className="option-link visitor">
                       <i className="fas fa-globe"></i>
                       Accès visiteur
                     </Link>
                   </div>
 
-                  <div className={`divider ${isNightMode ? 'night-divider' : 'day-divider'}`}>
-                    <span className={isNightMode ? 'night-divider-text' : 'day-divider-text'}>ou</span>
+                  <div className="divider">
+                    <span>ou</span>
                   </div>
 
-                  <Link to="/register" className={`register-button ${isNightMode ? 'night-register' : 'day-register'}`}>
+                  <Link to="/register" className="register-button">
                     <i className="fas fa-user-plus"></i>
                     Créer un compte institutionnel
                   </Link>
@@ -260,19 +251,19 @@ export default function Login() {
 
                 {/* Types d'utilisateurs */}
                 <div className="user-types">
-                  <h4 className={isNightMode ? 'night-text' : 'day-text'}>Types d'accès</h4>
+                  <h4>Types d'accès</h4>
                   <div className="types-grid">
-                    <div className={`type-card admin ${isNightMode ? 'night-type-card' : 'day-type-card'}`}>
+                    <div className="type-card admin">
                       <i className="fas fa-crown"></i>
                       <span>Administrateur</span>
                       <small>Table: admins</small>
                     </div>
-                    <div className={`type-card member ${isNightMode ? 'night-type-card' : 'day-type-card'}`}>
+                    <div className="type-card member">
                       <i className="fas fa-building"></i>
                       <span>Membre</span>
                       <small>Table: membres</small>
                     </div>
-                    <div className={`type-card visitor ${isNightMode ? 'night-type-card' : 'day-type-card'}`}>
+                    <div className="type-card visitor">
                       <i className="fas fa-eye"></i>
                       <span>Visiteur</span>
                       <small>Table: users</small>
@@ -294,16 +285,65 @@ export default function Login() {
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
           position: relative;
           overflow: hidden;
-          transition: background 1.5s ease;
+          transition: all 0.3s ease;
         }
 
-        /* Modes Jour/Nuit */
-        .login-container.day-mode {
-          background: linear-gradient(135deg, #1a2980, #26d0ce);
+        /* Variables CSS pour les thèmes */
+        :root {
+          --bg-gradient: linear-gradient(135deg, #1a2980, #26d0ce);
+          --card-bg: rgba(255, 255, 255, 0.95);
+          --card-header-bg: linear-gradient(135deg, #1e293b, #374151);
+          --text-primary: #1e293b;
+          --text-secondary: #64748b;
+          --text-light: rgba(255, 255, 255, 0.9);
+          --input-bg: white;
+          --input-border: #e5e7eb;
+          --input-focus: #4f46e5;
+          --error-bg: linear-gradient(135deg, #ef4444, #dc2626);
+          --button-bg: linear-gradient(135deg, #4f46e5, #6366f1);
+          --button-shadow: rgba(79, 70, 229, 0.3);
+          --link-color: #64748b;
+          --link-hover: #4f46e5;
+          --visitor-color: #059669;
+          --register-border: #4f46e5;
+          --register-hover: #4f46e5;
+          --type-card-bg: #f8fafc;
+          --type-card-border: #e2e8f0;
+          --shape-bg: rgba(255, 255, 255, 0.1);
+          --scene-bg: rgba(255, 255, 255, 0.1);
+          --divider-bg: #e2e8f0;
+          --divider-text: #94a3b8;
         }
 
-        .login-container.night-mode {
-          background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+        .login-container.dark-mode {
+          --bg-gradient: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+          --card-bg: rgba(30, 30, 60, 0.9);
+          --card-header-bg: linear-gradient(135deg, #0f0c29, #302b63);
+          --text-primary: #e2e8f0;
+          --text-secondary: #94a3b8;
+          --text-light: rgba(226, 232, 240, 0.9);
+          --input-bg: rgba(30, 41, 59, 0.5);
+          --input-border: #374151;
+          --input-focus: #8b5cf6;
+          --error-bg: linear-gradient(135deg, #b91c1c, #991b1b);
+          --button-bg: linear-gradient(135deg, #6366f1, #8b5cf6);
+          --button-shadow: rgba(139, 92, 246, 0.3);
+          --link-color: #94a3b8;
+          --link-hover: #8b5cf6;
+          --visitor-color: #10b981;
+          --register-border: #8b5cf6;
+          --register-hover: #8b5cf6;
+          --type-card-bg: rgba(30, 41, 59, 0.5);
+          --type-card-border: #374151;
+          --shape-bg: rgba(255, 255, 255, 0.05);
+          --scene-bg: rgba(255, 255, 255, 0.1);
+          --divider-bg: #374151;
+          --divider-text: #64748b;
+        }
+
+        /* Appliquer les variables */
+        .login-container {
+          background: var(--bg-gradient);
         }
 
         /* Background Modern */
@@ -323,19 +363,7 @@ export default function Login() {
           right: 0;
           bottom: 0;
           opacity: 0.7;
-        }
-
-        .day-mode .gradient-bg {
-          background: linear-gradient(135deg, 
-            rgba(26, 41, 128, 0.8) 0%, 
-            rgba(38, 208, 206, 0.7) 100%);
-        }
-
-        .night-mode .gradient-bg {
-          background: linear-gradient(135deg, 
-            rgba(15, 12, 41, 0.9) 0%, 
-            rgba(48, 43, 99, 0.8) 50%, 
-            rgba(36, 36, 62, 0.7) 100%);
+          background: var(--bg-gradient);
         }
 
         .floating-shapes {
@@ -350,6 +378,7 @@ export default function Login() {
           position: absolute;
           border-radius: 50%;
           animation: float 6s ease-in-out infinite;
+          background: var(--shape-bg);
         }
 
         .shape-1 {
@@ -376,16 +405,8 @@ export default function Login() {
           animation-delay: 4s;
         }
 
-        .day-mode .shape {
-          background: rgba(255, 255, 255, 0.1);
-        }
-
-        .night-mode .shape {
-          background: rgba(255, 255, 255, 0.05);
-        }
-
         /* Éléments Jour/Nuit */
-        .sun, .moon {
+        .celestial-body {
           position: absolute;
           border-radius: 50%;
           transition: all 1.5s ease;
@@ -398,6 +419,7 @@ export default function Login() {
           top: 50px;
           right: 80px;
           box-shadow: 0 0 60px #FFA500;
+          opacity: 1;
         }
 
         .moon {
@@ -407,7 +429,7 @@ export default function Login() {
           top: 60px;
           right: 90px;
           box-shadow: 0 0 40px #FFFFFF;
-          opacity: 0;
+          opacity: 1;
         }
 
         .moon::before {
@@ -425,27 +447,12 @@ export default function Login() {
             35px 35px 0 -4px #D3D3D3;
         }
 
-        .night-mode .sun {
-          opacity: 0;
-          transform: scale(0.5);
-        }
-
-        .night-mode .moon {
-          opacity: 1;
-        }
-
         .stars {
           position: absolute;
           top: 0;
           left: 0;
           width: 100%;
           height: 100%;
-          opacity: 0;
-          transition: opacity 1.5s ease;
-        }
-
-        .night-mode .stars {
-          opacity: 1;
         }
 
         .star {
@@ -497,7 +504,7 @@ export default function Login() {
         }
 
         .earth-scene {
-          background: rgba(255, 255, 255, 0.1);
+          background: var(--scene-bg);
           backdrop-filter: blur(20px);
           border-radius: 24px;
           padding: 2rem;
@@ -524,38 +531,6 @@ export default function Login() {
           color: rgba(255, 255, 255, 0.9);
           font-size: 1.1rem;
           margin: 0;
-        }
-
-        .controls {
-          display: flex;
-          gap: 1rem;
-          justify-content: center;
-          margin-bottom: 2rem;
-        }
-
-        .mode-btn {
-          padding: 0.75rem 1.5rem;
-          background: rgba(255, 255, 255, 0.2);
-          border: none;
-          border-radius: 8px;
-          color: white;
-          cursor: pointer;
-          font-weight: 600;
-          transition: all 0.3s ease;
-          backdrop-filter: blur(5px);
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .mode-btn:hover {
-          background: rgba(255, 255, 255, 0.3);
-          transform: translateY(-2px);
-        }
-
-        .mode-btn.active {
-          background: rgba(255, 255, 255, 0.4);
-          box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
         }
 
         .earth-orbit-container {
@@ -753,7 +728,7 @@ export default function Login() {
           z-index: 4;
         }
 
-        /* Styles de la carte selon le mode */
+        /* Styles de la carte */
         .login-card {
           border-radius: 24px;
           padding: 0;
@@ -765,30 +740,16 @@ export default function Login() {
           border: 1px solid rgba(255, 255, 255, 0.2);
           overflow: hidden;
           backdrop-filter: blur(20px);
-          transition: all 1.5s ease;
-        }
-
-        .day-card {
-          background: rgba(255, 255, 255, 0.95);
-        }
-
-        .night-card {
-          background: rgba(30, 30, 60, 0.9);
+          background: var(--card-bg);
+          transition: all 0.3s ease;
         }
 
         /* En-tête de carte */
         .card-header {
           padding: 2.5rem 2rem;
           text-align: center;
-          transition: all 1.5s ease;
-        }
-
-        .day-header {
-          background: linear-gradient(135deg, #1e293b, #374151);
-        }
-
-        .night-header {
-          background: linear-gradient(135deg, #0f0c29, #302b63);
+          background: var(--card-header-bg);
+          transition: all 0.3s ease;
         }
 
         .logo-section {
@@ -806,14 +767,7 @@ export default function Login() {
           align-items: center;
           justify-content: center;
           box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
-        }
-
-        .day-card .logo-icon {
           background: linear-gradient(135deg, #4f46e5, #6366f1);
-        }
-
-        .night-card .logo-icon {
-          background: linear-gradient(135deg, #6366f1, #8b5cf6);
         }
 
         .logo-icon i {
@@ -825,27 +779,13 @@ export default function Login() {
           font-size: 2rem;
           font-weight: 700;
           margin: 0;
-        }
-
-        .day-card .logo-text h1 {
           color: white;
-        }
-
-        .night-card .logo-text h1 {
-          color: #e2e8f0;
         }
 
         .logo-text p {
           margin: 0;
           font-size: 0.9rem;
-        }
-
-        .day-card .logo-text p {
           color: rgba(255, 255, 255, 0.8);
-        }
-
-        .night-card .logo-text p {
-          color: rgba(226, 232, 240, 0.8);
         }
 
         /* Corps de la carte */
@@ -853,23 +793,7 @@ export default function Login() {
           padding: 2.5rem;
         }
 
-        /* Styles de texte selon le mode */
-        .day-text {
-          color: #1e293b;
-        }
-
-        .night-text {
-          color: #e2e8f0;
-        }
-
-        .day-subtext {
-          color: #64748b;
-        }
-
-        .night-subtext {
-          color: #94a3b8;
-        }
-
+        /* Styles de texte */
         .welcome-section {
           text-align: center;
           margin-bottom: 2rem;
@@ -879,10 +803,12 @@ export default function Login() {
           font-size: 1.5rem;
           font-weight: 600;
           margin-bottom: 0.5rem;
+          color: var(--text-primary);
         }
 
         .welcome-section p {
           margin: 0;
+          color: var(--text-secondary);
         }
 
         /* Formulaires */
@@ -890,36 +816,19 @@ export default function Login() {
           margin-bottom: 1.5rem;
         }
 
-        .day-label {
+        label {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          color: #374151;
+          color: var(--text-primary);
           font-weight: 500;
           font-size: 0.9rem;
           margin-bottom: 0.5rem;
         }
 
-        .night-label {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          color: #e2e8f0;
-          font-weight: 500;
-          font-size: 0.9rem;
-          margin-bottom: 0.5rem;
-        }
-
-        .form-group label i {
+        label i {
           width: 16px;
-        }
-
-        .day-label i {
-          color: #4f46e5;
-        }
-
-        .night-label i {
-          color: #8b5cf6;
+          color: var(--input-focus);
         }
 
         .input-wrapper {
@@ -932,34 +841,19 @@ export default function Login() {
           border-radius: 12px;
           font-size: 1rem;
           transition: all 0.3s ease;
+          border: 2px solid var(--input-border);
+          background: var(--input-bg);
+          color: var(--text-primary);
         }
 
-        .day-input {
-          border: 2px solid #e5e7eb;
-          background: white;
-          color: #1e293b;
-        }
-
-        .day-input:focus {
+        .form-input:focus {
           outline: none;
-          border-color: #4f46e5;
+          border-color: var(--input-focus);
           box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
         }
 
-        .night-input {
-          border: 2px solid #374151;
-          background: rgba(30, 41, 59, 0.5);
-          color: #e2e8f0;
-        }
-
-        .night-input:focus {
-          outline: none;
-          border-color: #8b5cf6;
-          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
-        }
-
-        .night-input::placeholder {
-          color: #64748b;
+        .form-input::placeholder {
+          color: var(--text-secondary);
         }
 
         .input-focus {
@@ -972,14 +866,7 @@ export default function Login() {
           pointer-events: none;
           opacity: 0;
           transition: opacity 0.3s ease;
-        }
-
-        .day-focus {
-          box-shadow: 0 0 0 2px #4f46e5;
-        }
-
-        .night-focus {
-          box-shadow: 0 0 0 2px #8b5cf6;
+          box-shadow: 0 0 0 2px var(--input-focus);
         }
 
         .form-input:focus ~ .input-focus {
@@ -995,16 +882,8 @@ export default function Login() {
           gap: 0.75rem;
           margin-bottom: 1.5rem;
           animation: slideIn 0.3s ease;
-        }
-
-        .day-error {
-          background: linear-gradient(135deg, #ef4444, #dc2626);
+          background: var(--error-bg);
           color: white;
-        }
-
-        .night-error {
-          background: linear-gradient(135deg, #b91c1c, #991b1b);
-          color: #fecaca;
         }
 
         .error-message i {
@@ -1042,28 +921,14 @@ export default function Login() {
           transition: all 0.3s ease;
           cursor: pointer;
           margin-bottom: 1.5rem;
-        }
-
-        .day-button {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
+          background: var(--button-bg);
           color: white;
-          box-shadow: 0 8px 25px rgba(79, 70, 229, 0.3);
+          box-shadow: 0 8px 25px var(--button-shadow);
         }
 
-        .day-button:hover:not(:disabled) {
+        .login-button:hover:not(:disabled) {
           transform: translateY(-2px);
-          box-shadow: 0 12px 30px rgba(79, 70, 229, 0.4);
-        }
-
-        .night-button {
-          background: linear-gradient(135deg, #6366f1, #8b5cf6);
-          color: white;
-          box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
-        }
-
-        .night-button:hover:not(:disabled) {
-          transform: translateY(-2px);
-          box-shadow: 0 12px 30px rgba(139, 92, 246, 0.4);
+          box-shadow: 0 12px 30px var(--button-shadow);
         }
 
         .login-button:disabled {
@@ -1099,38 +964,20 @@ export default function Login() {
           align-items: center;
           gap: 0.5rem;
           transition: all 0.3s ease;
+          color: var(--link-color);
         }
 
-        .day-link {
-          color: #64748b;
+        .option-link:hover {
+          color: var(--link-hover);
         }
 
-        .day-link:hover {
-          color: #4f46e5;
+        .option-link.visitor {
+          color: var(--visitor-color);
         }
 
-        .night-link {
-          color: #94a3b8;
-        }
-
-        .night-link:hover {
-          color: #8b5cf6;
-        }
-
-        .day-visitor {
-          color: #059669;
-        }
-
-        .day-visitor:hover {
-          color: #047857;
-        }
-
-        .night-visitor {
-          color: #10b981;
-        }
-
-        .night-visitor:hover {
-          color: #34d399;
+        .option-link.visitor:hover {
+          color: var(--visitor-color);
+          opacity: 0.8;
         }
 
         .divider {
@@ -1140,42 +987,23 @@ export default function Login() {
           font-size: 0.85rem;
         }
 
-        .day-divider::before {
+        .divider::before {
           content: '';
           position: absolute;
           top: 50%;
           left: 0;
           right: 0;
           height: 1px;
-          background: #e2e8f0;
+          background: var(--divider-bg);
           z-index: 1;
         }
 
-        .night-divider::before {
-          content: '';
-          position: absolute;
-          top: 50%;
-          left: 0;
-          right: 0;
-          height: 1px;
-          background: #374151;
-          z-index: 1;
-        }
-
-        .day-divider-text {
-          background: white;
+        .divider span {
+          background: var(--card-bg);
           padding: 0 1rem;
           position: relative;
           z-index: 2;
-          color: #94a3b8;
-        }
-
-        .night-divider-text {
-          background: rgba(30, 30, 60, 0.9);
-          padding: 0 1rem;
-          position: relative;
-          z-index: 2;
-          color: #64748b;
+          color: var(--divider-text);
         }
 
         .register-button {
@@ -1190,44 +1018,21 @@ export default function Login() {
           font-weight: 600;
           font-size: 0.9rem;
           transition: all 0.3s ease;
-        }
-
-        .day-register {
           background: transparent;
-          color: #4f46e5;
-          border: 2px solid #4f46e5;
+          color: var(--register-border);
+          border: 2px solid var(--register-border);
         }
 
-        .day-register:hover {
-          background: #4f46e5;
-          color: white;
-          transform: translateY(-1px);
-        }
-
-        .night-register {
-          background: transparent;
-          color: #8b5cf6;
-          border: 2px solid #8b5cf6;
-        }
-
-        .night-register:hover {
-          background: #8b5cf6;
+        .register-button:hover {
+          background: var(--register-hover);
           color: white;
           transform: translateY(-1px);
         }
 
         /* Types d'utilisateurs */
         .user-types {
-          border-top: 1px solid #f1f5f9;
+          border-top: 1px solid var(--divider-bg);
           padding-top: 1.5rem;
-        }
-
-        .day-card .user-types {
-          border-top-color: #f1f5f9;
-        }
-
-        .night-card .user-types {
-          border-top-color: #374151;
         }
 
         .user-types h4 {
@@ -1235,6 +1040,7 @@ export default function Login() {
           font-weight: 600;
           margin-bottom: 1rem;
           text-align: center;
+          color: var(--text-primary);
         }
 
         .types-grid {
@@ -1248,26 +1054,13 @@ export default function Login() {
           border-radius: 8px;
           text-align: center;
           transition: all 0.3s ease;
+          background: var(--type-card-bg);
+          border: 1px solid var(--type-card-border);
         }
 
-        .day-type-card {
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-        }
-
-        .day-type-card:hover {
+        .type-card:hover {
           transform: translateY(-2px);
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .night-type-card {
-          background: rgba(30, 41, 59, 0.5);
-          border: 1px solid #374151;
-        }
-
-        .night-type-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         .type-card i {
@@ -1285,26 +1078,12 @@ export default function Login() {
           font-size: 0.8rem;
           font-weight: 600;
           margin-bottom: 0.25rem;
-        }
-
-        .day-type-card span {
-          color: #374151;
-        }
-
-        .night-type-card span {
-          color: #e2e8f0;
+          color: var(--text-primary);
         }
 
         .type-card small {
           font-size: 0.7rem;
-        }
-
-        .day-type-card small {
-          color: #64748b;
-        }
-
-        .night-type-card small {
-          color: #94a3b8;
+          color: var(--text-secondary);
         }
 
         /* Animations */
@@ -1439,4 +1218,13 @@ export default function Login() {
       `}</style>
     </div>
   );
-}
+};
+
+// Wrapper component pour fournir le contexte du thème
+const LoginWithTheme = () => (
+  <ThemeProvider>
+    <Login />
+  </ThemeProvider>
+);
+
+export default LoginWithTheme;

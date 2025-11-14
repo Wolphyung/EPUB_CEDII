@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { ThemeProvider, ThemeToggle, useTheme } from '../components/journuit';
 
 const Dashboard = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
+  const { isDarkMode } = useTheme();
 
   useEffect(() => {
     checkAuthStatus();
@@ -57,7 +59,10 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="dashboard">
+    <div className={`dashboard ${isDarkMode ? 'dark-mode' : ''}`}>
+      {/* Theme Toggle Button */}
+      <ThemeToggle />
+      
       {/* Hero Section */}
       <section className="hero">
         <div className="hero-background">
@@ -252,13 +257,71 @@ const Dashboard = () => {
         .dashboard {
           min-height: 100vh;
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+          background-color: var(--bg-color);
+          color: var(--text-color);
+          transition: all 0.3s ease;
+        }
+
+        /* Variables CSS pour les thèmes */
+        :root {
+          --bg-color: #ffffff;
+          --text-color: #000000;
+          --card-bg: #ffffff;
+          --card-border: #e2e8f0;
+          --section-bg: #f8fafc;
+          --header-bg: #f0f0f0;
+          --hero-bg: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+          --stat-bg: #f8fafc;
+          --mission-bg: #ffffff;
+          --features-bg: #f8fafc;
+          --types-bg: #ffffff;
+          --cta-bg: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+          --btn-primary-bg: linear-gradient(45deg, #3b82f6, #6366f1);
+          --btn-secondary-bg: rgba(255, 255, 255, 0.1);
+          --btn-outline-color: rgba(255, 255, 255, 0.3);
+          --badge-bg: rgba(255, 255, 255, 0.1);
+          --badge-border: rgba(255, 255, 255, 0.2);
+          --floating-card-bg: rgba(255, 255, 255, 0.1);
+          --floating-card-border: rgba(255, 255, 255, 0.2);
+          --institution-card-bg: #f8fafc;
+          --institution-item-bg: #ffffff;
+          --feature-badge-bg: #e0f2fe;
+          --feature-badge-color: #0369a1;
+          --access-level-bg: rgba(255, 255, 255, 0.1);
+        }
+
+        .dashboard.dark-mode {
+          --bg-color: #0f172a;
+          --text-color: #f1f5f9;
+          --card-bg: #1e293b;
+          --card-border: #334155;
+          --section-bg: #1e293b;
+          --header-bg: #1e293b;
+          --hero-bg: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+          --stat-bg: #1e293b;
+          --mission-bg: #0f172a;
+          --features-bg: #1e293b;
+          --types-bg: #0f172a;
+          --cta-bg: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+          --btn-primary-bg: linear-gradient(45deg, #6366f1, #3b82f6);
+          --btn-secondary-bg: rgba(255, 255, 255, 0.2);
+          --btn-outline-color: rgba(255, 255, 255, 0.5);
+          --badge-bg: rgba(255, 255, 255, 0.2);
+          --badge-border: rgba(255, 255, 255, 0.3);
+          --floating-card-bg: rgba(255, 255, 255, 0.2);
+          --floating-card-border: rgba(255, 255, 255, 0.3);
+          --institution-card-bg: #1e293b;
+          --institution-item-bg: #0f172a;
+          --feature-badge-bg: #1e3a8a;
+          --feature-badge-color: #e0f2fe;
+          --access-level-bg: rgba(255, 255, 255, 0.2);
         }
 
         /* Hero Section */
         .hero {
           position: relative;
           padding: 120px 0 80px;
-          background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+          background: var(--hero-bg);
           overflow: hidden;
         }
 
@@ -301,11 +364,11 @@ const Dashboard = () => {
 
         .badge {
           display: inline-block;
-          background: rgba(255, 255, 255, 0.1);
+          background: var(--badge-bg);
           backdrop-filter: blur(10px);
           padding: 0.5rem 1rem;
           border-radius: 20px;
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          border: 1px solid var(--badge-border);
           margin-bottom: 2rem;
         }
 
@@ -370,7 +433,7 @@ const Dashboard = () => {
         }
 
         .btn-primary {
-          background: linear-gradient(45deg, #3b82f6, #6366f1);
+          background: var(--btn-primary-bg);
           color: white;
           box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
         }
@@ -381,10 +444,10 @@ const Dashboard = () => {
         }
 
         .btn-secondary {
-          background: rgba(255, 255, 255, 0.1);
+          background: var(--btn-secondary-bg);
           color: white;
           backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          border: 1px solid var(--badge-border);
         }
 
         .btn-secondary:hover {
@@ -400,7 +463,7 @@ const Dashboard = () => {
         .btn-outline {
           background: transparent;
           color: white;
-          border: 2px solid rgba(255, 255, 255, 0.3);
+          border: 2px solid var(--btn-outline-color);
         }
 
         .btn-outline:hover {
@@ -415,9 +478,9 @@ const Dashboard = () => {
 
         .floating-card {
           position: absolute;
-          background: rgba(255, 255, 255, 0.1);
+          background: var(--floating-card-bg);
           backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          border: 1px solid var(--floating-card-border);
           border-radius: 16px;
           padding: 1.5rem;
           text-align: center;
@@ -468,7 +531,7 @@ const Dashboard = () => {
         /* Stats Section */
         .stats-section {
           padding: 4rem 0;
-          background: #f8fafc;
+          background: var(--stat-bg);
         }
 
         .stats-grid {
@@ -480,10 +543,10 @@ const Dashboard = () => {
         .stat-item {
           text-align: center;
           padding: 2rem;
-          background: white;
+          background: var(--card-bg);
           border-radius: 12px;
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--card-border);
         }
 
         .stat-number {
@@ -498,14 +561,15 @@ const Dashboard = () => {
 
         .stat-label {
           font-size: 1rem;
-          color: #64748b;
+          color: var(--text-color);
+          opacity: 0.8;
           font-weight: 500;
         }
 
         /* Mission Section */
         .mission-section {
           padding: 6rem 0;
-          background: white;
+          background: var(--mission-bg);
         }
 
         .mission-content {
@@ -518,13 +582,14 @@ const Dashboard = () => {
         .mission-content h2 {
           font-size: 2.5rem;
           font-weight: 700;
-          color: #1e293b;
+          color: var(--text-color);
           margin-bottom: 1.5rem;
         }
 
         .mission-content > .mission-text > p {
           font-size: 1.2rem;
-          color: #64748b;
+          color: var(--text-color);
+          opacity: 0.8;
           line-height: 1.6;
           margin-bottom: 2rem;
         }
@@ -549,26 +614,27 @@ const Dashboard = () => {
         .point-content h4 {
           font-size: 1.2rem;
           font-weight: 600;
-          color: #1e293b;
+          color: var(--text-color);
           margin-bottom: 0.25rem;
         }
 
         .point-content p {
-          color: #64748b;
+          color: var(--text-color);
+          opacity: 0.8;
           margin: 0;
         }
 
         .institution-card {
-          background: #f8fafc;
+          background: var(--institution-card-bg);
           padding: 2rem;
           border-radius: 12px;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--card-border);
         }
 
         .institution-card h3 {
           font-size: 1.5rem;
           font-weight: 600;
-          color: #1e293b;
+          color: var(--text-color);
           margin-bottom: 1.5rem;
         }
 
@@ -580,17 +646,18 @@ const Dashboard = () => {
 
         .institution-item {
           padding: 0.75rem 1rem;
-          background: white;
+          background: var(--institution-item-bg);
           border-radius: 8px;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--card-border);
           font-weight: 500;
-          color: #475569;
+          color: var(--text-color);
+          opacity: 0.9;
         }
 
         /* Features Section */
         .features-section {
           padding: 6rem 0;
-          background: #f8fafc;
+          background: var(--features-bg);
         }
 
         .section-header {
@@ -601,13 +668,14 @@ const Dashboard = () => {
         .section-header h2 {
           font-size: 2.5rem;
           font-weight: 700;
-          color: #1e293b;
+          color: var(--text-color);
           margin-bottom: 1rem;
         }
 
         .section-header p {
           font-size: 1.2rem;
-          color: #64748b;
+          color: var(--text-color);
+          opacity: 0.8;
           max-width: 600px;
           margin: 0 auto;
         }
@@ -619,12 +687,12 @@ const Dashboard = () => {
         }
 
         .feature-card {
-          background: white;
+          background: var(--card-bg);
           padding: 3rem 2rem;
           border-radius: 16px;
           text-align: center;
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--card-border);
           transition: all 0.3s ease;
           position: relative;
         }
@@ -642,12 +710,13 @@ const Dashboard = () => {
         .feature-title {
           font-size: 1.5rem;
           font-weight: 600;
-          color: #1e293b;
+          color: var(--text-color);
           margin-bottom: 1rem;
         }
 
         .feature-description {
-          color: #64748b;
+          color: var(--text-color);
+          opacity: 0.8;
           line-height: 1.6;
           margin-bottom: 1.5rem;
         }
@@ -656,8 +725,8 @@ const Dashboard = () => {
           position: absolute;
           top: 1rem;
           right: 1rem;
-          background: #e0f2fe;
-          color: #0369a1;
+          background: var(--feature-badge-bg);
+          color: var(--feature-badge-color);
           padding: 0.25rem 0.75rem;
           border-radius: 20px;
           font-size: 0.8rem;
@@ -667,7 +736,7 @@ const Dashboard = () => {
         /* Types Section */
         .types-section {
           padding: 6rem 0;
-          background: white;
+          background: var(--types-bg);
         }
 
         .types-grid {
@@ -729,7 +798,7 @@ const Dashboard = () => {
         /* CTA Section */
         .cta-section {
           padding: 6rem 0;
-          background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+          background: var(--cta-bg);
           color: white;
           text-align: center;
         }
@@ -768,7 +837,7 @@ const Dashboard = () => {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          background: rgba(255, 255, 255, 0.1);
+          background: var(--access-level-bg);
           padding: 1rem 1.5rem;
           border-radius: 8px;
           backdrop-filter: blur(10px);
@@ -854,4 +923,11 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+// Wrapper component pour fournir le contexte du thème
+const DashboardWithTheme = () => (
+  <ThemeProvider>
+    <Dashboard />
+  </ThemeProvider>
+);
+
+export default DashboardWithTheme;
