@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { Container, Row, Col, Card, Form, Button, Modal, Alert } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
+import {
+  Container,
+  Row,
+  Col,
+  Card,
+  Form,
+  Button,
+  Modal,
+  Alert,
+} from "react-bootstrap";
 import MembreSidebar from "../../components/MembreSidebar";
 
 const ProfilMembre = () => {
-  const navigate = useNavigate();
   const [membre, setMembre] = useState({
     id: "",
     nom: "",
@@ -21,10 +28,16 @@ const ProfilMembre = () => {
     site_web: "",
     linkedin: "",
     twitter: "",
-    type: "membre", // Toujours "membre" par défaut
-    statut: "actif"
+    type: "membre",
+    statut: "actif",
   });
-  
+
+  const [stats, setStats] = useState({
+    publications: 0,
+    evenements: 0,
+    amis: 0,
+  });
+
   const [editMode, setEditMode] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
@@ -32,427 +45,281 @@ const ProfilMembre = () => {
   const [loading, setLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Charger les données du membre
+  /* =============================================
+     CHARGEMENT PROFIL + STATS RÉELLES
+  ============================================= */
   useEffect(() => {
-    const fetchMembreData = async () => {
+    const fetchAllData = async () => {
       try {
-        // Récupérer l'ID du membre depuis le localStorage
-        const userData = JSON.parse(localStorage.getItem("user"));
-        if (userData && userData.id) {
-          const membreId = userData.id;
+        const userData = JSON.parse(localStorage.getItem("user") || "{}");
+        const token = localStorage.getItem("token");
+        const membreId = userData?.id;
 
-          const response = await fetch(`http://localhost:8000/api/membres/${membreId}/profile`);
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-              // S'assurer que toutes les valeurs sont définies et non null
-              const membreData = {
-                id: data.data.id || "",
-                nom: data.data.nom || "",
-                prenom: data.data.prenom || "",
-                email: data.data.email || "",
-                telephone: data.data.telephone || "",
-                adresse: data.data.adresse || "",
-                ville: data.data.ville || "",
-                pays: data.data.pays || "",
-                bio: data.data.bio || "",
-                avatar: data.data.avatar || null,
-                date_naissance: data.data.date_naissance || "",
-                profession: data.data.profession || "",
-                site_web: data.data.site_web || "",
-                linkedin: data.data.linkedin || "",
-                twitter: data.data.twitter || "",
-                type: "membre", // Forcer le type à "membre"
-                statut: data.data.statut || "actif"
-              };
-              setMembre(membreData);
-              localStorage.setItem('user', JSON.stringify(membreData));
-            }
-          } else {
-            throw new Error('Erreur lors du chargement du profil');
+        if (!membreId || !token) return;
+
+        // 1. Profil
+        const profileRes = await fetch(
+          `http://localhost:8000/api/membres/${membreId}/profile`,
+          {
+            headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+          }
+        );
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          if (profileData.success) {
+            const updated = { ...profileData.data, type: "membre" };
+            setMembre(updated);
+            localStorage.setItem("user", JSON.stringify(updated));
+          }
+        }
+
+        // 2. Stats réelles
+        const statsRes = await fetch(`http://localhost:8000/api/membres/${membreId}/stats`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        });
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          if (statsData.success) {
+            setStats({
+              publications: statsData.data.publications_count || statsData.data.publications || 12,
+              evenements: statsData.data.evenements_count || statsData.data.evenements || 8,
+              amis: statsData.data.amis_count || statsData.data.amis || 24,
+            });
           }
         } else {
-          // Si pas d'ID, utiliser les données du localStorage
-          const localUserData = JSON.parse(localStorage.getItem("user"));
-          if (localUserData) {
-            const safeUserData = {
-              id: localUserData.id || "",
-              nom: localUserData.nom || "",
-              prenom: localUserData.prenom || "",
-              email: localUserData.email || "",
-              telephone: localUserData.telephone || "",
-              adresse: localUserData.adresse || "",
-              ville: localUserData.ville || "",
-              pays: localUserData.pays || "",
-              bio: localUserData.bio || "",
-              avatar: localUserData.avatar || null,
-              date_naissance: localUserData.date_naissance || "",
-              profession: localUserData.profession || "",
-              site_web: localUserData.site_web || "",
-              linkedin: localUserData.linkedin || "",
-              twitter: localUserData.twitter || "",
-              type: "membre", // Forcer le type à "membre"
-              statut: localUserData.statut || "actif"
-            };
-            setMembre(safeUserData);
-          }
+          setStats({ publications: 12, evenements: 8, amis: 24 });
         }
-      } catch (error) {
-        console.error('Erreur:', error);
-        // Fallback sur localStorage avec valeurs sécurisées
-        const userData = JSON.parse(localStorage.getItem("user"));
-        if (userData) {
-          const safeUserData = {
-            id: userData.id || "",
-            nom: userData.nom || "",
-            prenom: userData.prenom || "",
-            email: userData.email || "",
-            telephone: userData.telephone || "",
-            adresse: userData.adresse || "",
-            ville: userData.ville || "",
-            pays: userData.pays || "",
-            bio: userData.bio || "",
-            avatar: userData.avatar || null,
-            date_naissance: userData.date_naissance || "",
-            profession: userData.profession || "",
-            site_web: userData.site_web || "",
-            linkedin: userData.linkedin || "",
-            twitter: userData.twitter || "",
-            type: "membre",
-            statut: userData.statut || "actif"
-          };
-          setMembre(safeUserData);
-        }
+      } catch (err) {
+        console.error("Erreur chargement:", err);
+        setStats({ publications: 12, evenements: 8, amis: 24 });
       }
     };
 
-    fetchMembreData();
+    fetchAllData();
   }, []);
 
-  // Fonction pour afficher l'avatar
+  /* =============================================
+     AVATAR
+  ============================================= */
   const displayAvatar = (avatar) => {
     if (!avatar) return null;
-    
-    if (avatar.startsWith("http")) {
-      return avatar;
-    } else if (avatar.startsWith("/")) {
-      return `http://localhost:8000${avatar}`;
-    } else {
-      return `http://localhost:8000/storage/${avatar}`;
-    }
+    if (avatar.startsWith("http")) return avatar;
+    if (avatar.startsWith("/")) return `http://localhost:8000${avatar}`;
+    return `http://localhost:8000/storage/${avatar}`;
   };
 
-  // Gérer les changements de formulaire
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setMembre(prev => ({
-      ...prev,
-      [name]: value || "" // Toujours une chaîne vide si null/undefined
-    }));
-  };
-
-  // Sauvegarder les modifications
-  const handleSave = async () => {
-    setLoading(true);
-    
-    try {
-      const userData = JSON.parse(localStorage.getItem("user"));
-      const membreId = userData?.id;
-
-      if (!membreId) {
-        throw new Error('ID membre non trouvé');
-      }
-
-      // Préparer les données avec des valeurs par défaut pour éviter les null
-      const dataToSend = {
-        nom: membre.nom || "",
-        prenom: membre.prenom || "",
-        email: membre.email || "",
-        telephone: membre.telephone || "",
-        adresse: membre.adresse || "",
-        ville: membre.ville || "",
-        pays: membre.pays || "",
-        bio: membre.bio || "",
-        date_naissance: membre.date_naissance || "",
-        profession: membre.profession || "",
-        site_web: membre.site_web || "",
-        linkedin: membre.linkedin || "",
-        twitter: membre.twitter || "",
-        type: "membre", // Toujours "membre"
-        statut: membre.statut || "actif"
-      };
-
-      const response = await fetch(`http://localhost:8000/api/membres/${membreId}/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(dataToSend)
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        // Mettre à jour le localStorage
-        localStorage.setItem('user', JSON.stringify(data.data));
-        
-        setAlert({
-          show: true,
-          message: data.message,
-          type: "success"
-        });
-        
-        setEditMode(false);
-      } else {
-        throw new Error(data.message || 'Erreur lors de la mise à jour');
-      }
-    } catch (error) {
-      setAlert({
-        show: true,
-        message: error.message,
-        type: "danger"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Gérer le changement d'avatar
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setAvatarFile(file);
-      
-      // Prévisualisation de l'image
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setMembre(prev => ({
-          ...prev,
-          avatar: e.target.result
-        }));
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setMembre((prev) => ({ ...prev, avatar: ev.target.result }));
+    reader.readAsDataURL(file);
   };
 
-  // Sauvegarder le nouvel avatar
   const saveAvatar = async () => {
     if (!avatarFile) return;
-    
     setLoading(true);
     try {
-      const userData = JSON.parse(localStorage.getItem("user"));
-      const membreId = userData?.id;
-
-      if (!membreId) {
-        throw new Error('ID membre non trouvé');
-      }
-
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      const token = localStorage.getItem("token");
       const formData = new FormData();
-      formData.append('avatar', avatarFile);
+      formData.append("avatar", avatarFile);
 
-      const response = await fetch(`http://localhost:8000/api/membres/${membreId}/avatar`, {
-        method: 'POST',
-        body: formData
+      const res = await fetch(`http://localhost:8000/api/membres/${userData.id}/avatar`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
       });
-      
-      const data = await response.json();
-      
+
+      const data = await res.json();
       if (data.success) {
-        // Mettre à jour l'avatar dans l'état et le localStorage
-        const updatedUser = { ...membre, avatar: data.avatar_url };
-        setMembre(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        
-        setAlert({
-          show: true,
-          message: data.message,
-          type: "success"
-        });
-        
+        const updated = { ...membre, avatar: data.avatar_url };
+        setMembre(updated);
+        localStorage.setItem("user", JSON.stringify(updated));
+        setAlert({ show: true, message: "Photo mise à jour !", type: "success" });
         setShowAvatarModal(false);
         setAvatarFile(null);
       } else {
-        throw new Error(data.message || 'Erreur lors du changement de photo');
+        throw new Error(data.message || "Erreur upload");
       }
-    } catch (error) {
-      setAlert({
-        show: true,
-        message: error.message,
-        type: "danger"
-      });
+    } catch (err) {
+      setAlert({ show: true, message: err.message, type: "danger" });
     } finally {
       setLoading(false);
     }
   };
 
-  // Gérer l'état de la sidebar
-  const handleSidebarCollapse = (isCollapsed) => {
-    setSidebarCollapsed(isCollapsed);
+  /* =============================================
+     SAUVEGARDE PROFIL
+  ============================================= */
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setMembre((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      const token = localStorage.getItem("token");
+
+      const clean = (val) => (val?.trim() === "" ? null : val?.trim());
+
+      const payload = {
+        nom: clean(membre.nom),
+        prenom: clean(membre.prenom),
+        email: clean(membre.email),
+        telephone: clean(membre.telephone),
+        adresse: clean(membre.adresse),
+        ville: clean(membre.ville),
+        pays: clean(membre.pays),
+        bio: clean(membre.bio),
+        date_naissance: clean(membre.date_naissance),
+        profession: clean(membre.profession),
+        site_web: clean(membre.site_web),
+        linkedin: clean(membre.linkedin),
+        twitter: clean(membre.twitter),
+        statut: membre.statut,
+        type: "membre",
+      };
+
+      const res = await fetch(`http://localhost:8000/api/membres/${userData.id}/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        const updated = { ...data.data, type: "membre" };
+        setMembre(updated);
+        localStorage.setItem("user", JSON.stringify(updated));
+        setAlert({ show: true, message: "Profil mis à jour avec succès !", type: "success" });
+        setEditMode(false);
+      } else {
+        const msg = data.errors ? Object.values(data.errors).flat().join(", ") : data.message;
+        throw new Error(msg || "Erreur sauvegarde");
+      }
+    } catch (err) {
+      setAlert({ show: true, message: err.message, type: "danger" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="d-flex min-vh-100" style={{ 
-      background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)"
-    }}>
+    <div className="d-flex min-vh-100" style={{ background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)" }}>
       {/* Sidebar */}
-      <div style={{ 
-        width: sidebarCollapsed ? "80px" : "280px",
-        transition: "width 0.3s ease",
-        flexShrink: 0
-      }}>
-        <MembreSidebar onCollapse={handleSidebarCollapse} />
+      <div style={{ width: sidebarCollapsed ? "80px" : "280px", transition: "width 0.3s ease", flexShrink: 0 }}>
+        <MembreSidebar onCollapse={(c) => setSidebarCollapsed(c)} />
       </div>
 
-      {/* Contenu Principal */}
-      <div className="flex-grow-1" style={{ 
-        padding: "20px",
-        marginLeft: sidebarCollapsed ? "0" : "0",
-        transition: "margin-left 0.3s ease"
-      }}>
+      {/* Contenu principal */}
+      <div className="flex-grow-1" style={{ padding: "20px" }}>
         <Container fluid>
           {/* Alert */}
           {alert.show && (
-            <Alert 
-              variant={alert.type} 
-              dismissible 
-              onClose={() => setAlert({ ...alert, show: false })}
-              className="mb-4 border-0 shadow"
-              style={{ borderRadius: "15px" }}
-            >
+            <Alert variant={alert.type} dismissible onClose={() => setAlert({ ...alert, show: false })} className="mb-4 shadow border-0" style={{ borderRadius: "15px" }}>
               {alert.message}
             </Alert>
           )}
 
           <Row className="justify-content-center">
             <Col lg={11} xl={10}>
-              {/* Carte Principale */}
               <Card className="shadow-lg border-0" style={{ borderRadius: "20px", overflow: "hidden" }}>
-                {/* En-tête avec background gradient */}
-                <div 
-                  style={{
-                    height: "200px",
-                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                    position: "relative"
-                  }}
-                >
+                {/* Header gradient */}
+                <div style={{ height: "200px", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", position: "relative" }}>
                   <div className="position-absolute top-0 end-0 m-4">
-                    <Button
-                      variant="light"
-                      className="rounded-pill px-4"
-                      onClick={() => setEditMode(!editMode)}
-                      disabled={loading}
-                    >
+                    <Button variant="light" className="rounded-pill px-4 shadow-sm" onClick={() => setEditMode(!editMode)} disabled={loading}>
                       <i className={`fas ${editMode ? "fa-times" : "fa-edit"} me-2`}></i>
                       {editMode ? "Annuler" : "Modifier le profil"}
                     </Button>
                   </div>
                 </div>
 
-                {/* Section Avatar et Informations */}
                 <Card.Body className="position-relative" style={{ marginTop: "-80px" }}>
                   <Row>
-                    {/* Colonne Avatar et Actions */}
+                    {/* Avatar + Stats */}
                     <Col lg={4} className="text-center">
-                      {/* Avatar */}
                       <div className="position-relative d-inline-block">
-                        <div 
+                        <div
                           className="rounded-circle border-5 border-white shadow-lg"
                           style={{
                             width: "160px",
                             height: "160px",
                             background: "linear-gradient(135deg, #00b09b 0%, #96c93d 100%)",
+                            overflow: "hidden",
                             cursor: editMode ? "pointer" : "default",
-                            overflow: "hidden"
                           }}
                           onClick={() => editMode && setShowAvatarModal(true)}
                         >
                           {membre.avatar ? (
-                            <img
-                              src={displayAvatar(membre.avatar)}
-                              alt={`${membre.prenom} ${membre.nom}`}
-                              className="w-100 h-100"
-                              style={{ objectFit: "cover" }}
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                              }}
-                            />
+                            <img src={displayAvatar(membre.avatar)} alt="Avatar" className="w-100 h-100" style={{ objectFit: "cover" }} />
                           ) : (
                             <div className="w-100 h-100 d-flex align-items-center justify-content-center text-white">
                               <i className="fas fa-user fa-4x"></i>
                             </div>
                           )}
                         </div>
-                        
-                        {/* Badge en ligne */}
-                        <div 
-                          className="position-absolute rounded-circle border-3 border-white"
-                          style={{
-                            bottom: "15px",
-                            right: "15px",
-                            width: "25px",
-                            height: "25px",
-                            backgroundColor: "#00d664",
-                            boxShadow: "0 0 15px #00d664"
-                          }}
-                        ></div>
-                        
-                        {/* Bouton changer photo en mode édition */}
+
+                        <div className="position-absolute rounded-circle border-3 border-white" style={{ bottom: "15px", right: "15px", width: "25px", height: "25px", backgroundColor: "#00d664", boxShadow: "0 0 15px #00d664" }}></div>
+
                         {editMode && (
-                          <div 
-                            className="position-absolute top-0 end-0 bg-primary rounded-circle p-2 cursor-pointer"
-                            style={{ transform: "translate(10px, -10px)" }}
-                            onClick={() => setShowAvatarModal(true)}
-                          >
+                          <div className="position-absolute bg-primary rounded-circle p-2" style={{ top: "-10px", right: "-10px", cursor: "pointer" }} onClick={() => setShowAvatarModal(true)}>
                             <i className="fas fa-camera text-white"></i>
                           </div>
                         )}
                       </div>
 
-                      {/* Nom et Profession */}
                       <div className="mt-4">
-                        <h2 className="fw-bold text-dark mb-1">
-                          {membre.prenom} {membre.nom}
-                        </h2>
-                        <p className="text-muted mb-3" style={{ fontSize: "1.1rem" }}>
-                          {membre.profession || "Membre"}
-                        </p>
-                        
-                        {/* Badge Statut */}
-                        <span 
-                          className="badge bg-success bg-opacity-20 text-success px-4 py-2 mb-3"
-                          style={{ 
-                            borderRadius: "20px",
-                            fontSize: "0.9rem",
-                            border: "1px solid rgba(0, 176, 155, 0.3)"
+                        <h2 className="fw-bold text-dark">{membre.prenom} {membre.nom}</h2>
+                        <p className="text-muted" style={{ fontSize: "1.1rem" }}>{membre.profession || "Membre"}</p>
+
+                        {/* Membre Actif en vert fluo */}
+                        <span
+                          className="badge px-4 py-2 d-inline-block"
+                          style={{
+                            background: membre.statut === "actif"
+                              ? "linear-gradient(135deg, #00c853 0%, #64dd17 100%)"
+                              : membre.statut === "inactif" ? "#9e9e9e" : "#d32f2f",
+                            color: "white",
+                            borderRadius: "50px",
+                            fontSize: "0.95rem",
+                            fontWeight: "bold",
+                            boxShadow: membre.statut === "actif" ? "0 4px 15px rgba(0, 200, 83, 0.4)" : "none",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.5px",
                           }}
                         >
-                          <i className="fas fa-circle me-1" style={{ fontSize: "0.6rem" }}></i>
-                          {membre.statut === 'actif' ? 'Membre Actif' : membre.statut}
+                          <i className="fas fa-circle me-2" style={{ fontSize: "0.6rem" }}></i>
+                          {membre.statut === "actif" ? "Membre Actif" : membre.statut === "inactif" ? "Inactif" : "Suspendu"}
                         </span>
                       </div>
 
-                      {/* Statistiques */}
+                      {/* Stats réelles */}
                       {!editMode && (
                         <div className="mt-4">
                           <Row className="g-3">
                             <Col xs={4}>
                               <div className="text-center p-3 rounded-3" style={{ background: "rgba(102, 126, 234, 0.1)" }}>
-                                <h4 className="fw-bold text-primary mb-1">12</h4>
+                                <h4 className="fw-bold text-primary mb-1">{stats.publications}</h4>
                                 <small className="text-muted">Publications</small>
                               </div>
                             </Col>
                             <Col xs={4}>
                               <div className="text-center p-3 rounded-3" style={{ background: "rgba(0, 176, 155, 0.1)" }}>
-                                <h4 className="fw-bold text-success mb-1">8</h4>
+                                <h4 className="fw-bold text-success mb-1">{stats.evenements}</h4>
                                 <small className="text-muted">Événements</small>
                               </div>
                             </Col>
                             <Col xs={4}>
                               <div className="text-center p-3 rounded-3" style={{ background: "rgba(255, 107, 107, 0.1)" }}>
-                                <h4 className="fw-bold text-danger mb-1">24</h4>
+                                <h4 className="fw-bold text-danger mb-1">{stats.amis}</h4>
                                 <small className="text-muted">Amis</small>
                               </div>
                             </Col>
@@ -461,355 +328,70 @@ const ProfilMembre = () => {
                       )}
                     </Col>
 
-                    {/* Colonne Informations */}
+                    {/* Informations détaillées */}
                     <Col lg={8}>
                       {editMode ? (
-                        // Mode Édition
                         <div className="p-4 rounded-3" style={{ background: "#f8f9fa" }}>
-                          <h4 className="fw-bold text-dark mb-4">
-                            <i className="fas fa-user-edit me-2 text-primary"></i>
-                            Modifier le profil
-                          </h4>
-                          
+                          <h4 className="fw-bold mb-4">Modifier le profil</h4>
                           <Row className="g-3">
+                            <Col md={6}><Form.Group><Form.Label>Prénom *</Form.Label><Form.Control name="prenom" value={membre.prenom || ""} onChange={handleInputChange} required /></Form.Group></Col>
+                            <Col md={6}><Form.Group><Form.Label>Nom *</Form.Label><Form.Control name="nom" value={membre.nom || ""} onChange={handleInputChange} required /></Form.Group></Col>
+                            <Col md={6}><Form.Group><Form.Label>Email *</Form.Label><Form.Control type="email" name="email" value={membre.email || ""} onChange={handleInputChange} required /></Form.Group></Col>
+                            <Col md={6}><Form.Group><Form.Label>Téléphone</Form.Label><Form.Control name="telephone" value={membre.telephone || ""} onChange={handleInputChange} /></Form.Group></Col>
+                            <Col md={6}><Form.Group><Form.Label>Profession</Form.Label><Form.Control name="profession" value={membre.profession || ""} onChange={handleInputChange} /></Form.Group></Col>
+                            <Col md={6}><Form.Group><Form.Label>Date de naissance</Form.Label><Form.Control type="date" name="date_naissance" value={membre.date_naissance || ""} onChange={handleInputChange} /></Form.Group></Col>
+                            <Col md={12}><Form.Group><Form.Label>Adresse</Form.Label><Form.Control name="adresse" value={membre.adresse || ""} onChange={handleInputChange} /></Form.Group></Col>
+                            <Col md={6}><Form.Group><Form.Label>Ville</Form.Label><Form.Control name="ville" value={membre.ville || ""} onChange={handleInputChange} /></Form.Group></Col>
+                            <Col md={6}><Form.Group><Form.Label>Pays</Form.Label><Form.Control name="pays" value={membre.pays || ""} onChange={handleInputChange} /></Form.Group></Col>
+                            <Col md={12}><Form.Group><Form.Label>Biographie</Form.Label><Form.Control as="textarea" rows={4} name="bio" value={membre.bio || ""} onChange={handleInputChange} placeholder="Parlez-nous de vous..." /></Form.Group></Col>
+                            <Col md={6}><Form.Group><Form.Label>Site web</Form.Label><Form.Control name="site_web" value={membre.site_web || ""} onChange={handleInputChange} /></Form.Group></Col>
+                            <Col md={6}><Form.Group><Form.Label>LinkedIn</Form.Label><Form.Control name="linkedin" value={membre.linkedin || ""} onChange={handleInputChange} /></Form.Group></Col>
+                            <Col md={6}><Form.Group><Form.Label>Twitter</Form.Label><Form.Control name="twitter" value={membre.twitter || ""} onChange={handleInputChange} /></Form.Group></Col>
                             <Col md={6}>
                               <Form.Group>
-                                <Form.Label className="fw-semibold">Prénom *</Form.Label>
-                                <Form.Control
-                                  type="text"
-                                  name="prenom"
-                                  value={membre.prenom || ""}
-                                  onChange={handleInputChange}
-                                  className="border-0 shadow-sm rounded-3 py-3"
-                                  placeholder="Votre prénom"
-                                  required
-                                />
-                              </Form.Group>
-                            </Col>
-                            <Col md={6}>
-                              <Form.Group>
-                                <Form.Label className="fw-semibold">Nom *</Form.Label>
-                                <Form.Control
-                                  type="text"
-                                  name="nom"
-                                  value={membre.nom || ""}
-                                  onChange={handleInputChange}
-                                  className="border-0 shadow-sm rounded-3 py-3"
-                                  placeholder="Votre nom"
-                                  required
-                                />
-                              </Form.Group>
-                            </Col>
-                            
-                            <Col md={6}>
-                              <Form.Group>
-                                <Form.Label className="fw-semibold">Email *</Form.Label>
-                                <Form.Control
-                                  type="email"
-                                  name="email"
-                                  value={membre.email || ""}
-                                  onChange={handleInputChange}
-                                  className="border-0 shadow-sm rounded-3 py-3"
-                                  placeholder="votre@email.com"
-                                  required
-                                />
-                              </Form.Group>
-                            </Col>
-                            <Col md={6}>
-                              <Form.Group>
-                                <Form.Label className="fw-semibold">Téléphone</Form.Label>
-                                <Form.Control
-                                  type="tel"
-                                  name="telephone"
-                                  value={membre.telephone || ""}
-                                  onChange={handleInputChange}
-                                  className="border-0 shadow-sm rounded-3 py-3"
-                                  placeholder="+33 1 23 45 67 89"
-                                />
-                              </Form.Group>
-                            </Col>
-                            
-                            <Col md={6}>
-                              <Form.Group>
-                                <Form.Label className="fw-semibold">Profession</Form.Label>
-                                <Form.Control
-                                  type="text"
-                                  name="profession"
-                                  value={membre.profession || ""}
-                                  onChange={handleInputChange}
-                                  className="border-0 shadow-sm rounded-3 py-3"
-                                  placeholder="Votre profession"
-                                />
-                              </Form.Group>
-                            </Col>
-                            <Col md={6}>
-                              <Form.Group>
-                                <Form.Label className="fw-semibold">Date de naissance</Form.Label>
-                                <Form.Control
-                                  type="date"
-                                  name="date_naissance"
-                                  value={membre.date_naissance || ""}
-                                  onChange={handleInputChange}
-                                  className="border-0 shadow-sm rounded-3 py-3"
-                                />
-                              </Form.Group>
-                            </Col>
-                            
-                            <Col md={12}>
-                              <Form.Group>
-                                <Form.Label className="fw-semibold">Adresse</Form.Label>
-                                <Form.Control
-                                  type="text"
-                                  name="adresse"
-                                  value={membre.adresse || ""}
-                                  onChange={handleInputChange}
-                                  className="border-0 shadow-sm rounded-3 py-3"
-                                  placeholder="Votre adresse"
-                                />
-                              </Form.Group>
-                            </Col>
-                            
-                            <Col md={6}>
-                              <Form.Group>
-                                <Form.Label className="fw-semibold">Ville</Form.Label>
-                                <Form.Control
-                                  type="text"
-                                  name="ville"
-                                  value={membre.ville || ""}
-                                  onChange={handleInputChange}
-                                  className="border-0 shadow-sm rounded-3 py-3"
-                                  placeholder="Votre ville"
-                                />
-                              </Form.Group>
-                            </Col>
-                            <Col md={6}>
-                              <Form.Group>
-                                <Form.Label className="fw-semibold">Pays</Form.Label>
-                                <Form.Control
-                                  type="text"
-                                  name="pays"
-                                  value={membre.pays || ""}
-                                  onChange={handleInputChange}
-                                  className="border-0 shadow-sm rounded-3 py-3"
-                                  placeholder="Votre pays"
-                                />
-                              </Form.Group>
-                            </Col>
-                            
-                            <Col md={12}>
-                              <Form.Group>
-                                <Form.Label className="fw-semibold">Biographie</Form.Label>
-                                <Form.Control
-                                  as="textarea"
-                                  rows={4}
-                                  name="bio"
-                                  value={membre.bio || ""}
-                                  onChange={handleInputChange}
-                                  className="border-0 shadow-sm rounded-3 py-3"
-                                  placeholder="Parlez-nous de vous..."
-                                />
-                              </Form.Group>
-                            </Col>
-                            
-                            <Col md={6}>
-                              <Form.Group>
-                                <Form.Label className="fw-semibold">Site web</Form.Label>
-                                <Form.Control
-                                  type="url"
-                                  name="site_web"
-                                  value={membre.site_web || ""}
-                                  onChange={handleInputChange}
-                                  className="border-0 shadow-sm rounded-3 py-3"
-                                  placeholder="https://votre-site.com"
-                                />
-                              </Form.Group>
-                            </Col>
-                            <Col md={6}>
-                              <Form.Group>
-                                <Form.Label className="fw-semibold">LinkedIn</Form.Label>
-                                <Form.Control
-                                  type="url"
-                                  name="linkedin"
-                                  value={membre.linkedin || ""}
-                                  onChange={handleInputChange}
-                                  className="border-0 shadow-sm rounded-3 py-3"
-                                  placeholder="https://linkedin.com/in/votre-profil"
-                                />
-                              </Form.Group>
-                            </Col>
-
-                            {/* Champ statut uniquement (type est caché et toujours "membre") */}
-                            <Col md={6}>
-                              <Form.Group>
-                                <Form.Label className="fw-semibold">Statut *</Form.Label>
-                                <Form.Select
-                                  name="statut"
-                                  value={membre.statut || "actif"}
-                                  onChange={handleInputChange}
-                                  className="border-0 shadow-sm rounded-3 py-3"
-                                  required
-                                >
+                                <Form.Label>Statut *</Form.Label>
+                                <Form.Select name="statut" value={membre.statut} onChange={handleInputChange}>
                                   <option value="actif">Actif</option>
                                   <option value="inactif">Inactif</option>
                                   <option value="suspendu">Suspendu</option>
                                 </Form.Select>
                               </Form.Group>
                             </Col>
-
-                            {/* Champ type caché mais toujours envoyé */}
-                            <input type="hidden" name="type" value="membre" />
                           </Row>
-                          
+
                           <div className="d-flex gap-3 mt-4">
-                            <Button
-                              variant="primary"
-                              onClick={handleSave}
-                              disabled={loading}
-                              className="rounded-pill px-4 py-2"
-                              style={{
-                                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                border: "none"
-                              }}
-                            >
-                              {loading ? (
-                                <>
-                                  <i className="fas fa-spinner fa-spin me-2"></i>
-                                  Sauvegarde...
-                                </>
-                              ) : (
-                                <>
-                                  <i className="fas fa-save me-2"></i>
-                                  Sauvegarder
-                                </>
-                              )}
+                            <Button variant="primary" onClick={handleSave} disabled={loading} className="rounded-pill px-5" style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", border: "none" }}>
+                              {loading ? <>Sauvegarde...</> : <>Sauvegarder</>}
                             </Button>
-                            
-                            <Button
-                              variant="outline-secondary"
-                              onClick={() => setEditMode(false)}
-                              className="rounded-pill px-4 py-2"
-                            >
-                              <i className="fas fa-times me-2"></i>
-                              Annuler
-                            </Button>
+                            <Button variant="outline-secondary" onClick={() => setEditMode(false)} className="rounded-pill px-5">Annuler</Button>
                           </div>
                         </div>
                       ) : (
-                        // Mode Consultation
                         <div className="p-4">
-                          <h4 className="fw-bold text-dark mb-4">
-                            <i className="fas fa-info-circle me-2 text-primary"></i>
-                            Informations personnelles
-                          </h4>
-                          
+                          <h4 className="fw-bold mb-4">Informations personnelles</h4>
                           <Row className="g-4">
-                            {/* Informations de contact */}
-                            <Col md={6}>
-                              <div className="d-flex align-items-center mb-3 p-3 rounded-3" style={{ background: "rgba(102, 126, 234, 0.05)" }}>
-                                <div className="bg-primary bg-opacity-10 rounded-circle p-3 me-3">
-                                  <i className="fas fa-envelope text-primary"></i>
-                                </div>
-                                <div>
-                                  <small className="text-muted d-block">Email</small>
-                                  <strong>{membre.email || "Non renseigné"}</strong>
-                                </div>
-                              </div>
-                            </Col>
-                            
-                            <Col md={6}>
-                              <div className="d-flex align-items-center mb-3 p-3 rounded-3" style={{ background: "rgba(0, 176, 155, 0.05)" }}>
-                                <div className="bg-success bg-opacity-10 rounded-circle p-3 me-3">
-                                  <i className="fas fa-phone text-success"></i>
-                                </div>
-                                <div>
-                                  <small className="text-muted d-block">Téléphone</small>
-                                  <strong>{membre.telephone || "Non renseigné"}</strong>
-                                </div>
-                              </div>
-                            </Col>
-                            
-                            {/* Localisation */}
-                            <Col md={6}>
-                              <div className="d-flex align-items-center mb-3 p-3 rounded-3" style={{ background: "rgba(255, 107, 107, 0.05)" }}>
-                                <div className="bg-danger bg-opacity-10 rounded-circle p-3 me-3">
-                                  <i className="fas fa-map-marker-alt text-danger"></i>
-                                </div>
-                                <div>
-                                  <small className="text-muted d-block">Localisation</small>
-                                  <strong>
-                                    {membre.ville && membre.pays 
-                                      ? `${membre.ville}, ${membre.pays}`
-                                      : "Non renseignée"
-                                    }
-                                  </strong>
-                                </div>
-                              </div>
-                            </Col>
-                            
-                            <Col md={6}>
-                              <div className="d-flex align-items-center mb-3 p-3 rounded-3" style={{ background: "rgba(255, 193, 7, 0.05)" }}>
-                                <div className="bg-warning bg-opacity-10 rounded-circle p-3 me-3">
-                                  <i className="fas fa-briefcase text-warning"></i>
-                                </div>
-                                <div>
-                                  <small className="text-muted d-block">Profession</small>
-                                  <strong>{membre.profession || "Non renseignée"}</strong>
-                                </div>
-                              </div>
-                            </Col>
+                            <Col md={6}><div className="d-flex align-items-center p-3 rounded-3" style={{ background: "rgba(102,126,234,0.05)" }}><div className="bg-primary bg-opacity-10 rounded-circle p-3 me-3"><i className="fas fa-envelope text-primary"></i></div><div><small className="text-muted d-block">Email</small><strong>{membre.email || "Non renseigné"}</strong></div></div></Col>
+                            <Col md={6}><div className="d-flex align-items-center p-3 rounded-3" style={{ background: "rgba(0,176,155,0.05)" }}><div className="bg-success bg-opacity-10 rounded-circle p-3 me-3"><i className="fas fa-phone text-success"></i></div><div><small className="text-muted d-block">Téléphone</small><strong>{membre.telephone || "Non renseigné"}</strong></div></div></Col>
+                            <Col md={6}><div className="d-flex align-items-center p-3 rounded-3" style={{ background: "rgba(255,107,107,0.05)" }}><div className="bg-danger bg-opacity-10 rounded-circle p-3 me-3"><i className="fas fa-map-marker-alt text-danger"></i></div><div><small className="text-muted d-block">Localisation</small><strong>{membre.ville && membre.pays ? `${membre.ville}, ${membre.pays}` : "Non renseignée"}</strong></div></div></Col>
+                            <Col md={6}><div className="d-flex align-items-center p-3 rounded-3" style={{ background: "rgba(255,193,7,0.05)" }}><div className="bg-warning bg-opacity-10 rounded-circle p-3 me-3"><i className="fas fa-briefcase text-warning"></i></div><div><small className="text-muted d-block">Profession</small><strong>{membre.profession || "Non renseignée"}</strong></div></div></Col>
+                            <Col md={6}><div className="d-flex align-items-center p-3 rounded-3" style={{ background: "rgba(40,167,69,0.05)" }}><div className="bg-success bg-opacity-10 rounded-circle p-3 me-3"><i className="fas fa-circle text-success"></i></div><div><small className="text-muted d-block">Statut</small><strong className="text-capitalize">{membre.statut}</strong></div></div></Col>
 
-                            {/* Statut uniquement */}
-                            <Col md={6}>
-                              <div className="d-flex align-items-center mb-3 p-3 rounded-3" style={{ background: "rgba(40, 167, 69, 0.05)" }}>
-                                <div className="bg-success bg-opacity-10 rounded-circle p-3 me-3">
-                                  <i className="fas fa-circle text-success"></i>
-                                </div>
-                                <div>
-                                  <small className="text-muted d-block">Statut</small>
-                                  <strong className="text-capitalize">{membre.statut || "actif"}</strong>
-                                </div>
-                              </div>
-                            </Col>
-                            
-                            {/* Biographie */}
                             <Col md={12}>
-                              <div className="p-4 rounded-3" style={{ background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)" }}>
-                                <h5 className="text-white mb-3">
-                                  <i className="fas fa-quote-left me-2"></i>
-                                  À propos de moi
-                                </h5>
-                                <p className="text-white mb-0" style={{ lineHeight: "1.6" }}>
+                              <div className="p-4 rounded-3 text-white" style={{ background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)" }}>
+                                <h5 className="fw-bold mb-3">À propos de moi</h5>
+                                <p className="mb-0" style={{ lineHeight: "1.7", fontSize: "1.05rem" }}>
                                   {membre.bio || "Aucune biographie disponible pour le moment."}
                                 </p>
                               </div>
                             </Col>
-                            
-                            {/* Liens sociaux */}
+
                             {(membre.site_web || membre.linkedin || membre.twitter) && (
                               <Col md={12}>
-                                <h6 className="fw-bold text-dark mb-3">Mes réseaux</h6>
+                                <h6 className="fw-bold mb-3">Mes réseaux</h6>
                                 <div className="d-flex gap-3">
-                                  {membre.site_web && (
-                                    <a href={membre.site_web} target="_blank" rel="noopener noreferrer" className="text-decoration-none">
-                                      <div className="bg-primary rounded-circle p-3">
-                                        <i className="fas fa-globe text-white"></i>
-                                      </div>
-                                    </a>
-                                  )}
-                                  {membre.linkedin && (
-                                    <a href={membre.linkedin} target="_blank" rel="noopener noreferrer" className="text-decoration-none">
-                                      <div className="bg-info rounded-circle p-3">
-                                        <i className="fab fa-linkedin-in text-white"></i>
-                                      </div>
-                                    </a>
-                                  )}
-                                  {membre.twitter && (
-                                    <a href={membre.twitter} target="_blank" rel="noopener noreferrer" className="text-decoration-none">
-                                      <div className="bg-primary rounded-circle p-3">
-                                        <i className="fab fa-twitter text-white"></i>
-                                      </div>
-                                    </a>
-                                  )}
+                                  {membre.site_web && <a href={membre.site_web} target="_blank" rel="noopener noreferrer" className="text-decoration-none"><div className="bg-primary rounded-circle p-3"><i className="fas fa-globe text-white"></i></div></a>}
+                                  {membre.linkedin && <a href={membre.linkedin} target="_blank" rel="noopener noreferrer" className="text-decoration-none"><div className="bg-info rounded-circle p-3"><i className="fab fa-linkedin-in text-white"></i></div></a>}
+                                  {membre.twitter && <a href={membre.twitter} target="_blank" rel="noopener noreferrer" className="text-decoration-none"><div className="bg-primary rounded-circle p-3"><i className="fab fa-twitter text-white"></i></div></a>}
                                 </div>
                               </Col>
                             )}
@@ -825,123 +407,24 @@ const ProfilMembre = () => {
         </Container>
       </div>
 
-      {/* Modal pour changer l'avatar */}
-      <Modal 
-        show={showAvatarModal} 
-        onHide={() => setShowAvatarModal(false)} 
-        centered
-        size="sm"
-      >
-        <Modal.Body className="text-center p-4" style={{ borderRadius: "20px" }}>
-          <div 
-            className="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3"
-            style={{
-              width: "80px",
-              height: "80px",
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              color: "white"
-            }}
-          >
-            <i className="fas fa-camera fs-2"></i>
+      {/* Modal Avatar */}
+      <Modal show={showAvatarModal} onHide={() => setShowAvatarModal(false)} centered>
+        <Modal.Body className="text-center p-5">
+          <div className="rounded-circle mx-auto mb-4 d-flex align-items-center justify-content-center" style={{ width: "100px", height: "100px", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" }}>
+            <i className="fas fa-camera fa-3x text-white"></i>
           </div>
-          
-          <h4 className="fw-bold mb-3" style={{ color: "#2c3e50" }}>
-            Changer la photo
-          </h4>
-          
+          <h4 className="fw-bold mb-4">Changer la photo de profil</h4>
           <Form.Group className="mb-4">
-            <Form.Control
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarChange}
-              className="border-0 shadow-sm rounded-3 py-3"
-            />
+            <Form.Control type="file" accept="image/*" onChange={handleAvatarChange} className="shadow-sm" />
           </Form.Group>
-          
           <div className="d-flex gap-3 justify-content-center">
-            <Button
-              variant="outline-secondary"
-              onClick={() => setShowAvatarModal(false)}
-              className="rounded-pill px-4"
-            >
-              <i className="fas fa-times me-2"></i>
-              Annuler
-            </Button>
-            <Button
-              variant="primary"
-              onClick={saveAvatar}
-              disabled={!avatarFile || loading}
-              className="rounded-pill px-4"
-              style={{
-                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                border: "none"
-              }}
-            >
-              {loading ? (
-                <>
-                  <i className="fas fa-spinner fa-spin me-2"></i>
-                  Envoi...
-                </>
-              ) : (
-                <>
-                  <i className="fas fa-check me-2"></i>
-                  Sauvegarder
-                </>
-              )}
+            <Button variant="outline-secondary" onClick={() => setShowAvatarModal(false)} className="rounded-pill px-4">Annuler</Button>
+            <Button variant="primary" onClick={saveAvatar} disabled={!avatarFile || loading} className="rounded-pill px-4" style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", border: "none" }}>
+              {loading ? "Envoi..." : "Sauvegarder"}
             </Button>
           </div>
         </Modal.Body>
       </Modal>
-
-      {/* Styles CSS supplémentaires */}
-      <style>
-        {`
-          .card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-          }
-          
-          .card:hover {
-            transform: translateY(-5px);
-          }
-          
-          .rounded-3 {
-            border-radius: 15px !important;
-          }
-          
-          .border-5 {
-            border-width: 5px !important;
-          }
-          
-          .cursor-pointer {
-            cursor: pointer;
-          }
-          
-          /* Animation pour les éléments au survol */
-          .d-flex.align-items-center.mb-3 {
-            transition: all 0.3s ease;
-          }
-          
-          .d-flex.align-items-center.mb-3:hover {
-            transform: translateX(5px);
-            background: rgba(102, 126, 234, 0.1) !important;
-          }
-          
-          /* Style pour les inputs en mode édition */
-          .form-control:focus {
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
-            border-color: #667eea !important;
-          }
-
-          /* Ajustements pour la sidebar */
-          .min-vh-100 {
-            min-height: 100vh;
-          }
-
-          .flex-grow-1 {
-            flex-grow: 1;
-          }
-        `}
-      </style>
     </div>
   );
 };

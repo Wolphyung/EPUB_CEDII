@@ -137,7 +137,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/send-admin', [MessageController::class, 'sendAdminMessage']);
         Route::get('/members', [MessageController::class, 'listMembers']);
     });
-    Route::get('/messages/members', [MessageController::class, 'listMembers']);
+    
 
     // ==================== NOTIFICATIONS ====================
     Route::prefix('notifications')->group(function () {
