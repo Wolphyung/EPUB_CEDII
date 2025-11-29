@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EvenementResource;
 use App\Models\Evenement;
+use App\Models\EvenementReaction;
+use App\Models\EvenementVue;
 use App\Models\Membre;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -183,18 +185,198 @@ class EvenementController extends Controller
         }
     }
 
-    // 🔹 Événements validés pour visiteurs
-    public function getEvenementsValides()
+    // 🔹 Ajouter une réaction d'un visiteur
+     public function react(Request $request, $id)
     {
         try {
+            $evenement = Evenement::where('statut', 'Validé')->findOrFail($id);
+            
+            $validated = $request->validate([
+                'visitor_id' => 'required|string',
+                'type' => ['required', Rule::in(['like', 'love', 'wow', 'sad', 'angry'])]
+            ]);
+
+            // Vérifier si le visiteur a déjà réagi
+            $existingReaction = EvenementReaction::where('evenement_id', $id)
+                ->where('visitor_id', $validated['visitor_id'])
+                ->first();
+
+            if ($existingReaction) {
+                // Mettre à jour la réaction existante
+                $existingReaction->update(['type' => $validated['type']]);
+                $message = 'Réaction mise à jour';
+            } else {
+                // Créer une nouvelle réaction
+                EvenementReaction::create([
+                    'evenement_id' => $id,
+                    'visitor_id' => $validated['visitor_id'],
+                    'type' => $validated['type']
+                ]);
+                $message = 'Réaction ajoutée';
+            }
+
+            // Récupérer les statistiques mises à jour
+            $stats = $this->getEventStats($evenement, $validated['visitor_id']);
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'stats' => $stats
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Erreur lors de l\'ajout de la réaction',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // 🔹 Ajouter une réaction d'un visiteur
+    public function view(Request $request, $id)
+    {
+        try {
+            $evenement = Evenement::where('statut', 'Validé')->findOrFail($id);
+            
+            $validated = $request->validate([
+                'visitor_id' => 'required|string'
+            ]);
+
+            // Vérifier si le visiteur a déjà vu cet événement
+            $existingView = EvenementVue::where('evenement_id', $id)
+                ->where('visitor_id', $validated['visitor_id'])
+                ->first();
+
+            if (!$existingView) {
+                // Enregistrer la vue seulement si c'est la première fois
+                EvenementVue::create([
+                    'evenement_id' => $id,
+                    'visitor_id' => $validated['visitor_id']
+                ]);
+            }
+
+            // Récupérer les statistiques mises à jour
+            $stats = $this->getEventStats($evenement, $validated['visitor_id']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Vue enregistrée',
+                'stats' => $stats
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Erreur lors de l\'enregistrement de la vue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // 🔹 Récupérer les statistiques d'un événement
+    public function getStats(Request $request, $id)
+    {
+        try {
+            $evenement = Evenement::where('statut', 'Validé')->find($id);
+            
+            if (!$evenement) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Événement non trouvé'
+                ], 404);
+            }
+            
+            $visitorId = $request->get('visitor_id', '');
+
+            $stats = $this->getEventStats($evenement, $visitorId);
+
+            return response()->json([
+                'success' => true,
+                'stats' => $stats
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Erreur lors de la récupération des statistiques',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // Méthode privée pour obtenir les statistiques d'un événement
+    private function getEventStats(Evenement $evenement, $visitorId = null)
+    {
+        // Compter les réactions par type
+        $reactionsByType = EvenementReaction::where('evenement_id', $evenement->id)
+            ->selectRaw('type, COUNT(*) as count')
+            ->groupBy('type')
+            ->pluck('count', 'type')
+            ->toArray();
+
+        // Vérifier si le visiteur a réagi
+        $userReaction = null;
+        if ($visitorId) {
+            $userReaction = EvenementReaction::where('evenement_id', $evenement->id)
+                ->where('visitor_id', $visitorId)
+                ->value('type');
+        }
+
+        return [
+            'total_reactions' => $evenement->reactions()->count(),
+            'total_views' => $evenement->vues()->count(),
+            'reactions_by_type' => $reactionsByType,
+            'user_reaction' => $userReaction,
+            'has_viewed' => $visitorId ? $evenement->hasViewed($visitorId) : false
+        ];
+    }
+
+    // 🔹 Récupérer les événements validés pour les visiteurs
+    public function getEvenementsValides(Request $request)
+    {
+        try {
+            $visitorId = $request->get('visitor_id', '');
+            
             $evenements = Evenement::with('membre')
                 ->where('statut', 'Validé')
-                ->latest()
+                ->where('date_heure', '>=', now())
+                ->orderBy('date_heure', 'asc')
                 ->get();
+
+            // Formater les données de manière cohérente
+            $evenementsFormatted = $evenements->map(function($evenement) use ($visitorId) {
+                $stats = $this->getEventStats($evenement, $visitorId);
+                
+                return [
+                    'id' => $evenement->id,
+                    'id_evenement' => $evenement->id, // Doublon pour compatibilité
+                    'titre' => $evenement->titre,
+                    'description' => $evenement->description,
+                    'date_heure' => $evenement->date_heure,
+                    'lieu' => $evenement->lieu,
+                    'type' => $evenement->type,
+                    'statut' => $evenement->statut,
+                    'fichier' => $evenement->fichier,
+                    'fichier_url' => $evenement->fichier_url,
+                    'membre_id' => $evenement->membre_id,
+                    'auteur' => $evenement->auteur,
+                    'created_at' => $evenement->created_at,
+                    'updated_at' => $evenement->updated_at,
+                    'stats' => $stats
+                ];
+            });
             
-            return EvenementResource::collection($evenements);
+            return response()->json([
+                'success' => true,
+                'data' => $evenementsFormatted,
+                'count' => $evenements->count()
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }

@@ -148,6 +148,22 @@ const EvenementMembre = () => {
     }
   };
 
+  // ✅ AJOUTÉ : Fonction pour calculer le total des réactions
+  const getTotalReactions = (stats) => {
+    if (!stats?.reactions_by_type) return 0;
+    return Object.values(stats.reactions_by_type).reduce((sum, count) => sum + count, 0);
+  };
+
+  // ✅ AJOUTÉ : Fonction pour obtenir l'emoji de réaction
+  const getReactionEmoji = (type) => {
+    switch(type) {
+      case 'like': return '👍';
+      case 'love': return '❤️';
+      case 'wow': return '😮';
+      default: return '👍';
+    }
+  };
+
   // ✅ COMPOSANT AMÉLIORÉ : Aperçu des fichiers avec affichage correct
   const FilePreviewCard = ({ fichier, fileName }) => {
     if (!fichier) return null;
@@ -342,6 +358,7 @@ const EvenementMembre = () => {
     }
   }, []);
 
+  // ✅ MODIFIÉ : Charger les événements avec leurs statistiques
   const fetchEvenements = useCallback(async () => {
     setLoading(true);
     try {
@@ -362,15 +379,48 @@ const EvenementMembre = () => {
       const data = await response.json();
 
       const eventsArray = Array.isArray(data) ? data : data.evenements || data.data || [];
-      const formattedData = eventsArray.map(evt => ({
-        ...evt,
-        date: evt.date_heure ? evt.date_heure.split(' ')[0] : '',
-        heure: evt.date_heure ? evt.date_heure.split(' ')[1]?.substring(0,5) : '09:00',
-        auteur: evt.auteur || 'Auteur inconnu',
-        membre_id: evt.membre_id
-      }));
+      
+      // Charger les statistiques pour chaque événement
+      const eventsWithStats = await Promise.all(
+        eventsArray.map(async (evt) => {
+          try {
+            const statsResponse = await fetch(`${BASE_API_URL}/evenements/${evt.id}/stats`);
+            if (statsResponse.ok) {
+              const statsData = await statsResponse.json();
+              return {
+                ...evt,
+                date: evt.date_heure ? evt.date_heure.split(' ')[0] : '',
+                heure: evt.date_heure ? evt.date_heure.split(' ')[1]?.substring(0,5) : '09:00',
+                auteur: evt.auteur || 'Auteur inconnu',
+                membre_id: evt.membre_id,
+                stats: statsData.stats || {
+                  total_reactions: 0,
+                  total_views: 0,
+                  reactions_by_type: {}
+                }
+              };
+            }
+          } catch (error) {
+            console.error(`Erreur chargement stats pour événement ${evt.id}:`, error);
+          }
+          
+          // Retourner l'événement avec des stats par défaut en cas d'erreur
+          return {
+            ...evt,
+            date: evt.date_heure ? evt.date_heure.split(' ')[0] : '',
+            heure: evt.date_heure ? evt.date_heure.split(' ')[1]?.substring(0,5) : '09:00',
+            auteur: evt.auteur || 'Auteur inconnu',
+            membre_id: evt.membre_id,
+            stats: {
+              total_reactions: 0,
+              total_views: 0,
+              reactions_by_type: {}
+            }
+          };
+        })
+      );
 
-      setEvenements(formattedData);
+      setEvenements(eventsWithStats);
     } catch (error) {
       console.error('Erreur fetch evenements:', error);
       showAlert(`Erreur de chargement: ${error.message}`, "danger");
@@ -651,7 +701,7 @@ const EvenementMembre = () => {
           </Button>
         </div>
 
-        {/* Statistiques rapides */}
+        {/* ✅ MODIFIÉ : Statistiques avec réactions et vues */}
         <Row className="mb-5">
           <Col xl={3} lg={6} className="mb-4">
             <Card className="shadow-lg border-0 text-center p-4" style={{ borderRadius: "20px" }}>
@@ -673,20 +723,24 @@ const EvenementMembre = () => {
           </Col>
           <Col xl={3} lg={6} className="mb-4">
             <Card className="shadow-lg border-0 text-center p-4" style={{ borderRadius: "20px" }}>
-              <div className="bg-warning bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: "60px", height: "60px" }}>
-                <i className="fas fa-clock text-warning fs-4"></i>
+              <div className="bg-info bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: "60px", height: "60px" }}>
+                <i className="fas fa-eye text-info fs-4"></i>
               </div>
-              <h3 className="fw-bold text-warning">{evenements.filter(e => e.statut === 'En attente').length}</h3>
-              <p className="text-muted mb-0">Événements En attente</p>
+              <h3 className="fw-bold text-info">
+                {evenements.reduce((sum, evt) => sum + (evt.stats?.total_views || 0), 0)}
+              </h3>
+              <p className="text-muted mb-0">Total des vues</p>
             </Card>
           </Col>
           <Col xl={3} lg={6} className="mb-4">
             <Card className="shadow-lg border-0 text-center p-4" style={{ borderRadius: "20px" }}>
               <div className="bg-danger bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: "60px", height: "60px" }}>
-                <i className="fas fa-times-circle text-danger fs-4"></i>
+                <i className="fas fa-heart text-danger fs-4"></i>
               </div>
-              <h3 className="fw-bold text-danger">{evenements.filter(e => e.statut === 'Rejeté').length}</h3>
-              <p className="text-muted mb-0">Événements Rejetés</p>
+              <h3 className="fw-bold text-danger">
+                {evenements.reduce((sum, evt) => sum + getTotalReactions(evt.stats), 0)}
+              </h3>
+              <p className="text-muted mb-0">Total des réactions</p>
             </Card>
           </Col>
         </Row>
@@ -707,7 +761,7 @@ const EvenementMembre = () => {
             </Alert>
         )}
 
-        {/* ✅ Liste des événements */}
+        {/* ✅ MODIFIÉ : Liste des événements avec statistiques */}
         {!loading && evenements.length > 0 && (
             <Row>
               {evenements.map((evt) => {
@@ -757,6 +811,44 @@ const EvenementMembre = () => {
                           {evt.titre}
                         </Card.Title>
                         
+                        {/* ✅ AJOUTÉ : Statistiques d'engagement */}
+                        <div className="mb-3">
+                          <div className="d-flex justify-content-between align-items-center small text-muted mb-2">
+                            <div className="d-flex align-items-center gap-3">
+                              {/* Vues */}
+                              <div className="d-flex align-items-center">
+                                <i className="fas fa-eye me-1 text-primary"></i>
+                                <span>{evt.stats?.total_views || 0} vues</span>
+                              </div>
+                              
+                              {/* Réactions totales */}
+                              <div className="d-flex align-items-center">
+                                <i className="fas fa-heart me-1 text-danger"></i>
+                                <span>{getTotalReactions(evt.stats)} réactions</span>
+                              </div>
+                            </div>
+                            
+                            {/* Détails des réactions par type */}
+                            {evt.stats?.reactions_by_type && Object.keys(evt.stats.reactions_by_type).length > 0 && (
+                              <div className="d-flex gap-1">
+                                {Object.entries(evt.stats.reactions_by_type).map(([type, count]) => (
+                                  count > 0 && (
+                                    <Badge 
+                                      key={type}
+                                      bg="light" 
+                                      text="dark"
+                                      className="small"
+                                      style={{ fontSize: "0.6rem" }}
+                                    >
+                                      {getReactionEmoji(type)} {count}
+                                    </Badge>
+                                  )
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
                         <div className="mb-3">
                           <div className="d-flex align-items-center mb-2">
                             <i className="fas fa-map-marker-alt text-danger me-2"></i>

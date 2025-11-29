@@ -3,53 +3,121 @@
 namespace App\Http\Controllers;
 
 use App\Models\Publication;
+use App\Models\PublicationReaction;
+use App\Models\PublicationView;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Log;
 
 class PublicationController extends Controller
 {
-    // 📋 Récupérer toutes les publications (pour l'admin)
+    // 📋 Récupérer toutes les publications (pour l'admin) - CORRIGÉ
     public function index()
     {
         try {
-            $publications = Publication::orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($publication) {
-                    return $this->formatPublicationResponse($publication);
-                });
-
-            return response()->json($publications);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Erreur lors du chargement des publications'
-            ], 500);
-        }
-    }
-
-    // 📋 Récupérer uniquement les publications validées (pour les visiteurs)
-    public function getPublicationsValidees()
-    {
-        try {
-            $publications = Publication::where('statut', 'Validé')
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($publication) {
-                    return $this->formatPublicationResponse($publication);
-                });
-
+            $publications = Publication::orderBy('created_at', 'desc')->get();
+            
             return response()->json([
                 'success' => true,
-                'data' => $publications
+                'data' => $publications->map(function($pub) {
+                    return $this->formatPublicationResponse($pub);
+                })
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors du chargement des publications validées',
-                'error' => $e->getMessage()
+                'message' => 'Erreur lors du chargement des publications'
+            ], 500);
+        }
+    }
+
+    // 📄 Récupérer les publications validées (publiques)
+    public function getPublicationsValidees(Request $request)
+    {
+        try {
+            Log::info('=== GET PUBLICATIONS VALIDEES START ===');
+            
+            $publications = Publication::where('statut', 'Validé')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            Log::info('Publications found in DB:', ['count' => $publications->count()]);
+
+            if ($publications->isEmpty()) {
+                Log::info('No publications found');
+                return response()->json([
+                    'success' => true,
+                    'data' => [],
+                    'message' => 'Aucune publication validée trouvée'
+                ]);
+            }
+
+            $visitorId = $request->header('X-Visitor-ID');
+            Log::info('Visitor ID from header:', ['visitorId' => $visitorId]);
+
+            $formattedPublications = [];
+            foreach ($publications as $publication) {
+                $formattedPublication = [
+                    'id_publication' => $publication->id_publication,
+                    'titre' => $publication->titre,
+                    'contenu' => $publication->contenu,
+                    'type' => $publication->type,
+                    'date_publication' => $publication->date_publication,
+                    'source' => $publication->source,
+                    'categorie' => $publication->categorie ?? 'Général',
+                    'statut' => $publication->statut,
+                    'fichier' => $publication->fichier,
+                    'fichier_url' => $publication->fichier ? asset('storage/' . $publication->fichier) : null,
+                    'type_fichier' => $publication->type_fichier,
+                    'nom_fichier_original' => $publication->nom_fichier_original,
+                    'auteur' => $publication->auteur,
+                    'membre_id' => $publication->membre_id,
+                    'total_reactions' => $publication->total_reactions ?? 0,
+                    'vues' => $publication->vues ?? 0,
+                    'has_file' => !empty($publication->fichier),
+                    'created_at' => $publication->created_at?->toISOString(),
+                    'updated_at' => $publication->updated_at?->toISOString(),
+                ];
+
+                // Ajouter userReacted
+                if ($visitorId) {
+                    $formattedPublication['userReacted'] = PublicationReaction::where('publication_id', $publication->id_publication)
+                        ->where('visitor_id', $visitorId)
+                        ->exists();
+
+                    // Ajouter alreadyViewed
+                    $formattedPublication['already_viewed'] = PublicationView::where('publication_id', $publication->id_publication)
+                        ->where('visitor_id', $visitorId)
+                        ->exists();
+                } else {
+                    $formattedPublication['userReacted'] = false;
+                    $formattedPublication['already_viewed'] = false;
+                }
+
+                $formattedPublications[] = $formattedPublication;
+            }
+
+            Log::info('Successfully formatted publications', ['count' => count($formattedPublications)]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $formattedPublications,
+                'count' => count($formattedPublications)
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('CRITICAL ERROR in getPublicationsValidees:', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -57,8 +125,27 @@ class PublicationController extends Controller
     // 👤 Afficher une publication
     public function show($id)
     {
-        $publication = Publication::findOrFail($id);
-        return response()->json($this->formatPublicationResponse($publication));
+        try {
+            $publication = Publication::where('id_publication', $id)->first();
+            
+            if (!$publication) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Publication non trouvée'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $this->formatPublicationResponse($publication)
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du chargement de la publication'
+            ], 500);
+        }
     }
 
     // ➕ Ajouter une publication
@@ -79,8 +166,8 @@ class PublicationController extends Controller
             ]);
 
         } catch (ValidationException $e) {
-            // Retourner les erreurs de validation détaillées
             return response()->json([
+                'success' => false,
                 'message' => 'Erreur de validation',
                 'errors' => $e->errors()
             ], 422);
@@ -97,7 +184,6 @@ class PublicationController extends Controller
                 $validated['membre_id'] = null;
             } elseif ($user->type === 'membre') {
                 $validated['membre_id'] = $user->id;
-                // Utiliser le nom complet si disponible
                 $validated['auteur'] = $user->nom_complet ?? $user->nom ?? $user->prenom ?? $user->email ?? 'Membre';
                 $validated['statut'] = $validated['statut'] ?? 'En attente';
             }
@@ -127,12 +213,14 @@ class PublicationController extends Controller
             $publication = Publication::create($validated);
 
             return response()->json([
+                'success' => true,
                 'message' => 'Publication ajoutée avec succès',
                 'data' => $this->formatPublicationResponse($publication)
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
+                'success' => false,
                 'message' => 'Erreur lors de la création de la publication',
                 'error' => $e->getMessage()
             ], 500);
@@ -142,9 +230,16 @@ class PublicationController extends Controller
     // ✏️ Modifier une publication
     public function update(Request $request, $id)
     {
-        $publication = Publication::findOrFail($id);
-
         try {
+            $publication = Publication::where('id_publication', $id)->first();
+            
+            if (!$publication) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Publication non trouvée'
+                ], 404);
+            }
+
             $validated = $request->validate([
                 'titre' => 'required|string|max:500',
                 'contenu' => 'required|string',
@@ -153,12 +248,13 @@ class PublicationController extends Controller
                 'source' => 'nullable|string|max:255',
                 'categorie' => 'nullable|string|max:255',
                 'statut' => 'nullable|in:Brouillon,En attente,Validé,Rejeté',
-                'fichier' => 'nullable|file|max:10240', // 10MB max
+                'fichier' => 'nullable|file|max:10240',
                 'type_fichier' => 'nullable|in:image,video,document',
             ]);
 
         } catch (ValidationException $e) {
             return response()->json([
+                'success' => false,
                 'message' => 'Erreur de validation',
                 'errors' => $e->errors()
             ], 422);
@@ -181,7 +277,6 @@ class PublicationController extends Controller
                 $validated['type_fichier'] = $publication->getTypeFichierFromName($file->getClientOriginalName());
             }
         } else {
-            // Garder les valeurs existantes si pas de nouveau fichier
             unset($validated['fichier']);
             unset($validated['type_fichier']);
             unset($validated['nom_fichier_original']);
@@ -194,6 +289,7 @@ class PublicationController extends Controller
         $publication->update($validated);
 
         return response()->json([
+            'success' => true,
             'message' => 'Publication modifiée avec succès',
             'data' => $this->formatPublicationResponse($publication)
         ]);
@@ -202,47 +298,103 @@ class PublicationController extends Controller
     // 🗑️ Supprimer une publication
     public function destroy($id)
     {
-        $publication = Publication::findOrFail($id);
+        try {
+            $publication = Publication::where('id_publication', $id)->first();
+            
+            if (!$publication) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Publication non trouvée'
+                ], 404);
+            }
 
-        if ($publication->fichier && Storage::disk('public')->exists($publication->fichier)) {
-            Storage::disk('public')->delete($publication->fichier);
+            if ($publication->fichier && Storage::disk('public')->exists($publication->fichier)) {
+                Storage::disk('public')->delete($publication->fichier);
+            }
+
+            $publication->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Publication supprimée avec succès'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression de la publication'
+            ], 500);
         }
-
-        $publication->delete();
-
-        return response()->json(['message' => 'Publication supprimée']);
     }
 
     // ✅ Valider une publication
     public function validatePublication($id)
     {
-        $publication = Publication::findOrFail($id);
-        $publication->statut = 'Validé';
-        $publication->save();
+        try {
+            $publication = Publication::where('id_publication', $id)->first();
+            
+            if (!$publication) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Publication non trouvée'
+                ], 404);
+            }
 
-        return response()->json([
-            'message' => 'Publication validée',
-            'data' => $this->formatPublicationResponse($publication)
-        ]);
+            $publication->statut = 'Validé';
+            $publication->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Publication validée',
+                'data' => $this->formatPublicationResponse($publication)
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la validation de la publication'
+            ], 500);
+        }
     }
 
     // 📥 Télécharger le fichier d'une publication
     public function downloadFile($id)
     {
-        $publication = Publication::findOrFail($id);
+        try {
+            $publication = Publication::where('id_publication', $id)->first();
+            
+            if (!$publication) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Publication non trouvée'
+                ], 404);
+            }
 
-        if (!$publication->fichier) {
-            return response()->json(['message' => 'Aucun fichier associé à cette publication'], 404);
+            if (!$publication->fichier) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun fichier associé à cette publication'
+                ], 404);
+            }
+
+            if (!Storage::disk('public')->exists($publication->fichier)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Fichier non trouvé'
+                ], 404);
+            }
+
+            $filePath = storage_path('app/public/' . $publication->fichier);
+            $fileName = $publication->nom_fichier_original ?: basename($publication->fichier);
+
+            return response()->download($filePath, $fileName);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du téléchargement du fichier'
+            ], 500);
         }
-
-        if (!Storage::disk('public')->exists($publication->fichier)) {
-            return response()->json(['message' => 'Fichier non trouvé'], 404);
-        }
-
-        $filePath = storage_path('app/public/' . $publication->fichier);
-        $fileName = $publication->nom_fichier_original ?: basename($publication->fichier);
-
-        return response()->download($filePath, $fileName);
     }
 
     // 🎯 Formater la réponse de la publication
@@ -255,7 +407,7 @@ class PublicationController extends Controller
             'type' => $publication->type,
             'date_publication' => $publication->date_publication,
             'source' => $publication->source,
-            'categorie' => $publication->categorie,
+            'categorie' => $publication->categorie ?? 'Général',
             'statut' => $publication->statut,
             'fichier' => $publication->fichier,
             'fichier_url' => $publication->fichier ? asset('storage/' . $publication->fichier) : null,
@@ -263,36 +415,169 @@ class PublicationController extends Controller
             'nom_fichier_original' => $publication->nom_fichier_original,
             'auteur' => $publication->auteur,
             'membre_id' => $publication->membre_id,
+            'total_reactions' => $publication->total_reactions ?? 0,
+            'vues' => $publication->vues ?? 0,
             'has_file' => !empty($publication->fichier),
-            'file_icon' => $this->getFileIcon($publication->nom_fichier_original),
-            'created_at' => $publication->created_at,
-            'updated_at' => $publication->updated_at,
+            'created_at' => $publication->created_at?->toISOString(),
+            'updated_at' => $publication->updated_at?->toISOString(),
         ];
+    }
+
+    // ❤️ Réaction utilisateur/visiteur
+    public function react(Request $request, $id)
+    {
+        try {
+            Log::info('React request received', [
+                'publication_id' => $id,
+                'visitor_id' => $request->header('X-Visitor-ID')
+            ]);
+
+            $publication = Publication::where('id_publication', $id)->first();
+            
+            if (!$publication) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Publication non trouvée'
+                ], 404);
+            }
+
+            $visitorId = $request->header('X-Visitor-ID');
+
+            if (!$visitorId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Identifiant visiteur requis'
+                ], 400);
+            }
+
+            // Vérifier si le visiteur a déjà réagi
+            $existingReaction = PublicationReaction::where('publication_id', $publication->id_publication)
+                ->where('visitor_id', $visitorId)
+                ->first();
+
+            if ($existingReaction) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vous avez déjà réagi à cette publication',
+                    'total_reactions' => $publication->total_reactions
+                ], 422);
+            }
+
+            // Créer la réaction
+            PublicationReaction::create([
+                'publication_id' => $publication->id_publication,
+                'visitor_id' => $visitorId,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent()
+            ]);
+
+            // Mettre à jour le compteur
+            $publication->increment('total_reactions');
+            $publication->refresh();
+
+            Log::info('Reaction added successfully', [
+                'publication_id' => $publication->id_publication,
+                'new_total' => $publication->total_reactions
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Réaction ajoutée avec succès',
+                'total_reactions' => $publication->total_reactions,
+                'userReacted' => true
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error in react method:', ['error' => $e->getMessage()]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'ajout de la réaction: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     // 👀 Incrémenter les vues
     public function view(Request $request, $id)
     {
-        $pub = Publication::findOrFail($id);
-        $pub->increment('vues');
-        return response()->json(['vues' => $pub->vues]);
-    }
+        try {
+            $publication = Publication::where('id_publication', $id)->first();
+            
+            if (!$publication) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Publication non trouvée'
+                ], 404);
+            }
 
-    // ❤️ Réaction utilisateur
-    public function react(Request $request, $id)
-    {
-        $pub = Publication::findOrFail($id);
-        $user = Auth::user();
+            $visitorId = $request->header('X-Visitor-ID');
 
-        if (!$pub->reactedUsers()->where('user_id', $user->id)->exists()) {
-            $pub->reactedUsers()->attach($user->id);
-            $pub->increment('total_reactions');
+            if (!$visitorId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Identifiant visiteur requis pour compter les vues'
+                ], 400);
+            }
+
+            // Vérifier si le visiteur a déjà vu cette publication
+            $alreadyViewed = PublicationView::where('publication_id', $publication->id_publication)
+                ->where('visitor_id', $visitorId)
+                ->exists();
+
+            if ($alreadyViewed) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Vous avez déjà vu cette publication',
+                    'vues' => $publication->vues,
+                    'already_viewed' => true
+                ]);
+            }
+
+            // Enregistrer la vue
+            PublicationView::create([
+                'publication_id' => $publication->id_publication,
+                'visitor_id' => $visitorId,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent()
+            ]);
+
+            // Incrémenter le compteur de vues
+            $publication->increment('vues');
+            $publication->refresh();
+
+            Log::info('New view recorded', [
+                'publication_id' => $publication->id_publication,
+                'visitor_id' => $visitorId,
+                'new_views_count' => $publication->vues
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Vue enregistrée avec succès',
+                'vues' => $publication->vues,
+                'already_viewed' => false
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error in view method:', [
+                'error' => $e->getMessage(),
+                'publication_id' => $id
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'enregistrement de la vue'
+            ], 500);
         }
-
-        return response()->json(['total_reactions' => $pub->total_reactions]);
     }
 
-    // 🎯 Obtenir l'icône du fichier
+    // Méthode pour générer un ID unique pour le visiteur
+    private function getVisitorId(Request $request)
+    {
+        return md5($request->ip() . $request->userAgent());
+    }
+
+    // 🎯 Obtenir l'icône du fichier (méthode utilitaire)
     private function getFileIcon($fileName)
     {
         if (!$fileName) return 'file';

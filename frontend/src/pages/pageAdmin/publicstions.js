@@ -125,7 +125,9 @@ const Publication = () => {
           categorie: pub.categorie || "",
           type_fichier: pub.type_fichier || "image",
           fichier_url: pub.fichier_url || null,
-          nom_fichier_original: pub.nom_fichier_original || null
+          nom_fichier_original: pub.nom_fichier_original || null,
+          total_reactions: pub.total_reactions || 0, // Assurer que total_reactions existe
+          vues: pub.vues || 0 // Assurer que vues existe
         }));
 
       setPublications(validPubs);
@@ -222,8 +224,8 @@ const Publication = () => {
         statut: "Validé",
         auteur: "Admin",
         date_publication: formatDateForAPI(newPub.date_publication),
-        likes: 0,
-        vues: 0,
+        total_reactions: pubData.total_reactions || 0, // Utiliser total_reactions au lieu de likes
+        vues: pubData.vues || 0,
         fichier_url: newPub.fichier ? URL.createObjectURL(newPub.fichier) : pubData.fichier_url,
         nom_fichier_original: newPub.fichier?.name || pubData.nom_fichier_original
       };
@@ -344,7 +346,9 @@ const Publication = () => {
           ? URL.createObjectURL(selectedPub.fichier)
           : selectedPub.fichier_url,
         nom_fichier_original: selectedPub.fichier?.name || selectedPub.nom_fichier_original,
-        date_publication: formatDateForInput(selectedPub.date_publication)
+        date_publication: formatDateForInput(selectedPub.date_publication),
+        total_reactions: pubData.total_reactions || selectedPub.total_reactions || 0, // Conserver total_reactions
+        vues: pubData.vues || selectedPub.vues || 0
       };
 
       setPublications(prev => prev.map(pub =>
@@ -661,9 +665,14 @@ const Publication = () => {
                           </div>
                         )}
                         <div className="d-flex justify-content-between align-items-center">
+                          {/* MODIFICATION ICI : Affichage des réactions au lieu des likes */}
                           <div className="d-flex gap-2 text-muted small">
-                            <span><i className="fas fa-thumbs-up me-1"></i>{pub.likes || 0}</span>
-                            <span><i className="fas fa-eye me-1"></i>{pub.vues || 0}</span>
+                            <span title="Nombre de réactions">
+                              <i className="fas fa-heart me-1 text-danger"></i>{pub.total_reactions || 0}
+                            </span>
+                            <span title="Nombre de vues">
+                              <i className="fas fa-eye me-1 text-primary"></i>{pub.vues || 0}
+                            </span>
                           </div>
                           <div className="d-flex gap-1">
                             {pub.statut === "En attente" && (

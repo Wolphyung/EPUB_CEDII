@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\AppelOffre;
+use App\Models\AppelOffreReaction;
+use App\Models\AppelOffreVue;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class AppelOffreController extends Controller
 {
@@ -147,14 +150,176 @@ class AppelOffreController extends Controller
     }
 
 
-      public function getAppelsOffreValides()
-{
-    $offresValides = AppelOffre::where('statut', 'validé')
-                    ->orderBy('created_at', 'desc')
-                    ->get();
+    public function react(Request $request, $id)
+    {
+        try {
+            $appelOffre = AppelOffre::where('statut', 'Validé')->findOrFail($id);
+            
+            $validated = $request->validate([
+                'visitor_id' => 'required|string',
+                'type' => ['required', Rule::in(['like', 'love', 'wow'])]
+            ]);
 
-    // renvoyer le tableau directement
-    return response()->json($offresValides);
+            // Vérifier si le visiteur a déjà réagi
+            $existingReaction = AppelOffreReaction::where('appel_offre_id', $id)
+                ->where('visitor_id', $validated['visitor_id'])
+                ->first();
+
+            if ($existingReaction) {
+                // Mettre à jour la réaction existante
+                $existingReaction->update(['type' => $validated['type']]);
+                $message = 'Réaction mise à jour';
+            } else {
+                // Créer une nouvelle réaction
+                AppelOffreReaction::create([
+                    'appel_offre_id' => $id,
+                    'visitor_id' => $validated['visitor_id'],
+                    'type' => $validated['type']
+                ]);
+                $message = 'Réaction ajoutée';
+            }
+
+            // Récupérer les statistiques mises à jour
+            $stats = $this->getAppelOffreStats($appelOffre, $validated['visitor_id']);
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'stats' => $stats
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Erreur lors de l\'ajout de la réaction',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // 🔹 Enregistrer une vue d'un visiteur
+    public function view(Request $request, $id)
+    {
+        try {
+            $appelOffre = AppelOffre::where('statut', 'Validé')->findOrFail($id);
+            
+            $validated = $request->validate([
+                'visitor_id' => 'required|string'
+            ]);
+
+            // Vérifier si le visiteur a déjà vu cet appel d'offre
+            $existingView = AppelOffreVue::where('appel_offre_id', $id)
+                ->where('visitor_id', $validated['visitor_id'])
+                ->first();
+
+            if (!$existingView) {
+                // Enregistrer la vue seulement si c'est la première fois
+                AppelOffreVue::create([
+                    'appel_offre_id' => $id,
+                    'visitor_id' => $validated['visitor_id']
+                ]);
+            }
+
+            // Récupérer les statistiques mises à jour
+            $stats = $this->getAppelOffreStats($appelOffre, $validated['visitor_id']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Vue enregistrée',
+                'stats' => $stats
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Erreur lors de l\'enregistrement de la vue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // 🔹 Obtenir les statistiques d'un appel d'offre
+    public function getStats(Request $request, $id)
+    {
+        try {
+            $appelOffre = AppelOffre::where('statut', 'Validé')->findOrFail($id);
+            
+            $visitorId = $request->get('visitor_id', '');
+
+            $stats = $this->getAppelOffreStats($appelOffre, $visitorId);
+
+            return response()->json([
+                'success' => true,
+                'stats' => $stats
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Erreur lors de la récupération des statistiques',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // 🔹 Méthode privée pour récupérer les statistiques
+    private function getAppelOffreStats(AppelOffre $appelOffre, $visitorId = null)
+    {
+        // Compter les réactions par type
+        $reactionsByType = AppelOffreReaction::where('appel_offre_id', $appelOffre->id)
+            ->selectRaw('type, COUNT(*) as count')
+            ->groupBy('type')
+            ->pluck('count', 'type')
+            ->toArray();
+
+        // Vérifier si le visiteur a réagi
+        $userReaction = null;
+        if ($visitorId) {
+            $userReaction = AppelOffreReaction::where('appel_offre_id', $appelOffre->id)
+                ->where('visitor_id', $visitorId)
+                ->value('type');
+        }
+
+        return [
+            'total_reactions' => $appelOffre->reactions()->count(),
+            'total_views' => $appelOffre->vues()->count(),
+            'reactions_by_type' => $reactionsByType,
+            'user_reaction' => $userReaction,
+            'has_viewed' => $visitorId ? $appelOffre->hasViewed($visitorId) : false
+        ];
+    }
+
+    // 🔹 Récupérer les appels d'offre validés pour les visiteurs avec stats
+    public function getAppelsOffreValides(Request $request)
+    {
+        try {
+            $visitorId = $request->get('visitor_id', '');
+            
+            $appelsOffre = AppelOffre::where('statut', 'Validé')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            // Ajouter les statistiques pour chaque appel d'offre
+            $appelsOffreWithStats = $appelsOffre->map(function($appelOffre) use ($visitorId) {
+                $stats = $this->getAppelOffreStats($appelOffre, $visitorId);
+                return [
+                    'appel_offre' => $appelOffre,
+                    'stats' => $stats
+                ];
+            });
+            
+            return response()->json([
+                'success' => true,
+                'data' => $appelsOffreWithStats,
+                'count' => $appelsOffre->count()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
 
-}
+    

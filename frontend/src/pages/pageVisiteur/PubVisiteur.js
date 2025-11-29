@@ -7,17 +7,35 @@ const PubVisiteur = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedPublication, setSelectedPublication] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+
+  // Générer un ID unique pour le visiteur (stocké dans localStorage)
+  const getVisitorId = () => {
+    let visitorId = localStorage.getItem('visitorId');
+    if (!visitorId) {
+      visitorId = 'visitor_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('visitorId', visitorId);
+    }
+    return visitorId;
+  };
 
   useEffect(() => {
     const fetchPubs = async () => {
       try {
-        const res = await axios.get("http://localhost:8000/api/publications/validees");
+        const visitorId = getVisitorId();
+        const res = await axios.get("http://localhost:8000/api/publications/validees", {
+          headers: {
+            'X-Visitor-ID': visitorId
+          }
+        });
+        
         if(res.data.success){
           const pubs = res.data.data.map(pub => ({
             ...pub, 
-            userReacted: false,
+            userReacted: pub.userReacted || false,
+            already_viewed: pub.already_viewed || false,
             category: pub.categorie || "Général",
-            // Assurer que les URLs des fichiers sont complètes
             fichier_url: pub.fichier_url?.startsWith('http') 
               ? pub.fichier_url 
               : `http://localhost:8000/storage/${pub.fichier_url}`
@@ -35,33 +53,121 @@ const PubVisiteur = () => {
 
   const handleReact = async (pub) => {
     if(pub.userReacted) return;
+    
     try{
-      const token = localStorage.getItem("token");
-      const res = await axios.post(`http://localhost:8000/api/publications/${pub.id_publication}/react`,{},{
-        headers:{Authorization:`Bearer ${token}`}
-      });
+      const visitorId = getVisitorId();
+      const res = await axios.post(
+        `http://localhost:8000/api/publications/${pub.id_publication}/react`, 
+        {},
+        {
+          headers: {
+            'X-Visitor-ID': visitorId
+          }
+        }
+      );
       
-      setPublications(prev => prev.map(p => 
-        p.id_publication === pub.id_publication 
-          ? { ...p, total_reactions: res.data.total_reactions, userReacted: true }
-          : p
-      ));
-    }catch(e){
-      console.error(e);
+      if (res.data.success) {
+        setPublications(prev => prev.map(p => 
+          p.id_publication === pub.id_publication 
+            ? { 
+                ...p, 
+                total_reactions: res.data.total_reactions, 
+                userReacted: true 
+              }
+            : p
+        ));
+        
+        // Mettre à jour aussi la publication sélectionnée si elle est ouverte
+        if (selectedPublication && selectedPublication.id_publication === pub.id_publication) {
+          setSelectedPublication(prev => ({
+            ...prev,
+            total_reactions: res.data.total_reactions,
+            userReacted: true
+          }));
+        }
+      } else {
+        alert(res.data.message);
+      }
+    } catch(e){
+      console.error("Erreur réaction:", e);
+      if (e.response?.data?.message) {
+        alert(e.response.data.message);
+      }
     }
   };
 
   const handleView = async (pub) => {
-    try{
-      const res = await axios.post(`http://localhost:8000/api/publications/${pub.id_publication}/view`);
-      setPublications(prev => prev.map(p => 
-        p.id_publication === pub.id_publication 
-          ? { ...p, vues: res.data.vues }
-          : p
-      ));
-    }catch(e){
-      console.error(e);
+    // Si déjà vu, ne rien faire
+    if (pub.already_viewed) {
+      return;
     }
+    
+    try{
+      const visitorId = getVisitorId();
+      const res = await axios.post(
+        `http://localhost:8000/api/publications/${pub.id_publication}/view`,
+        {},
+        {
+          headers: {
+            'X-Visitor-ID': visitorId
+          }
+        }
+      );
+      
+      if (res.data.success) {
+        setPublications(prev => prev.map(p => 
+          p.id_publication === pub.id_publication 
+            ? { 
+                ...p, 
+                vues: res.data.vues,
+                already_viewed: true 
+              }
+            : p
+        ));
+        
+        // Mettre à jour aussi la publication sélectionnée si elle est ouverte
+        if (selectedPublication && selectedPublication.id_publication === pub.id_publication) {
+          setSelectedPublication(prev => ({
+            ...prev,
+            vues: res.data.vues,
+            already_viewed: true
+          }));
+        }
+      }
+    } catch(e){
+      console.error("Erreur vue:", e);
+    }
+  };
+
+  const handleShowDetails = async (pub) => {
+    try {
+      // Enregistrer la vue si ce n'est pas déjà fait (C'EST ICI QUE LA VUE EST ENREGISTRÉE)
+      if (!pub.already_viewed) {
+        await handleView(pub);
+      }
+      
+      // Charger les détails complets de la publication
+      const res = await axios.get(`http://localhost:8000/api/publications/${pub.id_publication}`);
+      
+      if (res.data.success) {
+        setSelectedPublication({
+          ...res.data.data,
+          already_viewed: pub.already_viewed || true, // Marquer comme vu
+          userReacted: pub.userReacted || false
+        });
+        setShowModal(true);
+      }
+    } catch (e) {
+      console.error("Erreur chargement détails:", e);
+      // En cas d'erreur, utiliser les données de base
+      setSelectedPublication(pub);
+      setShowModal(true);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setSelectedPublication(null);
   };
 
   const handleDownload = (fileUrl, fileName) => {
@@ -105,6 +211,16 @@ const PubVisiteur = () => {
   };
 
   const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const formatDateShort = (dateString) => {
     return new Date(dateString).toLocaleDateString('fr-FR', {
       day: 'numeric',
       month: 'long',
@@ -204,7 +320,7 @@ const PubVisiteur = () => {
               </h2>
             </div>
 
-            {/* Grille des publications avec design similaire à PubMembre */}
+            {/* Grille des publications */}
             <div className="row g-4">
               {filteredPublications.map((pub) => {
                 const isImage = pub.type_fichier === "image";
@@ -247,7 +363,7 @@ const PubVisiteur = () => {
                           </span>
                           <small className="text-muted">
                             <i className="far fa-clock me-1"></i>
-                            {formatDate(pub.created_at || pub.date_publication)}
+                            {formatDateShort(pub.created_at || pub.date_publication)}
                           </small>
                         </div>
                         
@@ -291,7 +407,7 @@ const PubVisiteur = () => {
                             <div className="col-12">
                               <div className="d-flex justify-content-between align-items-center">
                                 <div className="d-flex align-items-center gap-3">
-                                  {/* Bouton Like */}
+                                  {/* Bouton Like - RESTE CLIQUABLE */}
                                   <button 
                                     className={`btn btn-sm ${
                                       pub.userReacted 
@@ -300,21 +416,24 @@ const PubVisiteur = () => {
                                     } d-flex align-items-center gap-2`}
                                     onClick={() => handleReact(pub)}
                                     disabled={pub.userReacted}
+                                    title={pub.userReacted ? "Vous avez déjà aimé cette publication" : "Aimer cette publication"}
                                   >
-                                    <i className={`fas ${
-                                      pub.userReacted ? 'fa-heart' : 'fa-heart'
-                                    }`}></i>
+                                    <i className={`fas ${pub.userReacted ? 'fa-heart' : 'fa-heart'}`}></i>
                                     <span>{pub.total_reactions || 0}</span>
                                   </button>
 
-                                  {/* Bouton Vues */}
-                                  <button 
-                                    className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
-                                    onClick={() => handleView(pub)}
+                                  {/* Bouton Vues - MAINTENANT NON CLIQUABLE */}
+                                  <div 
+                                    className={`btn btn-sm ${
+                                      pub.already_viewed 
+                                        ? 'btn-success' 
+                                        : 'btn-outline-secondary'
+                                    } d-flex align-items-center gap-2`}
+                                    title={pub.already_viewed ? "Vous avez déjà vu cette publication" : "Non consultée"}
                                   >
-                                    <i className="far fa-eye"></i>
+                                    <i className={`fas ${pub.already_viewed ? 'fa-eye' : 'far fa-eye'}`}></i>
                                     <span>{pub.vues || 0}</span>
-                                  </button>
+                                  </div>
                                 </div>
 
                                 {/* Auteur */}
@@ -333,9 +452,12 @@ const PubVisiteur = () => {
                       {/* Actions supplémentaires */}
                       <div className="card-footer bg-transparent border-0 pt-0">
                         <div className="d-grid">
-                          <button className="btn btn-outline-primary">
-                            <i className="fas fa-expand-alt me-2"></i>
-                            Voir les détails
+                          <button 
+                            className={`btn ${pub.already_viewed ? 'btn-success' : 'btn-outline-primary'}`}
+                            onClick={() => handleShowDetails(pub)}
+                          >
+                            <i className={`fas ${pub.already_viewed ? 'fa-check' : 'fa-expand-alt'} me-2`}></i>
+                            {pub.already_viewed ? 'Déjà consultée' : 'Voir les détails'}
                           </button>
                         </div>
                       </div>
@@ -369,6 +491,164 @@ const PubVisiteur = () => {
         )}
       </div>
 
+      {/* Modal des détails */}
+      {showModal && selectedPublication && (
+        <div className="modal fade show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}} tabIndex="-1">
+          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">{selectedPublication.titre}</h5>
+                <button 
+                  type="button" 
+                  className="btn-close" 
+                  onClick={handleCloseModal}
+                ></button>
+              </div>
+              <div className="modal-body">
+                
+                {/* En-tête avec métadonnées */}
+                <div className="d-flex flex-wrap gap-3 mb-4 pb-3 border-bottom">
+                  <div className="d-flex align-items-center">
+                    <span className="badge bg-primary me-2">{selectedPublication.type}</span>
+                    <span className="badge bg-secondary">{selectedPublication.category}</span>
+                  </div>
+                  <div className="d-flex align-items-center text-muted small">
+                    <i className="far fa-calendar me-1"></i>
+                    {formatDate(selectedPublication.date_publication || selectedPublication.created_at)}
+                  </div>
+                  {selectedPublication.source && (
+                    <div className="d-flex align-items-center text-muted small">
+                      <i className="fas fa-link me-1"></i>
+                      Source: {selectedPublication.source}
+                    </div>
+                  )}
+                  {selectedPublication.auteur && (
+                    <div className="d-flex align-items-center text-muted small">
+                      <i className="fas fa-user me-1"></i>
+                      Par: {selectedPublication.auteur}
+                    </div>
+                  )}
+                </div>
+
+                {/* Fichier média principal */}
+                {selectedPublication.fichier_url && (
+                  <div className="mb-4">
+                    {selectedPublication.type_fichier === "image" ? (
+                      <img 
+                        src={selectedPublication.fichier_url} 
+                        alt={selectedPublication.titre}
+                        className="img-fluid rounded w-100"
+                        style={{maxHeight: '400px', objectFit: 'contain'}}
+                      />
+                    ) : selectedPublication.type_fichier === "video" ? (
+                      <div className="ratio ratio-16x9">
+                        <video 
+                          src={selectedPublication.fichier_url}
+                          controls
+                          className="w-100"
+                        />
+                      </div>
+                    ) : (
+                      <div className="p-4 border rounded bg-light text-center">
+                        <i className={`fas ${getFileIcon(selectedPublication.nom_fichier_original)} display-4 mb-3`}></i>
+                        <div>
+                          <p className="mb-2 fw-bold">{selectedPublication.nom_fichier_original || 'Document'}</p>
+                          <button 
+                            className="btn btn-primary"
+                            onClick={() => handleDownload(selectedPublication.fichier_url, selectedPublication.nom_fichier_original)}
+                          >
+                            <i className="fas fa-download me-2"></i>
+                            Télécharger le document
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Contenu détaillé */}
+                <div className="mb-4">
+                  <h6 className="text-muted mb-3">Contenu détaillé</h6>
+                  <div 
+                    className="publication-content"
+                    style={{lineHeight: '1.6', whiteSpace: 'pre-wrap'}}
+                  >
+                    {selectedPublication.contenu}
+                  </div>
+                </div>
+
+                {/* Statistiques d'engagement */}
+                <div className="border-top pt-3">
+                  <div className="row text-center">
+                    <div className="col-4">
+                      <div className="d-flex flex-column align-items-center">
+                        <button 
+                          className={`btn ${
+                            selectedPublication.userReacted 
+                              ? 'btn-danger' 
+                              : 'btn-outline-danger'
+                          } mb-2`}
+                          onClick={() => handleReact(selectedPublication)}
+                          disabled={selectedPublication.userReacted}
+                        >
+                          <i className={`fas ${selectedPublication.userReacted ? 'fa-heart' : 'fa-heart'}`}></i>
+                        </button>
+                        <small className="text-muted">
+                          {selectedPublication.total_reactions || 0} réactions
+                        </small>
+                      </div>
+                    </div>
+                    <div className="col-4">
+                      <div className="d-flex flex-column align-items-center">
+                        <div className={`btn ${
+                          selectedPublication.already_viewed 
+                            ? 'btn-success' 
+                            : 'btn-outline-secondary'
+                        } mb-2`}>
+                          <i className={`fas ${selectedPublication.already_viewed ? 'fa-eye' : 'far fa-eye'}`}></i>
+                        </div>
+                        <small className="text-muted">
+                          {selectedPublication.vues || 0} vues
+                        </small>
+                      </div>
+                    </div>
+                    <div className="col-4">
+                      <div className="d-flex flex-column align-items-center">
+                        <div className="btn btn-outline-info mb-2">
+                          <i className="fas fa-info"></i>
+                        </div>
+                        <small className="text-muted">
+                          {selectedPublication.already_viewed ? 'Consultée' : 'Nouvelle'}
+                        </small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={handleCloseModal}
+                >
+                  Fermer
+                </button>
+                {selectedPublication.fichier_url && selectedPublication.type_fichier === "document" && (
+                  <button 
+                    type="button" 
+                    className="btn btn-primary"
+                    onClick={() => handleDownload(selectedPublication.fichier_url, selectedPublication.nom_fichier_original)}
+                  >
+                    <i className="fas fa-download me-2"></i>
+                    Télécharger
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Styles CSS pour les effets */}
       <style jsx>{`
         .hover-shadow {
@@ -392,6 +672,10 @@ const PubVisiteur = () => {
         }
         .max-w-400 {
           max-width: 400px;
+        }
+        .publication-content {
+          font-size: 1.1rem;
+          color: #333;
         }
       `}</style>
     </div>

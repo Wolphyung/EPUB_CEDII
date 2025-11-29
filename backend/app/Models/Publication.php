@@ -14,23 +14,32 @@ class Publication extends Model
     protected $fillable = [
         'titre','contenu','type','date_publication','source','categorie','statut',
         'fichier','type_fichier','nom_fichier_original','auteur','id_utilisateur', 
-    'membre_id',
-        'total_reactions','vues'
+        'membre_id','total_reactions','vues'
     ];
 
     protected $casts = [
         'date_publication' => 'datetime',
     ];
 
-
     public function membre()
-{
-    return $this->belongsTo(Membre::class, 'membre_id');
-}
-    // Relation avec l'utilisateur
+    {
+        return $this->belongsTo(Membre::class, 'membre_id');
+    }
+
     public function utilisateur()
     {
         return $this->belongsTo(User::class, 'id_utilisateur');
+    }
+
+    public function reactions()
+    {
+        return $this->hasMany(PublicationReaction::class, 'publication_id');
+    }
+
+    // Nouvelle relation pour les vues
+    public function views()
+    {
+        return $this->hasMany(PublicationView::class, 'publication_id');
     }
 
     // Accessor pour l'URL complète du fichier
@@ -47,7 +56,6 @@ class Publication extends Model
         return asset('storage/' . $this->fichier);
     }
 
-    // Méthode pour déterminer le type de fichier basé sur l'extension
     public function getTypeFichierFromName($fileName)
     {
         if (!$fileName) return null;
@@ -66,13 +74,11 @@ class Publication extends Model
         }
     }
 
-    // Vérifier si la publication a un fichier
     public function hasFile()
     {
         return !empty($this->fichier);
     }
 
-    // Obtenir l'icône du fichier
     public function getFileIcon()
     {
         if (!$this->fichier) return 'fa-file';
@@ -88,9 +94,6 @@ class Publication extends Model
             case 'xls':
             case 'xlsx':
                 return 'fa-file-excel';
-            case 'ppt':
-            case 'pptx':
-                return 'fa-file-powerpoint';
             case 'jpg':
             case 'jpeg':
             case 'png':
@@ -110,5 +113,11 @@ class Publication extends Model
             default:
                 return 'fa-file';
         }
+    }
+
+    // Méthode pour vérifier si un visiteur a déjà vu cette publication
+    public function hasVisitorViewed($visitorId)
+    {
+        return $this->views()->where('visitor_id', $visitorId)->exists();
     }
 }

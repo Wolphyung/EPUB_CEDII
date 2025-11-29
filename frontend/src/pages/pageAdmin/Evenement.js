@@ -241,12 +241,41 @@ const Evenement = () => {
     }, 5000);
   };
 
-  // Charger les événements
+  // Charger les événements avec les statistiques
   const fetchEvenements = async () => {
     setLoading(true);
     try {
       const res = await axios.get(`${API_URL}/evenements`);
-      setEvenements(res.data.data || res.data);
+      const events = res.data.data || res.data;
+      
+      // Charger les statistiques pour chaque événement
+      const eventsWithStats = await Promise.all(
+        events.map(async (event) => {
+          try {
+            const statsRes = await axios.get(`${API_URL}/evenements/${event.id}/stats`);
+            return {
+              ...event,
+              stats: statsRes.data.stats || {
+                total_reactions: 0,
+                total_views: 0,
+                reactions_by_type: {}
+              }
+            };
+          } catch (error) {
+            console.error(`Erreur chargement stats pour événement ${event.id}:`, error);
+            return {
+              ...event,
+              stats: {
+                total_reactions: 0,
+                total_views: 0,
+                reactions_by_type: {}
+              }
+            };
+          }
+        })
+      );
+      
+      setEvenements(eventsWithStats);
     } catch (err) {
       console.error(err);
       showNotification("error", t('error_load_events'));
@@ -381,7 +410,8 @@ const Evenement = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
       
-      setEvenements(prev => [res.data.data || res.data, ...prev]);
+      // Recharger la liste pour avoir les statistiques
+      await fetchEvenements();
       showNotification("success", t('success_add_event'));
       handleCloseAddModal();
     } catch (err) {
@@ -429,9 +459,8 @@ const Evenement = () => {
         }
       );
 
-      setEvenements(prev =>
-        prev.map(ev => (ev.id === id ? (res.data.data || res.data) : ev))
-      );
+      // Recharger la liste pour avoir les statistiques mises à jour
+      await fetchEvenements();
       showNotification("success", t('success_edit_event'));
       handleCloseEditModal();
     } catch (err) {
@@ -462,9 +491,8 @@ const Evenement = () => {
         statut: newStatus
       });
 
-      setEvenements(prev =>
-        prev.map(ev => (ev.id === id ? (res.data.data || res.data) : ev))
-      );
+      // Recharger la liste pour avoir les statistiques mises à jour
+      await fetchEvenements();
       showNotification("success", t('success_change_status', { status: newStatus }));
     } catch (err) {
       console.error(err);
@@ -572,6 +600,12 @@ const Evenement = () => {
     return new Date(dateTimeString) > new Date();
   };
 
+  // ✅ AJOUTÉ : Fonction pour calculer le total des réactions
+  const getTotalReactions = (stats) => {
+    if (!stats?.reactions_by_type) return 0;
+    return Object.values(stats.reactions_by_type).reduce((sum, count) => sum + count, 0);
+  };
+
   return (
     <div className="d-flex" style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)" }}>
       <AdminSidebar />
@@ -638,7 +672,7 @@ const Evenement = () => {
           </Button>
         </div>
 
-        {/* Cartes de statistiques */}
+        {/* Cartes de statistiques - MODIFIÉ pour inclure réactions et vues */}
         <Row className="mb-4">
           {[
             { 
@@ -654,15 +688,15 @@ const Evenement = () => {
               color: "linear-gradient(135deg, #00b09b, #96c93d)"
             },
             { 
-              title: "validated_events", 
-              count: evenements.filter((ev) => ev.statut === "Validé").length, 
-              icon: "fa-check-circle", 
+              title: "total_views", 
+              count: evenements.reduce((sum, ev) => sum + (ev.stats?.total_views || 0), 0), 
+              icon: "fa-eye", 
               color: "linear-gradient(135deg, #4facfe, #00f2fe)"
             },
             { 
-              title: "with_files", 
-              count: evenements.filter((ev) => ev.fichier).length, 
-              icon: "fa-paperclip", 
+              title: "total_reactions", 
+              count: evenements.reduce((sum, ev) => sum + getTotalReactions(ev.stats), 0), 
+              icon: "fa-heart", 
               color: "linear-gradient(135deg, #f093fb, #f5576c)"
             }
           ].map((stat, index) => (
@@ -788,7 +822,7 @@ const Evenement = () => {
           </Card.Body>
         </Card>
 
-        {/* Liste des événements */}
+        {/* Liste des événements - MODIFIÉ pour afficher réactions et vues */}
         {loading ? (
           <div className="text-center py-5">
             <div className="spinner-border text-primary mb-3" style={{ width: "3rem", height: "3rem" }} role="status">
@@ -846,6 +880,47 @@ const Evenement = () => {
                     >
                       {ev.description?.length > 120 ? `${ev.description.substring(0, 120)}...` : ev.description}
                     </Card.Text>
+
+                    {/* ✅ AJOUTÉ : Statistiques d'engagement */}
+                    <div className="mb-3">
+                      <div className="d-flex justify-content-between align-items-center small text-muted">
+                        <div className="d-flex align-items-center gap-3">
+                          {/* Vues */}
+                          <div className="d-flex align-items-center">
+                            <i className="fas fa-eye me-1 text-primary"></i>
+                            <span>{ev.stats?.total_views || 0} vues</span>
+                          </div>
+                          
+                          {/* Réactions totales */}
+                          <div className="d-flex align-items-center">
+                            <i className="fas fa-heart me-1 text-danger"></i>
+                            <span>{getTotalReactions(ev.stats)} réactions</span>
+                          </div>
+                        </div>
+                        
+                        {/* Détails des réactions par type */}
+                        {ev.stats?.reactions_by_type && Object.keys(ev.stats.reactions_by_type).length > 0 && (
+                          <div className="d-flex gap-1">
+                            {Object.entries(ev.stats.reactions_by_type).map(([type, count]) => (
+                              count > 0 && (
+                                <Badge 
+                                  key={type}
+                                  bg="light" 
+                                  text="dark"
+                                  className="small"
+                                  style={{ fontSize: "0.6rem" }}
+                                >
+                                  {type === 'like' && '👍'}
+                                  {type === 'love' && '❤️'}
+                                  {type === 'wow' && '😮'}
+                                  {count}
+                                </Badge>
+                              )
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
                     {/* Informations détaillées */}
                     <div className="small text-muted mb-3">

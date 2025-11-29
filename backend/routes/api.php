@@ -12,6 +12,7 @@ use App\Http\Controllers\AppelOffreController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
+use Illuminate\Support\Facades\Log;
 
 /*
 |--------------------------------------------------------------------------
@@ -28,23 +29,6 @@ use App\Http\Controllers\ProfileController;
 // ROUTES PUBLIQUES (Sans authentification)
 // =========================================================================
 
-
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'getProfile']);
-    Route::put('/profile', [ProfileController::class, 'updateProfile']);
-    Route::put('/profile/password', [ProfileController::class, 'changePassword']);
-});
-Route::middleware('auth:sanctum')->group(function(){
-    Route::post('/publications','PublicationController@store');
-    Route::post('/publications/{id}/react','PublicationController@react');
-    Route::post('/publications/{id}/view','PublicationController@view');
-});
-
-Route::get('/publications/validees', [PublicationController::class, 'getPublicationsValidees']);
-Route::get('/appels-offre-valides', [App\Http\Controllers\AppelOffreController::class, 'getAppelsOffreValides']);
-Route::get('/evenements-valides', [EvenementController::class, 'getEvenementsValides']);
-Route::get('/contacts-visiteur', [MessageController::class, 'getContactsForVisitor']);
-
 // Route de test
 Route::get('/test', function () {
     return response()->json(['message' => 'API Laravel fonctionne ✅']);
@@ -54,23 +38,40 @@ Route::get('/test', function () {
 Route::post('/register', [RegisterController::class, 'register']);
 Route::post('/login', [LoginController::class, 'login']);
 
-// Publications (publiques)
+// Publications (publiques) - ROUTES CORRIGÉES POUR LES RÉACTIONS
+Route::get('/publications/validees', [PublicationController::class, 'getPublicationsValidees']);
 Route::get('/publications', [PublicationController::class, 'index']);
 Route::get('/publications/{id}', [PublicationController::class, 'show']);
 Route::get('/publications/{id}/download', [PublicationController::class, 'downloadFile']);
-Route::get('/publications/validees', [PublicationController::class, 'getPublicationsValidees']);
+
+// Routes pour les réactions des visiteurs - DÉPLACÉES HORS AUTH
+Route::post('/publications/{id}/react', [PublicationController::class, 'react']);
+Route::post('/publications/{id}/view', [PublicationController::class, 'view']);
+
 
 // Événements (publics)
 Route::get('/evenements', [EvenementController::class, 'index']);
 Route::get('/evenements/{evenement}', [EvenementController::class, 'show']);
 Route::get('/evenements/valides', [EvenementController::class, 'getEvenementsValides']);
+// Routes pour les visiteurs (événements validés)
+Route::get('/evenements-valides', [EvenementController::class, 'getEvenementsValides']);
+// Routes pour les réactions et vues des événements visiteurs
+Route::post('/evenements/{id}/react', [EvenementController::class, 'react']);
+Route::post('/evenements/{id}/view', [EvenementController::class, 'view']);
+Route::get('/evenements/{id}/stats', [EvenementController::class, 'getStats']);
 
 // Appels d'offres (publics)
 Route::get('/appeloffres', [AppelOffreController::class, 'index']);
 Route::get('/appeloffres/valides', [AppelOffreController::class, 'getAppelsOffresValides']);
+Route::get('/appels-offre-valides', [AppelOffreController::class, 'getAppelsOffreValides']);
+// Routes pour les réactions et vues des appels d'offre visiteurs
+Route::post('/appeloffres/{id}/react', [AppelOffreController::class, 'react']);
+Route::post('/appeloffres/{id}/view', [AppelOffreController::class, 'view']);
+Route::get('/appeloffres/{id}/stats', [AppelOffreController::class, 'getStats']);
 
 // Messages visiteurs
 Route::post('/messages', [MessageController::class, 'store']);
+Route::get('/contacts-visiteur', [MessageController::class, 'getContactsForVisitor']);
 
 // Membres (publics - lecture seulement)
 Route::get('/membres', [MembreController::class, 'index']);
@@ -89,10 +90,15 @@ Route::middleware('auth:sanctum')->group(function () {
                 'id' => $request->user()->id,
                 'name' => $request->user()->name,
                 'email' => $request->user()->email,
-                'type' => 'visiteur',
+                'type' => $request->user()->type ?? 'visiteur',
             ]
         ]);
     });
+
+    // Profile
+    Route::get('/profile', [ProfileController::class, 'getProfile']);
+    Route::put('/profile', [ProfileController::class, 'updateProfile']);
+    Route::put('/profile/password', [ProfileController::class, 'changePassword']);
 
     // ==================== PUBLICATIONS ====================
     Route::prefix('publications')->group(function () {
@@ -100,6 +106,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}', [PublicationController::class, 'update']);
         Route::delete('/{id}', [PublicationController::class, 'destroy']);
         Route::post('/{id}/validate', [PublicationController::class, 'validatePublication']);
+        // Les routes react et view sont maintenant publiques pour les visiteurs
     });
 
     // ==================== ÉVÉNEMENTS ====================
@@ -189,4 +196,32 @@ Route::fallback(function () {
         'message' => 'Route API non trouvée. Veuillez vérifier l\'URL.',
         'status' => 404
     ], 404);
+});
+
+// Route de test directe sans contrôleur
+Route::get('/test-direct', function() {
+    try {
+        Log::info('=== TEST DIRECT ROUTE CALLED ===');
+        
+        $publications = \App\Models\Publication::where('statut', 'Validé')->get();
+        
+        return response()->json([
+            'success' => true,
+            'count' => $publications->count(),
+            'publications' => $publications->map(function($pub) {
+                return [
+                    'id' => $pub->id_publication,
+                    'titre' => $pub->titre,
+                    'statut' => $pub->statut
+                ];
+            })->toArray()
+        ]);
+        
+    } catch (\Exception $e) {
+        Log::error('Direct route error:', ['error' => $e->getMessage()]);
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ]);
+    }
 });

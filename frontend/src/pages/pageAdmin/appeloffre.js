@@ -30,7 +30,8 @@ const AppelOffre = () => {
   const [loading, setLoading] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
   const [editOffre, setEditOffre] = useState(null);
-  const [errors, setErrors] = useState({}); // Validation locale
+  const [errors, setErrors] = useState({});
+  const [statsLoading, setStatsLoading] = useState({});
 
   const [newOffre, setNewOffre] = useState({
     intitule: "",
@@ -70,12 +71,49 @@ const AppelOffre = () => {
     setTimeout(() => setShowAlert({ show: false, type: "", message: "" }), 5000);
   };
 
+  // Fonction pour charger les statistiques d'une offre
+  const fetchOffreStats = async (offreId) => {
+    setStatsLoading(prev => ({ ...prev, [offreId]: true }));
+    try {
+      const response = await axios.get(`${API_URL}/appeloffres/${offreId}/stats`);
+      return response.data.stats || {
+        total_views: 0,
+        total_reactions: 0,
+        reactions_by_type: {}
+      };
+    } catch (error) {
+      console.warn(`Stats non disponibles pour l'offre ${offreId}:`, error.message);
+      return {
+        total_views: 0,
+        total_reactions: 0,
+        reactions_by_type: {}
+      };
+    } finally {
+      setStatsLoading(prev => ({ ...prev, [offreId]: false }));
+    }
+  };
+
   const fetchAppelOffres = async () => {
     setLoading(true);
     try {
       const res = await axios.get(`${API_URL}/appeloffres`);
       const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
-      setAppelOffres(data);
+      
+      // Charger les statistiques pour chaque offre validée
+      const offresWithStats = await Promise.all(
+        data.map(async (offre) => {
+          if (offre.statut === "Validé") {
+            const stats = await fetchOffreStats(offre.id);
+            return {
+              ...offre,
+              stats
+            };
+          }
+          return offre;
+        })
+      );
+      
+      setAppelOffres(offresWithStats);
     } catch (err) {
       showNotification("error", "Erreur lors du chargement des offres");
     } finally {
@@ -207,7 +245,7 @@ const AppelOffre = () => {
     }
   };
 
-  const handleEditShow = (offre) => {
+  const handleEditShow = async (offre) => {
     setEditOffre({
       id: offre.id,
       intitule: offre.intitule || "",
@@ -220,7 +258,12 @@ const AppelOffre = () => {
       description: offre.description || "",
       fichier: offre.fichier || null,
       statut: offre.statut || "Validé",
-      urgent: Boolean(offre.urgent)
+      urgent: Boolean(offre.urgent),
+      stats: offre.stats || {
+        total_views: 0,
+        total_reactions: 0,
+        reactions_by_type: {}
+      }
     });
     setShowEditModal(true);
     setPreviewFile(null);
@@ -273,7 +316,15 @@ const AppelOffre = () => {
       const res = await axios.post(`${API_URL}/appeloffres/${id}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setAppelOffres(prev => prev.map(o => o.id === id ? (res.data.data || res.data) : o));
+      const updatedOffre = res.data.data || res.data;
+      
+      // Recharger les stats si le statut devient "Validé"
+      if (newStatus === "Validé") {
+        const stats = await fetchOffreStats(id);
+        updatedOffre.stats = stats;
+      }
+      
+      setAppelOffres(prev => prev.map(o => o.id === id ? updatedOffre : o));
       showNotification("success", `Statut changé en "${newStatus}"`);
     } catch (err) {
       showNotification("error", "Erreur lors du changement de statut");
@@ -332,6 +383,95 @@ const AppelOffre = () => {
     const ext = fileName.split('.').pop()?.toLowerCase();
     const variants = { pdf: 'danger', doc: 'primary', docx: 'primary', xls: 'success', xlsx: 'success' };
     return variants[ext] || 'secondary';
+  };
+
+  // Composant pour afficher les statistiques
+  const StatsDisplay = ({ stats, offreId, statut }) => {
+    if (!stats || statut !== "Validé") return null;
+
+    const { total_views, total_reactions, reactions_by_type } = stats;
+
+    return (
+      <div className="stats-container mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
+        <h6 className="mb-3 d-flex align-items-center">
+          <i className="fas fa-chart-bar me-2 text-primary"></i>
+          Statistiques d'engagement
+          {statsLoading[offreId] && (
+            <div className="spinner-border spinner-border-sm text-primary ms-2" role="status">
+              <span className="visually-hidden">Chargement...</span>
+            </div>
+          )}
+        </h6>
+        
+        <div className="row text-center">
+          {/* Vues */}
+          <div className="col-4">
+            <div className="d-flex flex-column align-items-center">
+              <div className="stats-icon mb-1">
+                <i className="fas fa-eye text-info fs-5"></i>
+              </div>
+              <div className="stats-number fw-bold text-dark">{total_views || 0}</div>
+              <div className="stats-label small text-muted">Vues</div>
+            </div>
+          </div>
+          
+          {/* Réactions totales */}
+          <div className="col-4">
+            <div className="d-flex flex-column align-items-center">
+              <div className="stats-icon mb-1">
+                <i className="fas fa-heart text-danger fs-5"></i>
+              </div>
+              <div className="stats-number fw-bold text-dark">{total_reactions || 0}</div>
+              <div className="stats-label small text-muted">Réactions</div>
+            </div>
+          </div>
+          
+          {/* Taux d'engagement */}
+          <div className="col-4">
+            <div className="d-flex flex-column align-items-center">
+              <div className="stats-icon mb-1">
+                <i className="fas fa-chart-line text-success fs-5"></i>
+              </div>
+              <div className="stats-number fw-bold text-dark">
+                {total_views > 0 ? Math.round((total_reactions / total_views) * 100) : 0}%
+              </div>
+              <div className="stats-label small text-muted">Engagement</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Détail des réactions */}
+        {total_reactions > 0 && (
+          <div className="mt-3 pt-3 border-top">
+            <div className="d-flex justify-content-center gap-3">
+              {/* Like */}
+              {reactions_by_type.like > 0 && (
+                <div className="d-flex align-items-center text-primary reaction-item">
+                  <i className="fas fa-thumbs-up me-1"></i>
+                  <span className="fw-semibold">{reactions_by_type.like}</span>
+                </div>
+              )}
+              
+              {/* Love */}
+              {reactions_by_type.love > 0 && (
+                <div className="d-flex align-items-center text-danger reaction-item">
+                  <i className="fas fa-heart me-1"></i>
+                  <span className="fw-semibold">{reactions_by_type.love}</span>
+                </div>
+              )}
+              
+              {/* Wow */}
+              {reactions_by_type.wow > 0 && (
+                <div className="d-flex align-items-center text-warning reaction-item">
+                  <i className="fas fa-surprise me-1"></i>
+                  <span className="fw-semibold">{reactions_by_type.wow}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const FilePreview = ({ file }) => {
@@ -408,6 +548,10 @@ const AppelOffre = () => {
     return found ? (found.nom_entreprise || found.nom_contact || found.name || `Membre ${membre}`) : membre;
   };
 
+  // Calcul des statistiques globales
+  const totalVues = appelOffres.reduce((sum, offre) => sum + (offre.stats?.total_views || 0), 0);
+  const totalReactions = appelOffres.reduce((sum, offre) => sum + (offre.stats?.total_reactions || 0), 0);
+
   return (
     <div className="d-flex" style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)" }}>
       <AdminSidebar />
@@ -435,7 +579,10 @@ const AppelOffre = () => {
             <h2 className="fw-bold mb-2" style={{ background: "linear-gradient(135deg, #2c3e50, #34495e)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               Gestion des Appels d'Offre
             </h2>
-            <p className="text-muted mb-0 d-flex align-items-center"><i className="fas fa-file-contract me-2"></i>Créez, modifiez et suivez les appels d'offre</p>
+            <p className="text-muted mb-0 d-flex align-items-center">
+              <i className="fas fa-file-contract me-2"></i>
+              Créez, modifiez et suivez les appels d'offre
+            </p>
           </div>
           <Button variant="success" onClick={() => setShowAddModal(true)} className="d-flex align-items-center shadow-sm"
             style={{ background: "linear-gradient(135deg, #00b09b, #96c93d)", border: "none", borderRadius: "12px", padding: "12px 24px", fontWeight: "600" }}>
@@ -449,18 +596,28 @@ const AppelOffre = () => {
             { title: "total_offers", count: appelOffres.length, icon: "fa-file-contract", color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" },
             { title: "pending_offers", count: appelOffres.filter(o => o.statut === "en attente").length, icon: "fa-clock", color: "linear-gradient(135deg, #00b09b, #96c93d)" },
             { title: "validated_offers", count: appelOffres.filter(o => o.statut === "Validé").length, icon: "fa-check-circle", color: "linear-gradient(135deg, #4facfe, #00f2fe)" },
-            { title: "urgent_offers", count: appelOffres.filter(o => o.urgent).length, icon: "fa-exclamation-triangle", color: "linear-gradient(135deg, #f093fb, #f5576c)" }
+            { title: "urgent_offers", count: appelOffres.filter(o => o.urgent).length, icon: "fa-exclamation-triangle", color: "linear-gradient(135deg, #f093fb, #f5576c)" },
+            { title: "total_views", count: totalVues, icon: "fa-eye", color: "linear-gradient(135deg, #ff9a9e, #fecfef)" },
+            { title: "total_reactions", count: totalReactions, icon: "fa-heart", color: "linear-gradient(135deg, #a8edea, #fed6e3)" }
           ].map((stat, i) => (
-            <Col md={3} key={i} className="mb-3">
+            <Col md={4} lg={2} key={i} className="mb-3">
               <Card className="border-0 shadow-sm h-100" style={{ borderRadius: "20px" }}>
-                <Card.Body className="p-4">
+                <Card.Body className="p-3">
                   <div className="d-flex justify-content-between align-items-center">
                     <div>
-                      <h6 className="card-title text-muted mb-2">{stat.title === "total_offers" ? "Total" : stat.title === "pending_offers" ? "En attente" : stat.title === "validated_offers" ? "Validés" : "Urgents"}</h6>
-                      <h2 className="fw-bold mb-0" style={{ background: stat.color, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{stat.count}</h2>
+                      <h6 className="card-title text-muted mb-2 small">
+                        {stat.title === "total_offers" ? "Total" : 
+                         stat.title === "pending_offers" ? "En attente" : 
+                         stat.title === "validated_offers" ? "Validés" : 
+                         stat.title === "urgent_offers" ? "Urgents" :
+                         stat.title === "total_views" ? "Vues totales" : "Réactions totales"}
+                      </h6>
+                      <h4 className="fw-bold mb-0" style={{ background: stat.color, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                        {stat.count}
+                      </h4>
                     </div>
-                    <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: "60px", height: "60px", background: stat.color }}>
-                      <i className={`fas ${stat.icon} text-white fs-4`}></i>
+                    <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: "45px", height: "45px", background: stat.color }}>
+                      <i className={`fas ${stat.icon} text-white`}></i>
                     </div>
                   </div>
                 </Card.Body>
@@ -575,6 +732,9 @@ const AppelOffre = () => {
                         </div>
                       )}
                     </div>
+
+                    {/* Affichage des statistiques */}
+                    <StatsDisplay stats={offre.stats} offreId={offre.id} statut={offre.statut} />
 
                     <div className="mt-auto pt-3 border-top">
                       <div className="d-flex justify-content-between align-items-center">
@@ -837,6 +997,11 @@ const AppelOffre = () => {
                   <Form.Check type="checkbox" name="urgent" checked={editOffre.urgent} onChange={(e) => handleChange(e, true)}
                     label={<span className="fw-semibold"><i className="fas fa-exclamation-triangle me-2 text-warning"></i>Marquer comme urgent</span>} />
                 </Form.Group>
+
+                {/* Affichage des statistiques dans le modal d'édition */}
+                {editOffre.statut === "Validé" && (
+                  <StatsDisplay stats={editOffre.stats} offreId={editOffre.id} statut={editOffre.statut} />
+                )}
               </Form>
             </Modal.Body>
             <Modal.Footer className="border-0">
@@ -850,6 +1015,43 @@ const AppelOffre = () => {
           </Modal>
         )}
       </div>
+
+      <style>{`
+        .stats-container {
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          border-radius: 12px;
+          border: 1px solid #e9ecef;
+        }
+        .stats-icon {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255, 255, 255, 0.8);
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stats-number {
+          font-size: 1.25rem;
+          margin: 4px 0;
+        }
+        .stats-label {
+          font-size: 0.75rem;
+          opacity: 0.8;
+        }
+        .reaction-item {
+          padding: 6px 12px;
+          border-radius: 20px;
+          background: white;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          font-size: 0.875rem;
+        }
+        .card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+        }
+      `}</style>
     </div>
   );
 };
