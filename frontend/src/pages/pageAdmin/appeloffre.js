@@ -9,17 +9,14 @@ import {
   Col, 
   Badge, 
   Alert, 
-  InputGroup
+  InputGroup,
+  Spinner
 } from "react-bootstrap";
 import axios from "axios";
-import { useTranslation } from 'react-i18next';
 
 const API_URL = "http://127.0.0.1:8000/api";
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const AppelOffre = () => {
-  const { t } = useTranslation();
-  
+const AppelOffreAdmin = () => {
   const [appelOffres, setAppelOffres] = useState([]);
   const [membres, setMembres] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -32,6 +29,7 @@ const AppelOffre = () => {
   const [editOffre, setEditOffre] = useState(null);
   const [errors, setErrors] = useState({});
   const [statsLoading, setStatsLoading] = useState({});
+  const [actionLoading, setActionLoading] = useState(null);
 
   const [newOffre, setNewOffre] = useState({
     intitule: "",
@@ -126,6 +124,7 @@ const AppelOffre = () => {
       const res = await axios.get(`${API_URL}/membres`);
       setMembres(res.data.data || res.data || []);
     } catch (err) {
+      // Fallback si l'API membres n'est pas disponible
       setMembres([
         { id: 1, nom_entreprise: "Ministère du Transport" },
         { id: 2, nom_entreprise: "Ministère de l'Éducation" },
@@ -217,20 +216,18 @@ const AppelOffre = () => {
     }
 
     setLoading(true);
-    await delay(1000);
-
-    const formData = new FormData();
-    Object.keys(newOffre).forEach(key => {
-      if (key === 'fichier' && newOffre.fichier) {
-        formData.append(key, newOffre.fichier);
-      } else if (key === 'urgent') {
-        formData.append(key, newOffre.urgent ? "1" : "0");
-      } else if (newOffre[key] !== null && newOffre[key] !== undefined && newOffre[key] !== '') {
-        formData.append(key, newOffre[key]);
-      }
-    });
-
     try {
+      const formData = new FormData();
+      Object.keys(newOffre).forEach(key => {
+        if (key === 'fichier' && newOffre.fichier) {
+          formData.append(key, newOffre.fichier);
+        } else if (key === 'urgent') {
+          formData.append(key, newOffre.urgent ? "1" : "0");
+        } else if (newOffre[key] !== null && newOffre[key] !== undefined && newOffre[key] !== '') {
+          formData.append(key, newOffre[key]);
+        }
+      });
+
       const res = await axios.post(`${API_URL}/appeloffres`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
@@ -278,21 +275,19 @@ const AppelOffre = () => {
     }
 
     setLoading(true);
-    await delay(1000);
-
-    const formData = new FormData();
-    Object.keys(editOffre).forEach(key => {
-      if (key === 'fichier' && editOffre.fichier instanceof File) {
-        formData.append(key, editOffre.fichier);
-      } 
-      else if (key !== 'fichier' && editOffre[key] !== null && editOffre[key] !== undefined && editOffre[key] !== '') {
-        formData.append(key, editOffre[key]);
-      }
-    });
-    formData.append('urgent', editOffre.urgent ? "1" : "0");
-    formData.append("_method", "PUT");
-
     try {
+      const formData = new FormData();
+      Object.keys(editOffre).forEach(key => {
+        if (key === 'fichier' && editOffre.fichier instanceof File) {
+          formData.append(key, editOffre.fichier);
+        } 
+        else if (key !== 'fichier' && editOffre[key] !== null && editOffre[key] !== undefined && editOffre[key] !== '') {
+          formData.append(key, editOffre[key]);
+        }
+      });
+      formData.append('urgent', editOffre.urgent ? "1" : "0");
+      formData.append("_method", "PUT");
+
       const res = await axios.post(`${API_URL}/appeloffres/${editOffre.id}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
@@ -308,14 +303,18 @@ const AppelOffre = () => {
     }
   };
 
-  const handleChangeStatus = async (id, newStatus) => {
+  // 🔥 NOUVELLE FONCTION : Valider ou rejeter une offre
+  const handleValidateOffre = async (id, newStatus) => {
+    setActionLoading(id);
     try {
       const formData = new FormData();
       formData.append("statut", newStatus);
       formData.append("_method", "PUT");
+      
       const res = await axios.post(`${API_URL}/appeloffres/${id}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+      
       const updatedOffre = res.data.data || res.data;
       
       // Recharger les stats si le statut devient "Validé"
@@ -325,9 +324,16 @@ const AppelOffre = () => {
       }
       
       setAppelOffres(prev => prev.map(o => o.id === id ? updatedOffre : o));
-      showNotification("success", `Statut changé en "${newStatus}"`);
+      
+      const message = newStatus === "Validé" 
+        ? "Offre validée avec succès !" 
+        : "Offre rejetée avec succès !";
+      
+      showNotification("success", message);
     } catch (err) {
       showNotification("error", "Erreur lors du changement de statut");
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -374,14 +380,30 @@ const AppelOffre = () => {
   const getFileIcon = (fileName) => {
     if (!fileName) return 'fa-file';
     const ext = fileName.split('.').pop()?.toLowerCase();
-    const icons = { pdf: 'fa-file-pdf', doc: 'fa-file-word', docx: 'fa-file-word', xls: 'fa-file-excel', xlsx: 'fa-file-excel', jpg: 'fa-file-image', jpeg: 'fa-file-image', png: 'fa-file-image', zip: 'fa-file-archive' };
+    const icons = { 
+      pdf: 'fa-file-pdf', 
+      doc: 'fa-file-word', 
+      docx: 'fa-file-word', 
+      xls: 'fa-file-excel', 
+      xlsx: 'fa-file-excel', 
+      jpg: 'fa-file-image', 
+      jpeg: 'fa-file-image', 
+      png: 'fa-file-image', 
+      zip: 'fa-file-archive' 
+    };
     return icons[ext] || 'fa-file';
   };
 
   const getFileBadgeVariant = (fileName) => {
     if (!fileName) return 'secondary';
     const ext = fileName.split('.').pop()?.toLowerCase();
-    const variants = { pdf: 'danger', doc: 'primary', docx: 'primary', xls: 'success', xlsx: 'success' };
+    const variants = { 
+      pdf: 'danger', 
+      doc: 'primary', 
+      docx: 'primary', 
+      xls: 'success', 
+      xlsx: 'success' 
+    };
     return variants[ext] || 'secondary';
   };
 
@@ -516,12 +538,24 @@ const AppelOffre = () => {
   };
 
   const getStatusVariant = (statut) => {
-    const map = { "Validé": "success", "en attente": "warning", "Rejeté": "danger", "Actif": "primary", "Clôturé": "secondary" };
+    const map = { 
+      "Validé": "success", 
+      "En attente": "warning", 
+      "Rejeté": "danger", 
+      "Actif": "primary", 
+      "Clôturé": "secondary" 
+    };
     return map[statut] || "secondary";
   };
 
   const getStatusIcon = (statut) => {
-    const map = { "Validé": "fa-check-circle", "en attente": "fa-clock", "Rejeté": "fa-times-circle", "Actif": "fa-play-circle", "Clôturé": "fa-flag-checkered" };
+    const map = { 
+      "Validé": "fa-check-circle", 
+      "En attente": "fa-clock", 
+      "Rejeté": "fa-times-circle", 
+      "Actif": "fa-play-circle", 
+      "Clôturé": "fa-flag-checkered" 
+    };
     return map[statut] || "fa-question-circle";
   };
 
@@ -581,7 +615,7 @@ const AppelOffre = () => {
             </h2>
             <p className="text-muted mb-0 d-flex align-items-center">
               <i className="fas fa-file-contract me-2"></i>
-              Créez, modifiez et suivez les appels d'offre
+              Validez, rejetez et gérez les appels d'offre des membres
             </p>
           </div>
           <Button variant="success" onClick={() => setShowAddModal(true)} className="d-flex align-items-center shadow-sm"
@@ -593,25 +627,19 @@ const AppelOffre = () => {
         {/* Cartes de statistiques */}
         <Row className="mb-4">
           {[
-            { title: "total_offers", count: appelOffres.length, icon: "fa-file-contract", color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" },
-            { title: "pending_offers", count: appelOffres.filter(o => o.statut === "en attente").length, icon: "fa-clock", color: "linear-gradient(135deg, #00b09b, #96c93d)" },
-            { title: "validated_offers", count: appelOffres.filter(o => o.statut === "Validé").length, icon: "fa-check-circle", color: "linear-gradient(135deg, #4facfe, #00f2fe)" },
-            { title: "urgent_offers", count: appelOffres.filter(o => o.urgent).length, icon: "fa-exclamation-triangle", color: "linear-gradient(135deg, #f093fb, #f5576c)" },
-            { title: "total_views", count: totalVues, icon: "fa-eye", color: "linear-gradient(135deg, #ff9a9e, #fecfef)" },
-            { title: "total_reactions", count: totalReactions, icon: "fa-heart", color: "linear-gradient(135deg, #a8edea, #fed6e3)" }
+            { title: "Total", count: appelOffres.length, icon: "fa-file-contract", color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" },
+            { title: "En attente", count: appelOffres.filter(o => o.statut === "En attente").length, icon: "fa-clock", color: "linear-gradient(135deg, #00b09b, #96c93d)" },
+            { title: "Validés", count: appelOffres.filter(o => o.statut === "Validé").length, icon: "fa-check-circle", color: "linear-gradient(135deg, #4facfe, #00f2fe)" },
+            { title: "Rejetés", count: appelOffres.filter(o => o.statut === "Rejeté").length, icon: "fa-times-circle", color: "linear-gradient(135deg, #f093fb, #f5576c)" },
+            { title: "Urgents", count: appelOffres.filter(o => o.urgent).length, icon: "fa-exclamation-triangle", color: "linear-gradient(135deg, #ff9a9e, #fecfef)" },
+            { title: "Vues totales", count: totalVues, icon: "fa-eye", color: "linear-gradient(135deg, #a8edea, #fed6e3)" }
           ].map((stat, i) => (
             <Col md={4} lg={2} key={i} className="mb-3">
               <Card className="border-0 shadow-sm h-100" style={{ borderRadius: "20px" }}>
                 <Card.Body className="p-3">
                   <div className="d-flex justify-content-between align-items-center">
                     <div>
-                      <h6 className="card-title text-muted mb-2 small">
-                        {stat.title === "total_offers" ? "Total" : 
-                         stat.title === "pending_offers" ? "En attente" : 
-                         stat.title === "validated_offers" ? "Validés" : 
-                         stat.title === "urgent_offers" ? "Urgents" :
-                         stat.title === "total_views" ? "Vues totales" : "Réactions totales"}
-                      </h6>
+                      <h6 className="card-title text-muted mb-2 small">{stat.title}</h6>
                       <h4 className="fw-bold mb-0" style={{ background: stat.color, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
                         {stat.count}
                       </h4>
@@ -644,7 +672,7 @@ const AppelOffre = () => {
                   <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-filter me-2"></i>Statut</Form.Label>
                   <Form.Select value={filterStatut} onChange={(e) => setFilterStatut(e.target.value)} style={{ borderRadius: "10px" }}>
                     <option value="Tous">Tous</option>
-                    <option value="en attente">En attente</option>
+                    <option value="En attente">En attente</option>
                     <option value="Validé">Validé</option>
                     <option value="Rejeté">Rejeté</option>
                     <option value="Actif">Actif</option>
@@ -688,7 +716,12 @@ const AppelOffre = () => {
                 <Card className="border-0 shadow-sm h-100" style={{ 
                   borderRadius: "20px", 
                   transition: "transform 0.2s",
-                  borderLeft: `4px solid ${offre.urgent ? "#ff6b6b" : offre.statut === "Validé" ? "#28a745" : offre.statut === "en attente" ? "#ffc107" : offre.statut === "Rejeté" ? "#dc3545" : "#6c757d"}`
+                  borderLeft: `4px solid ${
+                    offre.urgent ? "#ff6b6b" : 
+                    offre.statut === "Validé" ? "#28a745" : 
+                    offre.statut === "En attente" ? "#ffc107" : 
+                    offre.statut === "Rejeté" ? "#dc3545" : "#6c757d"
+                  }`
                 }}>
                   <Card.Body className="d-flex flex-column p-4">
                     <div className="d-flex justify-content-between align-items-start mb-3">
@@ -709,12 +742,34 @@ const AppelOffre = () => {
                     </Card.Text>
 
                     <div className="small text-muted mb-3">
-                      <div className="d-flex align-items-center mb-2"><i className="fas fa-building text-primary me-2"></i><span>{getMembreDisplayName(offre.membre)}</span></div>
-                      {offre.localisation && <div className="d-flex align-items-center mb-2"><i className="fas fa-map-marker-alt text-primary me-2"></i><span>{offre.localisation}</span></div>}
-                      {offre.salaire && <div className="d-flex align-items-center mb-2"><i className="fas fa-money-bill-wave text-primary me-2"></i><span>{offre.salaire}</span></div>}
-                      <div className="d-flex align-items-center mb-2"><i className="fas fa-calendar-plus text-primary me-2"></i><span>Ouverture: {formatDate(offre.date_ouverture)}</span></div>
-                      <div className="d-flex align-items-center mb-2"><i className="fas fa-calendar-check text-primary me-2"></i>
-                        <span>Clôture: {formatDate(offre.date_cloture)}{isDatePassed(offre.date_cloture) && <Badge bg="danger" className="ms-2" style={{ fontSize: "0.65rem" }}>Expiré</Badge>}</span>
+                      <div className="d-flex align-items-center mb-2">
+                        <i className="fas fa-building text-primary me-2"></i>
+                        <span>{getMembreDisplayName(offre.membre)}</span>
+                      </div>
+                      {offre.localisation && (
+                        <div className="d-flex align-items-center mb-2">
+                          <i className="fas fa-map-marker-alt text-primary me-2"></i>
+                          <span>{offre.localisation}</span>
+                        </div>
+                      )}
+                      {offre.salaire && (
+                        <div className="d-flex align-items-center mb-2">
+                          <i className="fas fa-money-bill-wave text-primary me-2"></i>
+                          <span>{offre.salaire}</span>
+                        </div>
+                      )}
+                      <div className="d-flex align-items-center mb-2">
+                        <i className="fas fa-calendar-plus text-primary me-2"></i>
+                        <span>Ouverture: {formatDate(offre.date_ouverture)}</span>
+                      </div>
+                      <div className="d-flex align-items-center mb-2">
+                        <i className="fas fa-calendar-check text-primary me-2"></i>
+                        <span>
+                          Clôture: {formatDate(offre.date_cloture)}
+                          {isDatePassed(offre.date_cloture) && (
+                            <Badge bg="danger" className="ms-2" style={{ fontSize: "0.65rem" }}>Expiré</Badge>
+                          )}
+                        </span>
                       </div>
 
                       {offre.fichier && (
@@ -738,18 +793,69 @@ const AppelOffre = () => {
 
                     <div className="mt-auto pt-3 border-top">
                       <div className="d-flex justify-content-between align-items-center">
+                        {/* Boutons de validation/rejet pour l'admin */}
                         <div className="d-flex gap-1">
-                          {offre.statut === "en attente" && (
+                          {offre.statut === "En attente" && (
                             <>
-                              <Button variant="outline-success" size="sm" onClick={() => handleChangeStatus(offre.id, "Validé")} title="Valider"><i className="fas fa-check"></i></Button>
-                              <Button variant="outline-danger" size="sm" onClick={() => handleChangeStatus(offre.id, "Rejeté")} title="Rejeter"><i className="fas fa-times"></i></Button>
+                              <Button 
+                                variant="outline-success" 
+                                size="sm" 
+                                onClick={() => handleValidateOffre(offre.id, "Validé")} 
+                                disabled={actionLoading === offre.id}
+                                title="Valider cette offre"
+                              >
+                                {actionLoading === offre.id ? (
+                                  <Spinner animation="border" size="sm" />
+                                ) : (
+                                  <><i className="fas fa-check me-1"></i>Valider</>
+                                )}
+                              </Button>
+                              <Button 
+                                variant="outline-danger" 
+                                size="sm" 
+                                onClick={() => handleValidateOffre(offre.id, "Rejeté")} 
+                                disabled={actionLoading === offre.id}
+                                title="Rejeter cette offre"
+                              >
+                                {actionLoading === offre.id ? (
+                                  <Spinner animation="border" size="sm" />
+                                ) : (
+                                  <><i className="fas fa-times me-1"></i>Rejeter</>
+                                )}
+                              </Button>
                             </>
                           )}
-                          {offre.statut === "Validé" && (
-                            <Button variant="outline-danger" size="sm" onClick={() => handleChangeStatus(offre.id, "Rejeté")} title="Rejeter"><i className="fas fa-times"></i></Button>
-                          )}
+                          
                           {offre.statut === "Rejeté" && (
-                            <Button variant="outline-success" size="sm" onClick={() => handleChangeStatus(offre.id, "Validé")} title="Valider"><i className="fas fa-check"></i></Button>
+                            <Button 
+                              variant="outline-success" 
+                              size="sm" 
+                              onClick={() => handleValidateOffre(offre.id, "Validé")} 
+                              disabled={actionLoading === offre.id}
+                              title="Valider cette offre"
+                            >
+                              {actionLoading === offre.id ? (
+                                <Spinner animation="border" size="sm" />
+                              ) : (
+                                <><i className="fas fa-check me-1"></i>Valider</>
+                              )}
+                            </Button>
+                          )}
+                          
+                          {offre.statut === "Validé" && (
+                            <Button 
+                              variant="outline-warning" 
+                              size="sm" 
+                              onClick={() => handleValidateOffre(offre.id, "Rejeté")} 
+                              disabled={actionLoading === offre.id}
+                              title="Rejeter cette offre"
+                            >
+                              {actionLoading === offre.id ? (
+                                <Spinner animation="border" size="sm" />
+                              ) : (
+                                <><i className="fas fa-times me-1"></i>Rejeter</>
+                              )}
+                            </Button>
                           )}
                         </div>
 
@@ -812,7 +918,7 @@ const AppelOffre = () => {
                     <Form.Label className="fw-semibold text-muted"><i className="fas fa-chart-line me-2 text-primary"></i>Statut *</Form.Label>
                     <Form.Select name="statut" value={newOffre.statut} onChange={handleChange} style={{ borderRadius: "10px", padding: "12px" }}>
                       <option value="Validé">Validé</option>
-                      <option value="en attente">En attente</option>
+                      <option value="En attente">En attente</option>
                       <option value="Rejeté">Rejeté</option>
                       <option value="Actif">Actif</option>
                       <option value="Clôturé">Clôturé</option>
@@ -922,7 +1028,7 @@ const AppelOffre = () => {
                       <Form.Label className="fw-semibold text-muted"><i className="fas fa-chart-line me-2 text-primary"></i>Statut *</Form.Label>
                       <Form.Select name="statut" value={editOffre.statut} onChange={(e) => handleChange(e, true)} style={{ borderRadius: "10px", padding: "12px" }}>
                         <option value="Validé">Validé</option>
-                        <option value="en attente">En attente</option>
+                        <option value="En attente">En attente</option>
                         <option value="Rejeté">Rejeté</option>
                         <option value="Actif">Actif</option>
                         <option value="Clôturé">Clôturé</option>
@@ -1056,4 +1162,4 @@ const AppelOffre = () => {
   );
 };
 
-export default AppelOffre;
+export default AppelOffreAdmin;
