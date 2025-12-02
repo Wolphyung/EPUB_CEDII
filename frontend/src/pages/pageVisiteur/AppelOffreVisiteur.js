@@ -108,8 +108,8 @@ const AppelOffreVisiteur = () => {
     }
   };
 
-  // Fonction pour gérer les réactions
-  const handleReaction = async (offreId, reactionType) => {
+  // Fonction pour gérer les réactions (seulement "J'adore")
+  const handleReaction = async (offreId) => {
     if (!offreId || offreId === 'undefined') {
       console.error('ID d\'appel d\'offre invalide pour réaction:', offreId);
       return;
@@ -124,7 +124,7 @@ const AppelOffreVisiteur = () => {
         },
         body: JSON.stringify({
           visitor_id: visitorId,
-          type: reactionType
+          type: 'love' // Seule réaction disponible
         })
       });
 
@@ -538,48 +538,23 @@ const AppelOffreVisiteur = () => {
                           <div className="row g-2 text-muted small">
                             <div className="col-12">
                               <div className="d-flex justify-content-between align-items-center">
-                                <div className="d-flex align-items-center gap-3">
-                                  {/* Boutons de réaction */}
-                                  <div className="d-flex gap-1">
-                                    <button 
-                                      className={`btn btn-sm ${
-                                        ao.stats?.user_reaction === 'like' 
-                                          ? 'btn-primary' 
-                                          : 'btn-outline-primary'
-                                      } d-flex align-items-center gap-1`}
-                                      onClick={() => handleReaction(ao.id, 'like')}
-                                      title="Intéressant"
-                                    >
-                                      <i className="fas fa-thumbs-up"></i>
-                                      <span>{ao.stats?.reactions_by_type?.like || 0}</span>
-                                    </button>
-
-                                    <button 
-                                      className={`btn btn-sm ${
-                                        ao.stats?.user_reaction === 'love' 
-                                          ? 'btn-danger' 
-                                          : 'btn-outline-danger'
-                                      } d-flex align-items-center gap-1`}
-                                      onClick={() => handleReaction(ao.id, 'love')}
-                                      title="J'adore"
-                                    >
-                                      <i className="fas fa-heart"></i>
-                                      <span>{ao.stats?.reactions_by_type?.love || 0}</span>
-                                    </button>
-
-                                    <button 
-                                      className={`btn btn-sm ${
-                                        ao.stats?.user_reaction === 'wow' 
-                                          ? 'btn-warning' 
-                                          : 'btn-outline-warning'
-                                      } d-flex align-items-center gap-1`}
-                                      onClick={() => handleReaction(ao.id, 'wow')}
-                                      title="Impressionnant"
-                                    >
-                                      <i className="fas fa-surprise"></i>
-                                      <span>{ao.stats?.reactions_by_type?.wow || 0}</span>
-                                    </button>
-                                  </div>
+                                {/* Bouton "J'adore" seulement */}
+                                <div className="d-flex gap-1">
+                                  <button 
+                                    className={`btn btn-sm ${
+                                      ao.stats?.user_reaction === 'love' 
+                                        ? 'btn-danger' 
+                                        : 'btn-outline-danger'
+                                    } d-flex align-items-center gap-2`}
+                                    onClick={() => handleReaction(ao.id)}
+                                    title={ao.stats?.user_reaction === 'love' ? "Vous aimez déjà cet appel d'offre" : "Cliquez pour ajouter aux favoris"}
+                                  >
+                                    <i className={`fas ${ao.stats?.user_reaction === 'love' ? 'fa-heart' : 'far fa-heart'}`}></i>
+                                    <span>
+                                      {ao.stats?.user_reaction === 'love' ? 'J\'adore' : 'J\'adore'}
+                                      <span className="ms-1">({ao.stats?.reactions_by_type?.love || 0})</span>
+                                    </span>
+                                  </button>
                                 </div>
 
                                 {/* Vues */}
@@ -772,11 +747,24 @@ const AppelOffreVisiteur = () => {
                   <div className="row text-center">
                     <div className="col-4">
                       <div className="d-flex flex-column align-items-center">
-                        <div className="btn btn-outline-primary mb-2">
-                          <i className="fas fa-thumbs-up"></i>
-                        </div>
+                        <button 
+                          className={`btn ${
+                            selectedOffre.stats?.user_reaction === 'love' 
+                              ? 'btn-danger' 
+                              : 'btn-outline-danger'
+                          } mb-2 d-flex align-items-center justify-content-center`}
+                          style={{width: '60px', height: '60px', borderRadius: '50%'}}
+                          onClick={() => handleReaction(selectedOffre.id)}
+                          title={selectedOffre.stats?.user_reaction === 'love' ? "Vous aimez cet appel d'offre" : "Ajouter aux favoris"}
+                        >
+                          <i className={`fas ${
+                            selectedOffre.stats?.user_reaction === 'love' 
+                              ? 'fa-heart' 
+                              : 'far fa-heart'
+                          } fs-5`}></i>
+                        </button>
                         <small className="text-muted">
-                          {selectedOffre.stats?.reactions_by_type?.like || 0} Intéressant
+                          {selectedOffre.stats?.reactions_by_type?.love || 0} favoris
                         </small>
                       </div>
                     </div>
@@ -786,8 +774,10 @@ const AppelOffreVisiteur = () => {
                           selectedOffre.stats?.has_viewed 
                             ? 'btn-success' 
                             : 'btn-outline-secondary'
-                        } mb-2`}>
-                          <i className={`fas ${selectedOffre.stats?.has_viewed ? 'fa-eye' : 'far fa-eye'}`}></i>
+                        } mb-2 d-flex align-items-center justify-content-center`}
+                          style={{width: '60px', height: '60px', borderRadius: '50%'}}
+                        >
+                          <i className={`fas ${selectedOffre.stats?.has_viewed ? 'fa-eye' : 'far fa-eye'} fs-5`}></i>
                         </div>
                         <small className="text-muted">
                           {selectedOffre.stats?.total_views || 0} vues
@@ -796,11 +786,13 @@ const AppelOffreVisiteur = () => {
                     </div>
                     <div className="col-4">
                       <div className="d-flex flex-column align-items-center">
-                        <div className="btn btn-outline-info mb-2">
-                          <i className="fas fa-info"></i>
+                        <div className="btn btn-outline-info mb-2 d-flex align-items-center justify-content-center"
+                          style={{width: '60px', height: '60px', borderRadius: '50%'}}
+                        >
+                          <i className="fas fa-info fs-5"></i>
                         </div>
                         <small className="text-muted">
-                          {selectedOffre.stats?.has_viewed ? 'Consulté' : 'Nouveau'}
+                          {selectedOffre.statut}
                         </small>
                       </div>
                     </div>

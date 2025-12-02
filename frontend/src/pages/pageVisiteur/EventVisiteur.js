@@ -94,8 +94,8 @@ const EvenementVisiteur = () => {
     }
   };
 
-  // Fonction pour gérer les réactions
-  const handleReaction = async (eventId, reactionType) => {
+  // Fonction pour gérer les réactions (uniquement "J'adore")
+  const handleReaction = async (eventId) => {
     if (!eventId || eventId === 'undefined') {
       console.error('ID d\'événement invalide pour réaction:', eventId);
       return;
@@ -110,7 +110,7 @@ const EvenementVisiteur = () => {
         },
         body: JSON.stringify({
           visitor_id: visitorId,
-          type: reactionType
+          type: 'love' // Seule réaction disponible
         })
       });
 
@@ -489,48 +489,23 @@ const EvenementVisiteur = () => {
                           <div className="row g-2 text-muted small">
                             <div className="col-12">
                               <div className="d-flex justify-content-between align-items-center">
-                                <div className="d-flex align-items-center gap-3">
-                                  {/* Boutons de réaction */}
-                                  <div className="d-flex gap-1">
-                                    <button 
-                                      className={`btn btn-sm ${
-                                        event.stats?.user_reaction === 'like' 
-                                          ? 'btn-primary' 
-                                          : 'btn-outline-primary'
-                                      } d-flex align-items-center gap-1`}
-                                      onClick={() => handleReaction(eventId, 'like')}
-                                      title="J'aime"
-                                    >
-                                      <i className="fas fa-thumbs-up"></i>
-                                      <span>{event.stats?.reactions_by_type?.like || 0}</span>
-                                    </button>
-
-                                    <button 
-                                      className={`btn btn-sm ${
-                                        event.stats?.user_reaction === 'love' 
-                                          ? 'btn-danger' 
-                                          : 'btn-outline-danger'
-                                      } d-flex align-items-center gap-1`}
-                                      onClick={() => handleReaction(eventId, 'love')}
-                                      title="J'adore"
-                                    >
-                                      <i className="fas fa-heart"></i>
-                                      <span>{event.stats?.reactions_by_type?.love || 0}</span>
-                                    </button>
-
-                                    <button 
-                                      className={`btn btn-sm ${
-                                        event.stats?.user_reaction === 'wow' 
-                                          ? 'btn-warning' 
-                                          : 'btn-outline-warning'
-                                      } d-flex align-items-center gap-1`}
-                                      onClick={() => handleReaction(eventId, 'wow')}
-                                      title="Wow"
-                                    >
-                                      <i className="fas fa-surprise"></i>
-                                      <span>{event.stats?.reactions_by_type?.wow || 0}</span>
-                                    </button>
-                                  </div>
+                                {/* Bouton "J'adore" seulement */}
+                                <div className="d-flex gap-1">
+                                  <button 
+                                    className={`btn btn-sm ${
+                                      event.stats?.user_reaction === 'love' 
+                                        ? 'btn-danger' 
+                                        : 'btn-outline-danger'
+                                    } d-flex align-items-center gap-2`}
+                                    onClick={() => handleReaction(eventId)}
+                                    title={event.stats?.user_reaction === 'love' ? "Vous aimez déjà cet événement" : "Cliquez pour ajouter aux favoris"}
+                                  >
+                                    <i className={`fas ${event.stats?.user_reaction === 'love' ? 'fa-heart' : 'far fa-heart'}`}></i>
+                                    <span>
+                                      {event.stats?.user_reaction === 'love' ? 'J\'adore' : 'J\'adore'}
+                                      <span className="ms-1">({event.stats?.reactions_by_type?.love || 0})</span>
+                                    </span>
+                                  </button>
                                 </div>
 
                                 {/* Vues */}
@@ -680,34 +655,39 @@ const EvenementVisiteur = () => {
                 {/* Statistiques d'engagement */}
                 <div className="border-top pt-3">
                   <div className="row text-center">
-                    <div className="col-4">
+                    <div className="col-6">
                       <div className="d-flex flex-column align-items-center">
-                        <div className="btn btn-outline-primary mb-2">
-                          <i className="fas fa-thumbs-up"></i>
-                        </div>
+                        <button 
+                          className={`btn ${
+                            selectedEvent.stats?.user_reaction === 'love' 
+                              ? 'btn-danger' 
+                              : 'btn-outline-danger'
+                          } mb-2 d-flex align-items-center justify-content-center`}
+                          style={{width: '60px', height: '60px', borderRadius: '50%'}}
+                          onClick={() => handleReaction(selectedEvent.id || selectedEvent.id_evenement)}
+                          title={selectedEvent.stats?.user_reaction === 'love' ? "Vous aimez cet événement" : "Ajouter aux favoris"}
+                        >
+                          <i className={`fas ${
+                            selectedEvent.stats?.user_reaction === 'love' 
+                              ? 'fa-heart' 
+                              : 'far fa-heart'
+                          } fs-5`}></i>
+                        </button>
                         <small className="text-muted">
-                          {selectedEvent.stats?.reactions_by_type?.like || 0} J'aime
+                          {selectedEvent.stats?.reactions_by_type?.love || 0} favoris
                         </small>
                       </div>
                     </div>
-                    <div className="col-4">
-                      <div className="d-flex flex-column align-items-center">
-                        <div className="btn btn-outline-danger mb-2">
-                          <i className="fas fa-heart"></i>
-                        </div>
-                        <small className="text-muted">
-                          {selectedEvent.stats?.reactions_by_type?.love || 0} J'adore
-                        </small>
-                      </div>
-                    </div>
-                    <div className="col-4">
+                    <div className="col-6">
                       <div className="d-flex flex-column align-items-center">
                         <div className={`btn ${
                           selectedEvent.stats?.has_viewed 
                             ? 'btn-success' 
                             : 'btn-outline-secondary'
-                        } mb-2`}>
-                          <i className={`fas ${selectedEvent.stats?.has_viewed ? 'fa-eye' : 'far fa-eye'}`}></i>
+                        } mb-2 d-flex align-items-center justify-content-center`}
+                          style={{width: '60px', height: '60px', borderRadius: '50%'}}
+                        >
+                          <i className={`fas ${selectedEvent.stats?.has_viewed ? 'fa-eye' : 'far fa-eye'} fs-5`}></i>
                         </div>
                         <small className="text-muted">
                           {selectedEvent.stats?.total_views || 0} vues
