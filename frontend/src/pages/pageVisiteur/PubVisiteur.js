@@ -10,11 +10,12 @@ const PubVisiteur = () => {
   const [selectedPublication, setSelectedPublication] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
-  // Générer un ID unique pour le visiteur (stocké dans localStorage)
+  // 🔧 CORRECTION : Générer un ID unique PERSISTANT pour chaque visiteur
   const getVisitorId = () => {
     let visitorId = localStorage.getItem('visitorId');
     if (!visitorId) {
-      visitorId = 'visitor_' + Math.random().toString(36).substr(2, 9);
+      // Générer un ID unique plus robuste
+      visitorId = 'vis_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
       localStorage.setItem('visitorId', visitorId);
     }
     return visitorId;
@@ -24,6 +25,7 @@ const PubVisiteur = () => {
     const fetchPubs = async () => {
       try {
         const visitorId = getVisitorId();
+        console.log('Fetching pubs with visitorId:', visitorId); // Debug
         const res = await axios.get("http://localhost:8000/api/publications/validees", {
           headers: {
             'X-Visitor-ID': visitorId
@@ -40,10 +42,14 @@ const PubVisiteur = () => {
               ? pub.fichier_url 
               : `http://localhost:8000/storage/${pub.fichier_url}`
           }));
+          console.log('Publications loaded with view status:', pubs.map(p => ({ 
+            titre: p.titre, 
+            already_viewed: p.already_viewed 
+          }))); // Debug
           setPublications(pubs);
         }
       } catch(e){
-        console.error(e);
+        console.error("Erreur chargement publications:", e);
       } finally{
         setLoading(false);
       }
@@ -97,13 +103,11 @@ const PubVisiteur = () => {
   };
 
   const handleView = async (pub) => {
-    // Si déjà vu, ne rien faire
-    if (pub.already_viewed) {
-      return;
-    }
-    
+    // 🔧 CORRECTION : Toujours appeler l'API pour vérifier si ce visiteur a déjà vu
     try{
       const visitorId = getVisitorId();
+      console.log('Recording view for visitor:', visitorId, 'publication:', pub.id_publication); // Debug
+      
       const res = await axios.post(
         `http://localhost:8000/api/publications/${pub.id_publication}/view`,
         {},
@@ -114,45 +118,57 @@ const PubVisiteur = () => {
         }
       );
       
+      console.log('View API response:', res.data); // Debug
+      
       if (res.data.success) {
-        setPublications(prev => prev.map(p => 
-          p.id_publication === pub.id_publication 
-            ? { 
-                ...p, 
-                vues: res.data.vues,
-                already_viewed: true 
-              }
-            : p
-        ));
-        
-        // Mettre à jour aussi la publication sélectionnée si elle est ouverte
-        if (selectedPublication && selectedPublication.id_publication === pub.id_publication) {
-          setSelectedPublication(prev => ({
-            ...prev,
-            vues: res.data.vues,
-            already_viewed: true
-          }));
+        // 🔧 CORRECTION : Mettre à jour seulement si c'était une NOUVELLE vue
+        if (!res.data.already_viewed) {
+          setPublications(prev => prev.map(p => 
+            p.id_publication === pub.id_publication 
+              ? { 
+                  ...p, 
+                  vues: res.data.vues,
+                  already_viewed: true 
+                }
+              : p
+          ));
+          
+          // Mettre à jour aussi la publication sélectionnée si elle est ouverte
+          if (selectedPublication && selectedPublication.id_publication === pub.id_publication) {
+            setSelectedPublication(prev => ({
+              ...prev,
+              vues: res.data.vues,
+              already_viewed: true
+            }));
+          }
         }
+        return res.data.already_viewed;
       }
     } catch(e){
-      console.error("Erreur vue:", e);
+      console.error("Erreur enregistrement vue:", e);
     }
+    return false;
   };
 
   const handleShowDetails = async (pub) => {
     try {
-      // Enregistrer la vue si ce n'est pas déjà fait (C'EST ICI QUE LA VUE EST ENREGISTRÉE)
-      if (!pub.already_viewed) {
-        await handleView(pub);
-      }
+      console.log('Opening details for publication:', pub.id_publication); // Debug
+      
+      // 🔧 CORRECTION : Enregistrer la vue si ce visiteur ne l'a pas encore vu
+      const alreadyViewed = await handleView(pub);
       
       // Charger les détails complets de la publication
-      const res = await axios.get(`http://localhost:8000/api/publications/${pub.id_publication}`);
+      const visitorId = getVisitorId();
+      const res = await axios.get(`http://localhost:8000/api/publications/${pub.id_publication}`, {
+        headers: {
+          'X-Visitor-ID': visitorId
+        }
+      });
       
       if (res.data.success) {
         setSelectedPublication({
           ...res.data.data,
-          already_viewed: pub.already_viewed || true, // Marquer comme vu
+          already_viewed: alreadyViewed || true, // Marquer comme vu pour ce visiteur
           userReacted: pub.userReacted || false
         });
         setShowModal(true);
@@ -160,7 +176,10 @@ const PubVisiteur = () => {
     } catch (e) {
       console.error("Erreur chargement détails:", e);
       // En cas d'erreur, utiliser les données de base
-      setSelectedPublication(pub);
+      setSelectedPublication({
+        ...pub,
+        already_viewed: pub.already_viewed || false
+      });
       setShowModal(true);
     }
   };
@@ -407,7 +426,7 @@ const PubVisiteur = () => {
                             <div className="col-12">
                               <div className="d-flex justify-content-between align-items-center">
                                 <div className="d-flex align-items-center gap-3">
-                                  {/* Bouton Like - RESTE CLIQUABLE */}
+                                  {/* Bouton Like */}
                                   <button 
                                     className={`btn btn-sm ${
                                       pub.userReacted 
@@ -422,7 +441,7 @@ const PubVisiteur = () => {
                                     <span>{pub.total_reactions || 0}</span>
                                   </button>
 
-                                  {/* Bouton Vues - MAINTENANT NON CLIQUABLE */}
+                                  {/* Bouton Vues - NON CLIQUABLE */}
                                   <div 
                                     className={`btn btn-sm ${
                                       pub.already_viewed 
@@ -649,7 +668,7 @@ const PubVisiteur = () => {
         </div>
       )}
 
-      {/* Styles CSS pour les effets */}
+      {/* Styles CSS */}
       <style jsx>{`
         .hover-shadow {
           transition: all 0.3s ease;

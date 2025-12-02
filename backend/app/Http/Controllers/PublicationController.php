@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 
 class PublicationController extends Controller
 {
-    // 📋 Récupérer toutes les publications (pour l'admin) - CORRIGÉ
+    // 📋 Récupérer toutes les publications (pour l'admin)
     public function index()
     {
         try {
@@ -34,73 +34,50 @@ class PublicationController extends Controller
         }
     }
 
-    // 📄 Récupérer les publications validées (publiques)
+    // 📄 Récupérer les publications validées (publiques) - AMÉLIORÉ
     public function getPublicationsValidees(Request $request)
     {
         try {
-            Log::info('=== GET PUBLICATIONS VALIDEES START ===');
-            
+            Log::info('=== GET PUBLICATIONS VALIDEES ===', [
+                'visitor_id' => $request->header('X-Visitor-ID'),
+                'ip' => $request->ip()
+            ]);
+
             $publications = Publication::where('statut', 'Validé')
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            Log::info('Publications found in DB:', ['count' => $publications->count()]);
-
-            if ($publications->isEmpty()) {
-                Log::info('No publications found');
-                return response()->json([
-                    'success' => true,
-                    'data' => [],
-                    'message' => 'Aucune publication validée trouvée'
-                ]);
-            }
-
             $visitorId = $request->header('X-Visitor-ID');
-            Log::info('Visitor ID from header:', ['visitorId' => $visitorId]);
+            
+            if (!$visitorId) {
+                Log::warning('No visitor ID provided');
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Identifiant visiteur requis'
+                ], 400);
+            }
 
             $formattedPublications = [];
             foreach ($publications as $publication) {
-                $formattedPublication = [
-                    'id_publication' => $publication->id_publication,
-                    'titre' => $publication->titre,
-                    'contenu' => $publication->contenu,
-                    'type' => $publication->type,
-                    'date_publication' => $publication->date_publication,
-                    'source' => $publication->source,
-                    'categorie' => $publication->categorie ?? 'Général',
-                    'statut' => $publication->statut,
-                    'fichier' => $publication->fichier,
-                    'fichier_url' => $publication->fichier ? asset('storage/' . $publication->fichier) : null,
-                    'type_fichier' => $publication->type_fichier,
-                    'nom_fichier_original' => $publication->nom_fichier_original,
-                    'auteur' => $publication->auteur,
-                    'membre_id' => $publication->membre_id,
-                    'total_reactions' => $publication->total_reactions ?? 0,
-                    'vues' => $publication->vues ?? 0,
-                    'has_file' => !empty($publication->fichier),
-                    'created_at' => $publication->created_at?->toISOString(),
-                    'updated_at' => $publication->updated_at?->toISOString(),
-                ];
+                $formattedPublication = $this->formatPublicationResponse($publication);
+                
+                // Ajouter userReacted pour CE visiteur
+                $formattedPublication['userReacted'] = PublicationReaction::where('publication_id', $publication->id_publication)
+                    ->where('visitor_id', $visitorId)
+                    ->exists();
 
-                // Ajouter userReacted
-                if ($visitorId) {
-                    $formattedPublication['userReacted'] = PublicationReaction::where('publication_id', $publication->id_publication)
-                        ->where('visitor_id', $visitorId)
-                        ->exists();
-
-                    // Ajouter alreadyViewed
-                    $formattedPublication['already_viewed'] = PublicationView::where('publication_id', $publication->id_publication)
-                        ->where('visitor_id', $visitorId)
-                        ->exists();
-                } else {
-                    $formattedPublication['userReacted'] = false;
-                    $formattedPublication['already_viewed'] = false;
-                }
+                // 🔧 CORRECTION : already_viewed est spécifique à CE visiteur
+                $formattedPublication['already_viewed'] = PublicationView::where('publication_id', $publication->id_publication)
+                    ->where('visitor_id', $visitorId)
+                    ->exists();
 
                 $formattedPublications[] = $formattedPublication;
             }
 
-            Log::info('Successfully formatted publications', ['count' => count($formattedPublications)]);
+            Log::info('Publications loaded successfully', [
+                'count' => count($formattedPublications),
+                'visitor_id' => $visitorId
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -109,10 +86,9 @@ class PublicationController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('CRITICAL ERROR in getPublicationsValidees:', [
+            Log::error('Error in getPublicationsValidees:', [
                 'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'visitor_id' => $request->header('X-Visitor-ID')
             ]);
             
             return response()->json([
@@ -122,8 +98,8 @@ class PublicationController extends Controller
         }
     }
 
-    // 👤 Afficher une publication
-    public function show($id)
+    // 👤 Afficher une publication - AMÉLIORÉ
+    public function show(Request $request, $id)
     {
         try {
             $publication = Publication::where('id_publication', $id)->first();
@@ -135,9 +111,26 @@ class PublicationController extends Controller
                 ], 404);
             }
 
+            $formattedPublication = $this->formatPublicationResponse($publication);
+            
+            // Ajouter les infos spécifiques au visiteur
+            $visitorId = $request->header('X-Visitor-ID');
+            if ($visitorId) {
+                $formattedPublication['userReacted'] = PublicationReaction::where('publication_id', $publication->id_publication)
+                    ->where('visitor_id', $visitorId)
+                    ->exists();
+                    
+                $formattedPublication['already_viewed'] = PublicationView::where('publication_id', $publication->id_publication)
+                    ->where('visitor_id', $visitorId)
+                    ->exists();
+            } else {
+                $formattedPublication['userReacted'] = false;
+                $formattedPublication['already_viewed'] = false;
+            }
+
             return response()->json([
                 'success' => true,
-                'data' => $this->formatPublicationResponse($publication)
+                'data' => $formattedPublication
             ]);
 
         } catch (\Exception $e) {
@@ -423,7 +416,7 @@ class PublicationController extends Controller
         ];
     }
 
-    // ❤️ Réaction utilisateur/visiteur
+    // ❤️ Réaction utilisateur/visiteur - DÉJÀ CORRECT
     public function react(Request $request, $id)
     {
         try {
@@ -497,13 +490,20 @@ class PublicationController extends Controller
         }
     }
 
-    // 👀 Incrémenter les vues
+    // 👀 Incrémenter les vues - CORRIGÉ POUR SUPPORT MULTI-VISITEURS
     public function view(Request $request, $id)
     {
         try {
+            Log::info('=== VIEW REQUEST START ===', [
+                'publication_id' => $id,
+                'visitor_id' => $request->header('X-Visitor-ID'),
+                'ip' => $request->ip()
+            ]);
+
             $publication = Publication::where('id_publication', $id)->first();
             
             if (!$publication) {
+                Log::error('Publication not found', ['id' => $id]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Publication non trouvée'
@@ -513,18 +513,24 @@ class PublicationController extends Controller
             $visitorId = $request->header('X-Visitor-ID');
 
             if (!$visitorId) {
+                Log::error('No visitor ID provided');
                 return response()->json([
                     'success' => false,
                     'message' => 'Identifiant visiteur requis pour compter les vues'
                 ], 400);
             }
 
-            // Vérifier si le visiteur a déjà vu cette publication
+            // 🔧 CORRECTION : Vérifier si CE visiteur a déjà vu cette publication
             $alreadyViewed = PublicationView::where('publication_id', $publication->id_publication)
                 ->where('visitor_id', $visitorId)
                 ->exists();
 
             if ($alreadyViewed) {
+                Log::info('Visitor already viewed this publication', [
+                    'visitor_id' => $visitorId,
+                    'publication_id' => $publication->id_publication
+                ]);
+                
                 return response()->json([
                     'success' => true,
                     'message' => 'Vous avez déjà vu cette publication',
@@ -533,7 +539,7 @@ class PublicationController extends Controller
                 ]);
             }
 
-            // Enregistrer la vue
+            // Enregistrer la vue pour CE visiteur
             PublicationView::create([
                 'publication_id' => $publication->id_publication,
                 'visitor_id' => $visitorId,
@@ -541,11 +547,11 @@ class PublicationController extends Controller
                 'user_agent' => $request->userAgent()
             ]);
 
-            // Incrémenter le compteur de vues
+            // Incrémenter le compteur de vues TOTAL
             $publication->increment('vues');
             $publication->refresh();
 
-            Log::info('New view recorded', [
+            Log::info('New view recorded for visitor', [
                 'publication_id' => $publication->id_publication,
                 'visitor_id' => $visitorId,
                 'new_views_count' => $publication->vues
@@ -561,12 +567,13 @@ class PublicationController extends Controller
         } catch (\Exception $e) {
             Log::error('Error in view method:', [
                 'error' => $e->getMessage(),
-                'publication_id' => $id
+                'publication_id' => $id,
+                'visitor_id' => $request->header('X-Visitor-ID')
             ]);
             
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de l\'enregistrement de la vue'
+                'message' => 'Erreur lors de l\'enregistrement de la vue: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -577,7 +584,7 @@ class PublicationController extends Controller
         return md5($request->ip() . $request->userAgent());
     }
 
-    // 🎯 Obtenir l'icône du fichier (méthode utilitaire)
+    // 🎯 Obtenir l'icône du fichier
     private function getFileIcon($fileName)
     {
         if (!$fileName) return 'file';

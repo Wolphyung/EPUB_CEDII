@@ -36,7 +36,7 @@ class Publication extends Model
         return $this->hasMany(PublicationReaction::class, 'publication_id');
     }
 
-    // Nouvelle relation pour les vues
+    // Relation pour les vues (DÉJÀ PRÉSENTE)
     public function views()
     {
         return $this->hasMany(PublicationView::class, 'publication_id');
