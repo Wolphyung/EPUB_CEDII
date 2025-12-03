@@ -7,7 +7,9 @@ import {
   Button, 
   ListGroup, 
   Spinner, 
-  Badge 
+  Badge,
+  Container,
+  Footer
 } from "react-bootstrap";
 import { 
   FaBullhorn, 
@@ -19,6 +21,8 @@ import {
 } from "react-icons/fa";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from "../../components/LanguageSwitcher";
 
 const C = {
   primary: "#667eea",
@@ -32,6 +36,7 @@ const C = {
 };
 
 const DashMembre = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [stats, setStats] = useState({ 
     publications: 0, 
@@ -44,7 +49,6 @@ const DashMembre = () => {
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // === DONNÉES MOCKÉES (en attendant les vraies API) ===
   const mockData = {
     publications: [
       { id: 1, titre: "Lancement du projet 2025", created_at: "2025-11-10T10:00:00" },
@@ -67,7 +71,6 @@ const DashMembre = () => {
         const token = localStorage.getItem("token");
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        // === ESSAI API (silencieux en cas d'échec) ===
         const [pubRes, evtRes, msgRes] = await Promise.all([
           axios.get("http://127.0.0.1:8000/api/publications", { headers })
             .catch(() => ({ data: { data: [] } })),
@@ -81,26 +84,25 @@ const DashMembre = () => {
           ...p, 
           type: "publication", 
           date: new Date(p.created_at || new Date()), 
-          titre: p.titre || "Sans titre" 
+          titre: p.titre || t("sans_titre") 
         }));
 
         let evenements = (evtRes.data.data || evtRes.data || []).map(e => ({ 
           ...e, 
           type: "evenement", 
           date: new Date(e.created_at || new Date()), 
-          titre: e.titre || "Sans titre" 
+          titre: e.titre || t("sans_titre") 
         }));
 
         let messages = (msgRes.data.data || msgRes.data || []).map(m => ({ 
           ...m, 
           type: "message", 
           date: new Date(m.created_at || new Date()), 
-          sujet: m.sujet || "Aucun sujet" 
+          sujet: m.sujet || t("no_subject") 
         }));
 
-        // === SI TOUT EST VIDE → DONNÉES MOCKÉES ===
         if (publications.length === 0 && evenements.length === 0 && messages.length === 0) {
-          console.info("API non disponible → Utilisation des données mockées");
+          console.info(t("api_unavailable_message"));
           publications = mockData.publications.map(p => ({ ...p, type: "publication", date: new Date(p.created_at) }));
           evenements = mockData.evenements.map(e => ({ ...e, type: "evenement", date: new Date(e.created_at) }));
           messages = mockData.messages.map(m => ({ ...m, type: "message", date: new Date(m.created_at) }));
@@ -126,13 +128,12 @@ const DashMembre = () => {
           if (d.getFullYear() === year) monthly[d.getMonth()]++; 
         });
         setMonthlyData(monthly.map((v, i) => ({
-          month: ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"][i],
+          month: t(`months.${i}`),
           value: v
         })));
 
       } catch (err) {
-        console.warn("Mode démonstration activé (API non disponible)", err);
-        // === DONNÉES MOCKÉES EN DERNIER RECOURS ===
+        console.warn(t("demo_mode_activated"), err);
         const publications = mockData.publications.map(p => ({ ...p, type: "publication", date: new Date(p.created_at) }));
         const evenements = mockData.evenements.map(e => ({ ...e, type: "evenement", date: new Date(e.created_at) }));
         const messages = mockData.messages.map(m => ({ ...m, type: "message", date: new Date(m.created_at) }));
@@ -151,10 +152,10 @@ const DashMembre = () => {
         ].sort((a, b) => b.date - a.date).slice(0, 5));
 
         setMonthlyData([
-          { month: "Jan", value: 2 }, { month: "Fév", value: 3 }, { month: "Mar", value: 1 },
-          { month: "Avr", value: 4 }, { month: "Mai", value: 2 }, { month: "Juin", value: 3 },
-          { month: "Juil", value: 5 }, { month: "Août", value: 2 }, { month: "Sep", value: 4 },
-          { month: "Oct", value: 3 }, { month: "Nov", value: 2 }, { month: "Déc", value: 1 }
+          { month: t("months.0"), value: 2 }, { month: t("months.1"), value: 3 }, { month: t("months.2"), value: 1 },
+          { month: t("months.3"), value: 4 }, { month: t("months.4"), value: 2 }, { month: t("months.5"), value: 3 },
+          { month: t("months.6"), value: 5 }, { month: t("months.7"), value: 2 }, { month: t("months.8"), value: 4 },
+          { month: t("months.9"), value: 3 }, { month: t("months.10"), value: 2 }, { month: t("months.11"), value: 1 }
         ]);
       } finally {
         setLoading(false);
@@ -162,9 +163,8 @@ const DashMembre = () => {
     };
 
     fetchData();
-  }, []);
+  }, [t]);
 
-  // === GRAPHIQUE SIMPLE (SANS DÉPENDANCE) ===
   const SimpleChart = ({ data }) => {
     const maxValue = Math.max(...data.map(d => d.value), 1);
     
@@ -223,22 +223,23 @@ const DashMembre = () => {
           ))}
         </div>
         <div style={{ textAlign: "center", marginTop: "12px", color: C.gray, fontSize: "14px", fontWeight: "500" }}>
-          Activité mensuelle des publications
+          {t('monthly_activity')}
         </div>
       </div>
     );
   };
 
   return (
-    <div className="min-vh-100" style={{ background: C.bg }}>
+    <div className="min-vh-100 d-flex flex-column" style={{ background: C.bg }}>
       <MembreSidebar onCollapse={setSidebarCollapsed} dark={false} />
 
       <div 
+        className="flex-grow-1"
         style={{ 
           marginLeft: sidebarCollapsed ? "80px" : "280px", 
           padding: "2rem", 
           transition: "margin 0.4s ease",
-          minHeight: "100vh"
+          minHeight: "calc(100vh - 80px)"
         }}
       >
         <h1 style={{ 
@@ -247,16 +248,16 @@ const DashMembre = () => {
           fontSize: "2rem",
           marginBottom: "1.5rem"
         }}>
-          Tableau de Bord Membre
+          {t('member_dashboard_title')}
         </h1>
 
         {/* === CARTES STATISTIQUES === */}
         <Row className="g-4 mb-5">
           {[
-            { icon: FaBullhorn, value: stats.publications, label: "Publications", color: C.primary },
-            { icon: FaCalendarAlt, value: stats.evenements, label: "Événements", color: C.secondary },
-            { icon: FaEnvelope, value: stats.messages, label: "Messages", color: C.accent },
-            { icon: FaUsers, value: stats.notifications, label: "Alertes", color: C.neon }
+            { icon: FaBullhorn, value: stats.publications, label: t("publications_total"), color: C.primary },
+            { icon: FaCalendarAlt, value: stats.evenements, label: t("events_total"), color: C.secondary },
+            { icon: FaEnvelope, value: stats.messages, label: t("messages"), color: C.accent },
+            { icon: FaUsers, value: stats.notifications, label: t("alerts"), color: C.neon }
           ].map((stat, i) => (
             <Col xl={3} lg={6} key={i}>
               <Card 
@@ -312,7 +313,7 @@ const DashMembre = () => {
             <Card className="shadow-sm border-0" style={{ borderRadius: "18px", background: C.cardBg }}>
               <Card.Body className="p-4">
                 <h4 style={{ fontWeight: "700", marginBottom: "1.5rem", color: "#2c3e50" }}>
-                  ACTIVITÉ MENSUELLE
+                  {t('monthly_activity_chart')}
                 </h4>
                 {loading ? (
                   <div style={{ height: "300px", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -329,13 +330,13 @@ const DashMembre = () => {
             <Card className="shadow-sm border-0 h-100" style={{ borderRadius: "18px", background: C.cardBg }}>
               <Card.Body className="p-4">
                 <h4 style={{ fontWeight: "700", marginBottom: "1.5rem", color: "#2c3e50" }}>
-                  ACCÈS RAPIDE
+                  {t('quick_access')}
                 </h4>
                 {[
-                  { label: "Publications", color: C.primary, icon: FaBullhorn, route: "/pubMembre" },
-                  { label: "Événements", color: C.secondary, icon: FaCalendarAlt, route: "/evenementMembre" },
-                  { label: "Appels d'offre", color: C.neon, icon: FaFileAlt, route: "/appeloffreMembre" },
-                  { label: "Messages", color: C.accent, icon: FaEnvelope, route: "/messageMembre" }
+                  { label: t("menu_publication"), color: C.primary, icon: FaBullhorn, route: "/pubMembre" },
+                  { label: t("menu_event"), color: C.secondary, icon: FaCalendarAlt, route: "/evenementMembre" },
+                  { label: t("menu_call_for_tender"), color: C.neon, icon: FaFileAlt, route: "/appeloffreMembre" },
+                  { label: t("menu_messages"), color: C.accent, icon: FaEnvelope, route: "/messageMembre" }
                 ].map((portal, i) => (
                   <Button 
                     key={i}
@@ -375,7 +376,7 @@ const DashMembre = () => {
         <Card className="shadow-sm border-0" style={{ borderRadius: "18px", background: C.cardBg }}>
           <Card.Body className="p-4">
             <h4 style={{ fontWeight: "700", marginBottom: "1.5rem", color: "#2c3e50" }}>
-              ACTIVITÉ RÉCENTE
+              {t('recent_activity')}
             </h4>
             <ListGroup variant="flush">
               {recentData.length > 0 ? (
@@ -423,8 +424,8 @@ const DashMembre = () => {
                         padding: "6px 10px"
                       }}
                     >
-                      {item.type === "publication" ? "PUB" : 
-                       item.type === "evenement" ? "ÉVÈN" : "MSG"}
+                      {item.type === "publication" ? t("pub_abbr") : 
+                       item.type === "evenement" ? t("event_abbr") : t("msg_abbr")}
                     </Badge>
                   </ListGroup.Item>
                 ))
@@ -434,13 +435,44 @@ const DashMembre = () => {
                 </div>
               ) : (
                 <div className="text-center py-4 text-muted">
-                  Aucune activité récente
+                  {t('no_recent_activity')}
                 </div>
               )}
             </ListGroup>
           </Card.Body>
         </Card>
       </div>
+
+      {/* === FOOTER AVEC SELECTEUR DE LANGUE === */}
+      <footer style={{ 
+        background: "linear-gradient(135deg, #2c3e50, #34495e)",
+        color: "white",
+        padding: "1.5rem 2rem",
+        marginLeft: sidebarCollapsed ? "80px" : "280px",
+        transition: "margin 0.4s ease",
+        borderTop: "1px solid rgba(255,255,255,0.1)"
+      }}>
+        <Container fluid>
+          <Row className="align-items-center">
+            <Col md={4} className="text-center text-md-start mb-3 mb-md-0">
+              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
+                <i className="fas fa-language fs-5" style={{ color: "#667eea" }}></i>
+                <span style={{ fontSize: "0.9rem", opacity: 0.8 }}>{t('choose_language')}</span>
+              </div>
+            </Col>
+            
+            <Col md={4} className="text-center mb-3 mb-md-0">
+              <LanguageSwitcher />
+            </Col>
+            
+            <Col md={4} className="text-center text-md-end">
+              <small style={{ fontSize: "0.8rem", opacity: 0.7 }}>
+                &copy; {new Date().getFullYear()} {t('platform_name')} • v2.1.0
+              </small>
+            </Col>
+          </Row>
+        </Container>
+      </footer>
     </div>
   );
 };

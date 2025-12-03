@@ -335,5 +335,36 @@
     "image_not_available": "Tsy misy sary",
     "click_to_download": "Tsindrio fampidinana hahazoana ny rakitra",
     "pdf_preview": "Fijery mialoha PDF",
-    "download_error": "Nisy olana tamin'ny fampidinana"
+    "download_error": "Nisy olana tamin'ny fampidinana",
+
+    "member_dashboard_title": "Tabilao fijerena Mpikambana",
+    "messages": "Hafatra",
+    "alerts": "Fampandrenesana",
+    "monthly_activity": "Asan'ny famoahana isam-bolana",
+    "monthly_activity_chart": "ASA ISAM-BOLANA",
+    "quick_access": "FIDIRANA HAINGANA",
+    "recent_activity": "ASA VAO HAINGANA",
+    "pub_abbr": "FAM",
+    "event_abbr": "HET",
+    "msg_abbr": "HAF",
+    "no_recent_activity": "Tsy misy asa vao haingana",
+    "no_subject": "Tsy misy lohateny",
+    "api_unavailable_message": "API tsy azo ampiasaina → Ampiasaina angona fanaovana demo",
+    "demo_mode_activated": "Nandeha ny demo (API tsy azo ampiasaina)",
+    "choose_language": "Fidio ny fiteny",
+    "platform_name": "Sehatra Mpikambana",
+    "months": {
+      "0": "Jan",
+      "1": "Feb",
+      "2": "Mar",
+      "3": "Apr",
+      "4": "Mey",
+      "5": "Jon",
+      "6": "Jol",
+      "7": "Aog",
+      "8": "Sep",
+      "9": "Okt",
+      "10": "Nov",
+      "11": "Des"
+    }
 }

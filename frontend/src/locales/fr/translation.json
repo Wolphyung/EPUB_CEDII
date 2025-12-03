@@ -336,5 +336,38 @@
     "image_not_available": "Image non disponible",
     "click_to_download": "Cliquez sur télécharger pour obtenir le fichier",
     "pdf_preview": "Aperçu PDF",
-    "download_error": "Erreur lors du téléchargement"
+    "download_error": "Erreur lors du téléchargement",
+
+    "member_dashboard_title": "Tableau de Bord Membre",
+    "messages": "Messages",
+    "alerts": "Alertes",
+    "monthly_activity": "Activité mensuelle des publications",
+    "monthly_activity_chart": "ACTIVITÉ MENSUELLE",
+    "quick_access": "ACCÈS RAPIDE",
+    "recent_activity": "ACTIVITÉ RÉCENTE",
+    "pub_abbr": "PUB",
+    "event_abbr": "ÉVÈN",
+    "msg_abbr": "MSG",
+    "no_recent_activity": "Aucune activité récente",
+    "no_subject": "Aucun sujet",
+    "api_unavailable_message": "API non disponible → Utilisation des données mockées",
+    "demo_mode_activated": "Mode démonstration activé (API non disponible)",
+    "choose_language": "Choisir la langue",
+    "platform_name": "Plateforme Membre",
+    "months": {
+      "0": "Jan",
+      "1": "Fév",
+      "2": "Mar",
+      "3": "Avr",
+      "4": "Mai",
+      "5": "Juin",
+      "6": "Juil",
+      "7": "Août",
+      "8": "Sep",
+      "9": "Oct",
+      "10": "Nov",
+      "11": "Déc"
+    }
+
+    
 }

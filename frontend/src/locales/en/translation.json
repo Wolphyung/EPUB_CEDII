@@ -335,5 +335,36 @@
     "image_not_available": "Image not available",
     "click_to_download": "Click download to get the file",
     "pdf_preview": "PDF Preview",
-    "download_error": "Error downloading"
+    "download_error": "Error downloading",
+
+    "member_dashboard_title": "Member Dashboard",
+    "messages": "Messages",
+    "alerts": "Alerts",
+    "monthly_activity": "Monthly publication activity",
+    "monthly_activity_chart": "MONTHLY ACTIVITY",
+    "quick_access": "QUICK ACCESS",
+    "recent_activity": "RECENT ACTIVITY",
+    "pub_abbr": "PUB",
+    "event_abbr": "EVENT",
+    "msg_abbr": "MSG",
+    "no_recent_activity": "No recent activity",
+    "no_subject": "No subject",
+    "api_unavailable_message": "API unavailable → Using mock data",
+    "demo_mode_activated": "Demo mode activated (API unavailable)",
+    "choose_language": "Choose language",
+    "platform_name": "Member Platform",
+    "months": {
+      "0": "Jan",
+      "1": "Feb",
+      "2": "Mar",
+      "3": "Apr",
+      "4": "May",
+      "5": "Jun",
+      "6": "Jul",
+      "7": "Aug",
+      "8": "Sep",
+      "9": "Oct",
+      "10": "Nov",
+      "11": "Dec"
+    }
 }
