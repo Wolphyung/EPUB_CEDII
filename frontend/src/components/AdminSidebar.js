@@ -48,6 +48,8 @@ const AdminSidebar = () => {
   const handleLogoutConfirm = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("theme");
+    localStorage.removeItem("i18nextLng");
     setShowLogoutModal(false);
     navigate("/login");
   };
@@ -236,7 +238,6 @@ const AdminSidebar = () => {
               background: "linear-gradient(135deg, #ffd700 0%, #ffa500 100%)",
               border: "none",
               borderRadius: "12px",
-              // 🎯 Ajustement du padding pour le mode icône
               padding: isCollapsed && !isHovered ? "12px 0" : "12px 16px",
               transition: "all 0.3s ease",
               boxShadow: "0 4px 15px rgba(255, 215, 0, 0.3)"
@@ -249,14 +250,12 @@ const AdminSidebar = () => {
               e.target.style.transform = "translateY(0)";
               e.target.style.boxShadow = "0 4px 15px rgba(255, 215, 0, 0.3)";
             }}
+            title={isDarkMode ? t('theme_light_mode') : t('theme_dark_mode')}
           >
             <i className={`fas ${isDarkMode ? "fa-sun" : "fa-moon"}`} style={{ 
-              // 🎯 Marge conditionnelle
               marginRight: (!isCollapsed || isHovered) ? "8px" : "0", 
-              // 🎯 Taille d'icône augmentée en mode réduit
               fontSize: isCollapsed && !isHovered ? "1.25rem" : "1rem"
             }}></i>
-            {/* Le texte s'affiche SEULEMENT si la barre n'est PAS réduite OU est survolée */}
             {(!isCollapsed || isHovered) && (
               <span className="fw-medium">
                 {t(isDarkMode ? 'theme_light_mode' : 'theme_dark_mode')}
@@ -272,7 +271,6 @@ const AdminSidebar = () => {
               background: "linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)",
               border: "none",
               borderRadius: "12px",
-              // 🎯 Ajustement du padding pour le mode icône
               padding: isCollapsed && !isHovered ? "12px 0" : "12px 16px",
               transition: "all 0.3s ease",
               boxShadow: "0 4px 15px rgba(255, 107, 107, 0.3)"
@@ -285,14 +283,12 @@ const AdminSidebar = () => {
               e.target.style.transform = "translateY(0)";
               e.target.style.boxShadow = "0 4px 15px rgba(255, 107, 107, 0.3)";
             }}
+            title={t('logout_button')}
           >
             <i className="fas fa-sign-out-alt" style={{
-              // 🎯 Marge conditionnelle
               marginRight: (!isCollapsed || isHovered) ? "8px" : "0",
-              // 🎯 Taille d'icône augmentée en mode réduit
               fontSize: isCollapsed && !isHovered ? "1.25rem" : "1rem"
             }}></i>
-            {/* Le texte s'affiche SEULEMENT si la barre n'est PAS réduite OU est survolée */}
             {(!isCollapsed || isHovered) && (
               <span className="fw-medium">{t('logout_button')}</span>
             )}
@@ -391,7 +387,7 @@ const AdminSidebar = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Styles CSS (aucune modification nécessaire) */}
+      {/* Styles CSS */}
       <style>
         {`
           [data-theme="dark"] {
@@ -420,7 +416,6 @@ const AdminSidebar = () => {
             --table-border: #dee2e6;
           }
 
-          /* Application du thème aux composants */
           .card {
             background-color: var(--card-bg) !important;
             border-color: var(--card-border) !important;
@@ -461,7 +456,6 @@ const AdminSidebar = () => {
             color: #fff !important;
           }
           
-          /* Scrollbar personnalisée */
           ::-webkit-scrollbar {
             width: 4px;
           }
@@ -480,7 +474,6 @@ const AdminSidebar = () => {
             background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
           }
           
-          /* Animation d'entrée */
           @keyframes slideIn {
             from {
               opacity: 0;
@@ -496,12 +489,10 @@ const AdminSidebar = () => {
             animation: slideIn 0.3s ease-out;
           }
 
-          /* Transition douce pour le changement de thème */
           body, .card, .form-control, .form-select, .table {
             transition: all 0.3s ease-in-out;
           }
 
-          /* Styles pour le modal de déconnexion */
           .modal-content {
             border-radius: 20px !important;
             border: none !important;

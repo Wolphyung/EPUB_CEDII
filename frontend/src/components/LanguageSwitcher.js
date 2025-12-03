@@ -1,3 +1,4 @@
+// src/components/LanguageSwitcher.js
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ButtonGroup, Button } from 'react-bootstrap';
@@ -7,6 +8,7 @@ const LanguageSwitcher = () => {
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng);
+    localStorage.setItem('i18nextLng', lng);
   };
 
   const isActive = (lng) => i18n.language === lng;
@@ -15,7 +17,6 @@ const LanguageSwitcher = () => {
     <ButtonGroup 
       aria-label="Language switcher" 
       size="sm" 
-      // Styles pour le ButtonGroup complet
       style={{ 
         width: 'fit-content',
         margin: '0 auto',
@@ -24,54 +25,68 @@ const LanguageSwitcher = () => {
         boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
         display: 'flex', 
         alignItems: 'center', 
-        // Fond sombre pour l'ensemble, en harmonie avec la sidebar
         background: 'rgba(0, 0, 0, 0.2)', 
       }}
     >
-      {/* Icône de Globe (Font Awesome) */}
+      {/* Icône de Globe */}
       <span 
         className="fas fa-globe" 
         style={{
           color: 'white',
           fontSize: '1rem',
           padding: '0 8px', 
-          // Séparateur visuel à droite de l'icône
           borderRight: '1px solid rgba(255, 255, 255, 0.1)', 
         }}
       ></span>
 
-      {/* Bouton Français 🇫🇷 */}
+      {/* Français */}
       <Button
-        // Utilisation des classes Bootstrap et des styles pour l'état actif/inactif
         onClick={() => changeLanguage('fr')}
         style={{
-          // Couleur active : bleu/violet comme l'élément actif dans la sidebar
           backgroundColor: isActive('fr') ? '#667eea' : 'transparent', 
           borderColor: isActive('fr') ? '#667eea' : 'transparent',
           color: 'white',
           padding: '6px 10px', 
           borderRadius: 0,
-          borderRight: '1px solid rgba(255, 255, 255, 0.1)', // Séparateur entre drapeaux
+          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
           transition: 'background-color 0.2s',
         }}
+        title="Français"
       >
-        <span role="img" aria-label="Drapeau Français">🇫🇷</span>
+        FR
       </Button>
 
-      {/* Bouton Anglais 🇬🇧 */}
+      {/* Anglais */}
       <Button
         onClick={() => changeLanguage('en')}
         style={{
-          // Couleur active : bleu/violet
           backgroundColor: isActive('en') ? '#667eea' : 'transparent',
           borderColor: isActive('en') ? '#667eea' : 'transparent',
           color: 'white',
           padding: '6px 10px', 
           borderRadius: 0,
+          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
           transition: 'background-color 0.2s',
         }}
+        title="English"
       >
-        <span role="img" aria-label="Drapeau Anglais">AN</span>
+        EN
+      </Button>
+
+      {/* Malgache */}
+      <Button
+        onClick={() => changeLanguage('mg')}
+        style={{
+          backgroundColor: isActive('mg') ? '#667eea' : 'transparent',
+          borderColor: isActive('mg') ? '#667eea' : 'transparent',
+          color: 'white',
+          padding: '6px 10px', 
+          borderRadius: 0,
+          transition: 'background-color 0.2s',
+        }}
+        title="Malagasy"
+      >
+        MG
       </Button>
     </ButtonGroup>
   );
