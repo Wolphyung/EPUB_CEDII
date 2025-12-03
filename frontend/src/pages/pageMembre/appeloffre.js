@@ -1,18 +1,221 @@
-import React, { useState, useEffect } from "react";
-import { Card, Button, Modal, Form, Row, Col, Badge, Alert } from "react-bootstrap";
+// src/pages/membre/AppelOffreMembre.jsx
+
+import React, { useState, useEffect, useCallback } from "react";
+import { 
+  Card, 
+  Button, 
+  Modal, 
+  Form, 
+  Row, 
+  Col, 
+  Badge, 
+  Alert, 
+  Spinner,
+  Container,
+  InputGroup
+} from "react-bootstrap";
 import MembreSidebar from "../../components/MembreSidebar";
+import LanguageSwitcher from "../../components/LanguageSwitcher";
+import { useTranslation } from 'react-i18next';
+import { 
+  FaBriefcase, 
+  FaCheckCircle, 
+  FaClock, 
+  FaExclamationTriangle, 
+  FaEye,
+  FaHeart,
+  FaPlusCircle,
+  FaEdit,
+  FaTrash,
+  FaCalendarAlt,
+  FaMapMarkerAlt,
+  FaMoneyBillWave,
+  FaUserTie,
+  FaFileUpload,
+  FaTag,
+  FaSearch,
+  FaDownload,
+  FaExternalLinkAlt,
+  FaFileAlt,
+  FaFilePdf,
+  FaRocket
+} from 'react-icons/fa';
 import axios from "axios";
 
-// === CONFIGURATION API ===
-axios.interceptors.request.use(c => {
-  const t = localStorage.getItem('token');
-  if (t) c.headers.Authorization = `Bearer ${t}`;
-  return c;
-});
-
+// === CONFIGURATION ===
 const API_URL = "http://127.0.0.1:8000/api/appeloffres";
 
+// === COULEURS ===
+const COLORS = {
+  primary: "#667eea",
+  secondary: "#764ba2",
+  accent: "#4facfe",
+  neon: "#00f2fe",
+  dark: "#2c3e50",
+  gray: "#6c757d",
+  light: "#f5f7fa",
+  white: "#ffffff",
+  border: "#e0e6ef",
+  success: "#28a745",
+  warning: "#ffc107",
+  danger: "#dc3545",
+  info: "#17a2b8"
+};
+
+// === STYLES ===
+const styles = {
+  container: {
+    background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
+    minHeight: '100vh'
+  },
+  sidebarCollapsed: { width: '80px' },
+  sidebarExpanded: { width: '280px' },
+  
+  card: {
+    borderRadius: "18px",
+    background: COLORS.white,
+    border: "none",
+    boxShadow: "0 6px 20px rgba(0,0,0,0.05)",
+    transition: "all 0.3s ease"
+  },
+  
+  badge: {
+    borderRadius: "20px",
+    fontSize: "0.8rem",
+    fontWeight: "600"
+  },
+  
+  input: {
+    borderRadius: "12px",
+    border: `1.5px solid ${COLORS.border}`,
+    padding: "0.75rem 1rem",
+    fontSize: "0.95rem",
+    transition: "all 0.2s ease",
+    '&:focus': {
+      borderColor: COLORS.primary,
+      boxShadow: `0 0 0 0.25rem rgba(102, 126, 234, 0.25)`
+    }
+  },
+  
+  modalHeader: {
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    color: "white",
+    borderTopLeftRadius: "18px",
+    borderTopRightRadius: "18px"
+  }
+};
+
+// === COMPOSANTS RÉUTILISABLES ===
+const StatsCard = ({ icon: Icon, value, label, color }) => (
+  <Card className="border-0 shadow-sm text-center p-4 h-100"
+    style={{
+      borderRadius: "18px",
+      background: COLORS.white,
+      transition: "all 0.3s ease",
+      cursor: "pointer"
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = "translateY(-8px)";
+      e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.15)";
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = "translateY(0)";
+      e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.1)";
+    }}
+  >
+    <div
+      className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+      style={{
+        width: "60px",
+        height: "60px",
+        background: `rgba(${parseInt(color.slice(1, 3), 16)}, ${parseInt(color.slice(3, 5), 16)}, ${parseInt(color.slice(5, 7), 16)}, 0.1)`,
+        border: `3px solid ${color}`,
+      }}
+    >
+      <Icon size={24} style={{ color }} />
+    </div>
+    <h3 style={{ 
+      fontWeight: "bold", 
+      color: "#2c3e50", 
+      fontSize: "1.8rem",
+      margin: 0 
+    }}>
+      {value}
+    </h3>
+    <p style={{ 
+      fontWeight: "600", 
+      color: COLORS.gray, 
+      margin: 0,
+      fontSize: "0.9rem",
+      marginTop: "0.5rem"
+    }}>
+      {label}
+    </p>
+  </Card>
+);
+
+const FilePreview = ({ filePath, fileName }) => {
+  const getFileUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    return `http://127.0.0.1:8000${path.startsWith('/') ? path : `/${path}`}`;
+  };
+
+  const fileUrl = getFileUrl(filePath);
+  const fileExt = fileName?.split('.').pop().toLowerCase() || '';
+  
+  const getFileIcon = () => {
+    switch (fileExt) {
+      case 'pdf': return <FaFilePdf className="text-danger" size={24} />;
+      case 'doc':
+      case 'docx': return <FaFileAlt className="text-primary" size={24} />;
+      case 'xls':
+      case 'xlsx': return <FaFileAlt className="text-success" size={24} />;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif': return <FaFileAlt className="text-info" size={24} />;
+      default: return <FaFileAlt className="text-secondary" size={24} />;
+    }
+  };
+
+  return (
+    <div className="p-3 border rounded" style={{ background: "#f8f9fa", borderRadius: "12px" }}>
+      <div className="d-flex align-items-center mb-2">
+        {getFileIcon()}
+        <span className="ms-2 fw-semibold text-truncate" style={{ maxWidth: "200px" }}>
+          {fileName || filePath?.split('/').pop() || "Fichier"}
+        </span>
+      </div>
+      <div className="d-flex gap-2">
+        <Button 
+          variant="outline-primary" 
+          size="sm" 
+          className="rounded-pill"
+          href={fileUrl} 
+          target="_blank"
+        >
+          <FaExternalLinkAlt className="me-1" size={12} />
+          {fileExt === 'pdf' ? 'Voir' : 'Ouvrir'}
+        </Button>
+        <Button 
+          variant="outline-secondary" 
+          size="sm" 
+          className="rounded-pill"
+          href={fileUrl} 
+          download
+        >
+          <FaDownload className="me-1" size={12} />
+          Télécharger
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+// === COMPOSANT PRINCIPAL ===
 const AppelOffreMembre = () => {
+  const { t } = useTranslation();
   const [offres, setOffres] = useState([]);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -25,86 +228,106 @@ const AppelOffreMembre = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const [nouvelleOffre, setNouvelleOffre] = useState({
-    intitule: "", description: "", date_cloture: "", date_ouverture: "", membre: "", fichier: null,
-    statut: "En attente", type: "CDI", localisation: "", salaire: "", est_urgent: false
+    intitule: "", 
+    description: "", 
+    date_cloture: "", 
+    date_ouverture: "", 
+    membre: "", 
+    fichier: null,
+    statut: "En attente", 
+    type_contrat: "CDI", 
+    localisation: "", 
+    salaire_remuneration: "", 
+    est_urgent: false
   });
 
-  // === INITIALISATION UTILISATEUR ===
+  // === INTERCEPTEUR AXIOS ===
+  useEffect(() => {
+    const interceptor = axios.interceptors.request.use(config => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    });
+
+    return () => {
+      axios.interceptors.request.eject(interceptor);
+    };
+  }, []);
+
+  // === INITIALISATION ===
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user'));
     setCurrentUser(user);
   }, []);
 
   // === FONCTIONS UTILITAIRES ===
-  const showAlert = (m,t) => { 
-    setAlert({show:true,message:m,type:t}); 
-    setTimeout(() => setAlert({show:false}),4000); 
-  };
-  
-  const handleClose = () => { 
-    setShowModal(false); 
-    setEditMode(false); 
-    setCurrentOffre(null); 
-  };
-  
-  const handleShowAdd = () => { 
-    setEditMode(false); 
-    setCurrentOffre(null); 
-    
-    // Définir automatiquement le membre connecté comme auteur
-    const user = JSON.parse(localStorage.getItem('user'));
-    const membreName = user?.nom_complet || user?.nom || user?.email || "Utilisateur Membre";
-    
-    setNouvelleOffre({
-      intitule:"",
-      description:"",
-      date_cloture:"",
-      date_ouverture: new Date().toISOString().split('T')[0], // Date du jour par défaut
-      membre: membreName,
-      fichier:null,
-      statut:"En attente", // Statut par défaut
-      type:"CDI",
-      localisation:"",
-      salaire:"",
-      est_urgent:false
-    }); 
-    setShowModal(true); 
-  };
-  
-  const handleShowEdit = o => { 
-    if (!isUserAuthor(o)) {
-      showAlert("Vous n'êtes pas autorisé à modifier cette offre.", "warning");
-      return;
-    }
-    
-    setEditMode(true); 
-    setCurrentOffre(o); 
-    setNouvelleOffre({
-      intitule:o.intitule,
-      description:o.description,
-      date_cloture:o.date_cloture,
-      date_ouverture:o.date_ouverture,
-      membre:o.membre,
-      fichier:null,
-      statut:o.statut, // Conserver le statut actuel en édition
-      type:o.type_contrat||"CDI",
-      localisation:o.localisation||"",
-      salaire:o.salaire_remuneration||"",
-      est_urgent:!!o.est_urgent
-    }); 
-    setShowModal(true); 
+  const showAlert = (message, type) => {
+    setAlert({ show: true, message, type });
+    setTimeout(() => setAlert({ show: false }), 4000);
   };
 
-  // Vérifier si l'utilisateur est l'auteur de l'offre
+  const handleClose = () => {
+    setShowModal(false);
+    setEditMode(false);
+    setCurrentOffre(null);
+  };
+
+  const handleShowAdd = () => {
+    const user = currentUser || JSON.parse(localStorage.getItem('user'));
+    const membreName = user?.nom_complet || user?.nom || user?.email || t("anonymous_user");
+    
+    setEditMode(false);
+    setCurrentOffre(null);
+    setNouvelleOffre({
+      intitule: "",
+      description: "",
+      date_cloture: "",
+      date_ouverture: new Date().toISOString().split('T')[0],
+      membre: membreName,
+      fichier: null,
+      statut: "En attente",
+      type_contrat: "CDI",
+      localisation: "",
+      salaire_remuneration: "",
+      est_urgent: false
+    });
+    setShowModal(true);
+  };
+
+  const handleShowEdit = (offre) => {
+    if (!isUserAuthor(offre)) {
+      showAlert(t("unauthorized_edit"), "warning");
+      return;
+    }
+
+    setEditMode(true);
+    setCurrentOffre(offre);
+    setNouvelleOffre({
+      intitule: offre.intitule,
+      description: offre.description,
+      date_cloture: offre.date_cloture,
+      date_ouverture: offre.date_ouverture,
+      membre: offre.membre,
+      fichier: null,
+      statut: offre.statut,
+      type_contrat: offre.type_contrat || "CDI",
+      localisation: offre.localisation || "",
+      salaire_remuneration: offre.salaire_remuneration || "",
+      est_urgent: !!offre.est_urgent
+    });
+    setShowModal(true);
+  };
+
   const isUserAuthor = (offre) => {
     if (!currentUser) return false;
-    
-    // Si l'utilisateur est admin, il peut tout modifier
     if (currentUser.type === 'admin') return true;
     
-    // Comparaison par membre_id ou nom d'auteur
     if (offre.membre_id && currentUser.id) {
       return offre.membre_id === currentUser.id;
     }
@@ -114,89 +337,78 @@ const AppelOffreMembre = () => {
            offre.membre === currentUser.email;
   };
 
-  // Badge indicateur "Votre offre"
-  const getUserBadge = (offre) => {
-    if (isUserAuthor(offre)) {
-      return (
-        <Badge bg="info" className="ms-1 px-2 py-1" style={{ fontSize: "0.7rem" }}>
-          <i className="fas fa-user me-1"></i>Votre offre
-        </Badge>
-      );
-    }
-    return null;
+  const handleChange = (e) => {
+    const { name, value, type, checked, files } = e.target;
+    setNouvelleOffre(prev => ({
+      ...prev,
+      [name]: type === "file" ? files[0] : type === "checkbox" ? checked : value
+    }));
   };
 
-  // Badge pour les offres anonymes
-  const getAnonymeBadge = (offre) => {
-    if (offre.membre === "Anonyme" || !offre.membre_id) {
-      return (
-        <Badge bg="secondary" className="ms-1 px-2 py-1" style={{ fontSize: "0.7rem" }}>
-          <i className="fas fa-user-secret me-1"></i>Anonyme
-        </Badge>
-      );
-    }
-    return null;
-  };
-  
-  const handleChange = e => { 
-    const {name,value,type,checked,files}=e.target; 
-    setNouvelleOffre(p=>({
-      ...p,
-      [name]:type==="file"?files[0]:type==="checkbox"?checked:value
-    })); 
-  };
-
-  // Badge de statut avec icônes
-  const statusBadge = (statut) => {
+  // === BADGES ===
+  const StatusBadge = ({ statut }) => {
     const config = {
-      "Validé": { color: "success", icon: "fa-check-circle", text: "Validé" },
-      "En attente": { color: "warning", icon: "fa-clock", text: "En attente" },
-      "Rejeté": { color: "danger", icon: "fa-times-circle", text: "Rejeté" },
-      "Actif": { color: "primary", icon: "fa-play-circle", text: "Actif" },
-      "Clôturé": { color: "secondary", icon: "fa-flag-checkered", text: "Clôturé" }
+      "Validé": { color: "success", icon: FaCheckCircle, text: t("Validé") },
+      "En attente": { color: "warning", icon: FaClock, text: t("En attente") },
+      "Rejeté": { color: "danger", icon: FaExclamationTriangle, text: t("Rejeté") },
+      "Actif": { color: "primary", icon: FaBriefcase, text: t("Actif") },
+      "Clôturé": { color: "secondary", icon: FaCheckCircle, text: t("Clôturé") }
     };
     
     const cfg = config[statut] || config["En attente"];
+    const Icon = cfg.icon;
     
     return (
       <Badge 
         bg={cfg.color} 
         className="d-flex align-items-center px-3 py-2" 
-        style={{ borderRadius: "20px", fontSize: "0.8rem", fontWeight: "600" }}
+        style={{ ...styles.badge }}
       >
-        <i className={`fas ${cfg.icon} me-1`}></i>
+        <Icon size={14} className="me-1" />
         {cfg.text}
       </Badge>
     );
   };
 
-  const typeBadge = t => (
-    <Badge 
-      bg={{
-        "CDI":"success", 
-        "CDD":"warning", 
-        "Stage":"info", 
-        "Freelance":"primary", 
-        "Alternance":"dark"
-      }[t] || "secondary"} 
-      className="px-3 py-2" 
-      style={{borderRadius:"15px", fontSize:"0.8rem"}}
-    >
-      {t}
-    </Badge>
-  );
-  
-  const format = d => d ? new Date(d).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}) : "Date NC";
-  const urgent = o => o.est_urgent || (o.date_cloture && new Date(o.date_cloture).setHours(0,0,0,0) - new Date().setHours(0,0,0,0) <= 7*86400000);
-  
-  // === API ===
-  const fetchOffres = async () => {
+  const TypeBadge = ({ type }) => {
+    const colors = {
+      "CDI": "success",
+      "CDD": "warning",
+      "Stage": "info",
+      "Freelance": "primary",
+      "Alternance": "dark"
+    };
+    
+    return (
+      <Badge 
+        bg={colors[type] || "secondary"}
+        className="px-3 py-2"
+        style={{ ...styles.badge, fontSize: "0.7rem" }}
+      >
+        {type}
+      </Badge>
+    );
+  };
+
+  const UserBadge = ({ offre }) => {
+    if (isUserAuthor(offre)) {
+      return (
+        <Badge bg="info" className="ms-1 px-2 py-1" style={{ fontSize: "0.7rem" }}>
+          <FaUserTie size={10} className="me-1" />
+          {t("your_offer")}
+        </Badge>
+      );
+    }
+    return null;
+  };
+
+  // === API FUNCTIONS ===
+  const fetchOffres = useCallback(async () => {
     setError(null);
     setLoading(true);
-    try { 
+    try {
       const response = await axios.get(API_URL);
       
-      // Charger les statistiques pour chaque offre validée
       const offresWithStats = await Promise.all(
         response.data.map(async (offre) => {
           if (offre.statut === "Validé") {
@@ -211,14 +423,9 @@ const AppelOffreMembre = () => {
                 }
               };
             } catch (error) {
-              console.warn(`Stats non disponibles pour l'offre ${offre.id}:`, error.message);
               return {
                 ...offre,
-                stats: {
-                  total_views: 0,
-                  total_reactions: 0,
-                  reactions_by_type: {}
-                }
+                stats: { total_views: 0, total_reactions: 0, reactions_by_type: {} }
               };
             }
           }
@@ -226,9 +433,8 @@ const AppelOffreMembre = () => {
         })
       );
 
-      // Filtrer les offres selon le type d'utilisateur
+      // Filtrer selon le type d'utilisateur
       let filteredOffres = offresWithStats;
-      
       if (currentUser && currentUser.type === 'membre') {
         filteredOffres = offresWithStats.filter(offre => 
           offre.membre_id === currentUser.id || 
@@ -239,82 +445,81 @@ const AppelOffreMembre = () => {
       }
       
       setOffres(filteredOffres);
-    }
-    catch (err) { 
+    } catch (err) {
       console.error("Erreur chargement offres:", err);
-      setError("Impossible de charger les appels d'offre. Vérifiez la connexion API."); 
-    }
-    finally {
+      setError(t("error_load_offers"));
+    } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser, t]);
 
-  const handleSave = async e => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!localStorage.getItem('token')) return showAlert("Connectez-vous d'abord.", "danger");
-    setIsSubmitting(true);
-    
-    if (!nouvelleOffre.intitule || !nouvelleOffre.date_cloture || !nouvelleOffre.description) {
-      showAlert("Champs obligatoires manquants.", "warning"); 
-      setIsSubmitting(false); 
+    if (!localStorage.getItem('token')) {
+      showAlert(t("login_required"), "danger");
       return;
     }
 
-    const f = new FormData();
-    
-    // Toujours définir le statut "En attente" pour les nouvelles offres (sauf si admin)
-    let statutFinal = nouvelleOffre.statut;
-    if (!editMode && currentUser?.type !== 'admin') {
-      statutFinal = "En attente";
+    if (!nouvelleOffre.intitule || !nouvelleOffre.date_cloture || !nouvelleOffre.description) {
+      showAlert(t("missing_required_fields"), "warning");
+      return;
     }
+
+    setIsSubmitting(true);
+
+    const formData = new FormData();
     
-    // Préparer les données pour l'API
-    const donnees = {
+    // Statut final
+    let finalStatut = nouvelleOffre.statut;
+    if (!editMode && currentUser?.type !== 'admin') {
+      finalStatut = "En attente";
+    }
+
+    const data = {
       intitule: nouvelleOffre.intitule,
       description: nouvelleOffre.description,
       date_cloture: nouvelleOffre.date_cloture,
       date_ouverture: nouvelleOffre.date_ouverture,
       membre: nouvelleOffre.membre,
-      statut: statutFinal,
-      type_contrat: nouvelleOffre.type,
+      statut: finalStatut,
+      type_contrat: nouvelleOffre.type_contrat,
       localisation: nouvelleOffre.localisation,
-      salaire_remuneration: nouvelleOffre.salaire,
+      salaire_remuneration: nouvelleOffre.salaire_remuneration,
       est_urgent: nouvelleOffre.est_urgent ? 1 : 0
     };
 
-    // Ajouter les données au FormData
-    Object.entries(donnees).forEach(([key, value]) => {
-      f.append(key, value || "");
+    Object.entries(data).forEach(([key, value]) => {
+      formData.append(key, value || "");
     });
-    
-    if (nouvelleOffre.fichier) f.append("fichier", nouvelleOffre.fichier);
+
+    if (nouvelleOffre.fichier) {
+      formData.append("fichier", nouvelleOffre.fichier);
+    }
 
     try {
       if (editMode && currentOffre) {
-        f.append("_method","PUT");
-        await axios.post(`${API_URL}/${currentOffre.id}`, f, { 
+        formData.append("_method", "PUT");
+        await axios.post(`${API_URL}/${currentOffre.id}`, formData, {
           headers: { "Content-Type": "multipart/form-data" }
         });
-        showAlert("Offre modifiée avec succès !", "success");
+        showAlert(t("success_edit_offer"), "success");
       } else {
-        await axios.post(API_URL, f, { 
+        await axios.post(API_URL, formData, {
           headers: { "Content-Type": "multipart/form-data" }
         });
         
-        // Message différent selon le statut
-        const message = statutFinal === "En attente" 
-          ? "Appel d'offre créé ! En attente de validation par l'administrateur." 
-          : "Appel d'offre créé avec succès !";
+        const message = finalStatut === "En attente" 
+          ? t("offer_created_pending") 
+          : t("success_add_offer");
         
         showAlert(message, "success");
       }
-      handleClose(); 
+      handleClose();
       fetchOffres();
-    } catch (err) { 
-      showAlert(`Erreur: ${err.response?.data?.message || "Échec de l'opération."}`, "danger"); 
-    }
-    finally { 
-      setIsSubmitting(false); 
+    } catch (err) {
+      showAlert(`${t("error_operation")}: ${err.response?.data?.message || err.message}`, "danger");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -326,368 +531,426 @@ const AppelOffreMembre = () => {
   const executeDelete = async () => {
     try {
       await axios.delete(`${API_URL}/${deleteId}`);
-      showAlert("Offre supprimée avec succès !", "success");
+      showAlert(t("success_delete_offer"), "success");
       fetchOffres();
     } catch {
-      showAlert("Échec de la suppression.", "danger");
+      showAlert(t("error_delete_offer"), "danger");
     }
     setShowConfirm(false);
     setDeleteId(null);
   };
 
-  useEffect(() => { 
+  // === EFFECTS ===
+  useEffect(() => {
     if (currentUser) {
-      fetchOffres(); 
+      fetchOffres();
     }
-  }, [currentUser]);
+  }, [currentUser, fetchOffres]);
 
-  // === AFFICHAGE DES STATISTIQUES ===
-  const renderStats = (offre) => {
-    if (!offre.stats || offre.statut !== "Validé") return null;
+  // === FILTRAGE ===
+  const filteredOffres = offres.filter(offre => {
+    const matchesSearch = offre.intitule.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         offre.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         offre.membre.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "all" || offre.statut === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
-    const { total_views, total_reactions, reactions_by_type } = offre.stats;
-
-    return (
-      <div className="stats-container mt-3 pt-3 border-top">
-        <div className="d-flex justify-content-between align-items-center">
-          {/* Vues */}
-          <div className="d-flex align-items-center gap-3">
-            <div className="d-flex align-items-center text-muted stats-item">
-              <i className="fas fa-eye me-1"></i>
-              <small className="fw-semibold">{total_views || 0}</small>
-              <span className="ms-1 stats-label">vues</span>
-            </div>
-            
-            {/* Réactions */}
-            {total_reactions > 0 && (
-              <div className="d-flex align-items-center gap-2 reactions-container">
-                {/* Like */}
-                {reactions_by_type.like > 0 && (
-                  <div className="d-flex align-items-center text-primary reaction-item">
-                    <i className="fas fa-thumbs-up me-1"></i>
-                    <small className="fw-semibold">{reactions_by_type.like}</small>
-                  </div>
-                )}
-                
-                {/* Love */}
-                {reactions_by_type.love > 0 && (
-                  <div className="d-flex align-items-center text-danger reaction-item">
-                    <i className="fas fa-heart me-1"></i>
-                    <small className="fw-semibold">{reactions_by_type.love}</small>
-                  </div>
-                )}
-                
-                {/* Wow */}
-                {reactions_by_type.wow > 0 && (
-                  <div className="d-flex align-items-center text-warning reaction-item">
-                    <i className="fas fa-surprise me-1"></i>
-                    <small className="fw-semibold">{reactions_by_type.wow}</small>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Total réactions */}
-          {total_reactions > 0 && (
-            <div className="d-flex align-items-center text-muted">
-              <small className="fw-semibold">
-                {total_reactions} réaction{total_reactions > 1 ? 's' : ''}
-              </small>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // === CONSTRUCTION URL COMPLÈTE FICHIER ===
-  const getFileUrl = (filePath) => {
-    if (!filePath) return null;
-    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
-      return filePath;
+  // === STATISTIQUES ===
+  const statsCards = [
+    {
+      icon: FaBriefcase,
+      value: offres.length,
+      label: t("total_offers"),
+      color: COLORS.primary
+    },
+    {
+      icon: FaCheckCircle,
+      value: offres.filter(o => o.statut === "Validé").length,
+      label: t("validated_offers"),
+      color: COLORS.success
+    },
+    {
+      icon: FaClock,
+      value: offres.filter(o => o.statut === "En attente").length,
+      label: t("pending_offers"),
+      color: COLORS.warning
+    },
+    {
+      icon: FaExclamationTriangle,
+      value: offres.filter(o => o.est_urgent).length,
+      label: t("urgent_offers"),
+      color: COLORS.danger
+    },
+    {
+      icon: FaEye,
+      value: offres.reduce((total, o) => total + (o.stats?.total_views || 0), 0),
+      label: t("total_views"),
+      color: COLORS.info
+    },
+    {
+      icon: FaHeart,
+      value: offres.reduce((total, o) => total + (o.stats?.total_reactions || 0), 0),
+      label: t("total_reactions"),
+      color: COLORS.secondary
     }
-    const baseUrl = "http://127.0.0.1:8000";
-    const path = filePath.startsWith('/') ? filePath : `/${filePath}`;
-    return `${baseUrl}${path}`;
-  };
+  ];
 
-  // === AFFICHAGE FICHIER PROFESSIONNEL ===
-  const renderFile = filePath => {
-    if (!filePath) return null;
-    
-    const fileUrl = getFileUrl(filePath);
-    const fileName = filePath.split('/').pop();
-    const ext = fileName.split('.').pop().toLowerCase();
-    
-    if (ext === 'pdf') 
-      return (
-        <div className="file-compact">
-          <div className="file-compact-header">
-            <i className="fas fa-file-pdf text-danger"></i>
-            <span className="file-compact-name">{fileName}</span>
-          </div>
-          <div className="file-compact-preview">
-            <iframe src={fileUrl} width="100%" height="280" style={{border:"none",borderRadius:"6px"}} title="PDF"/>
-          </div>
-          <div className="file-compact-actions">
-            <Button variant="link" size="sm" href={fileUrl} target="_blank">
-              <i className="fas fa-eye me-1"></i>Voir
-            </Button>
-            <Button variant="link" size="sm" href={fileUrl} download>
-              <i className="fas fa-download me-1"></i>Télécharger
-            </Button>
-          </div>
-        </div>
-      );
-      
-    // ... (le reste de la fonction renderFile reste identique)
-    return (
-      <div className="file-compact">
-        <div className="file-compact-header">
-          <i className="fas fa-file-alt text-secondary"></i>
-          <span className="file-compact-name">{fileName}</span>
-        </div>
-        <div className="file-compact-preview text-center py-3">
-          <i className="fas fa-file-alt" style={{fontSize:"2.5rem",color:"#adb5bd"}}></i>
-          <p className="text-muted small mb-0 mt-2">Fichier {ext.toUpperCase()}</p>
-        </div>
-        <div className="file-compact-actions">
-          <Button variant="link" size="sm" href={fileUrl} target="_blank">
-            <i className="fas fa-external-link-alt me-1"></i>Ouvrir
-          </Button>
-          <Button variant="link" size="sm" href={fileUrl} download>
-            <i className="fas fa-download me-1"></i>Télécharger
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
+  // === RENDU ===
   if (error) {
     return (
       <div className="d-flex justify-content-center align-items-center min-vh-100">
-        <Alert variant="danger" className="shadow-lg p-4" style={{borderRadius:"15px"}}>
-          <i className="fas fa-exclamation-triangle me-2"></i>
-          <h4>Erreur API</h4>
+        <Alert variant="danger" className="shadow-lg p-4" style={{ borderRadius: "15px" }}>
+          <FaExclamationTriangle className="me-2" />
+          <h4>{t("api_error")}</h4>
           <p>{error}</p>
-          <hr/>
-          <p>Démarrez Laravel: <code>php artisan serve</code></p>
         </Alert>
       </div>
     );
   }
 
   return (
-    <div className="d-flex min-vh-100" style={{background:"linear-gradient(135deg,#f5f7fa 0%,#c3cfe2 100%)"}}>
-      <div style={{width:sidebarCollapsed?"80px":"280px",transition:"width .3s ease",flexShrink:0}}>
-        <MembreSidebar onCollapse={v=>setSidebarCollapsed(v)}/>
-      </div>
-      
-      <div className="flex-grow-1" style={{padding:"30px",transition:"all .3s ease"}}>
+    <div className="min-vh-100 d-flex flex-column" style={styles.container}>
+      <MembreSidebar onCollapse={setSidebarCollapsed} dark={false} />
+
+      <div 
+        className="flex-grow-1"
+        style={{ 
+          marginLeft: sidebarCollapsed ? "80px" : "280px", 
+          padding: "2rem", 
+          transition: "margin 0.4s ease",
+          minHeight: "calc(100vh - 80px)"
+        }}
+      >
+        {/* Header */}
+        <div className="d-flex justify-content-between align-items-center mb-5">
+          <div>
+            <h1 style={{ 
+              color: "#2c3e50", 
+              fontWeight: "bold", 
+              fontSize: "2rem",
+              marginBottom: "1rem"
+            }}>
+              {currentUser?.type === 'admin' ? t("offer_management_title") : t("my_offers")}
+            </h1>
+            <p style={{ color: COLORS.gray, fontSize: "1rem", margin: 0 }}>
+              {currentUser?.type === 'admin' 
+                ? t("offer_management_subtitle") 
+                : t("manage_your_offers")}
+            </p>
+          </div>
+          <Button
+            onClick={handleShowAdd}
+            className="shadow-lg rounded-pill px-4 px-lg-5 py-2 py-lg-3 d-flex align-items-center"
+            style={{
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              border: "none",
+              fontWeight: "600",
+              fontSize: "1rem",
+              minWidth: "220px"
+            }}
+          >
+            <FaPlusCircle className="me-2" />
+            {t("new_offer_button")}
+          </Button>
+        </div>
+
+        {/* Alert */}
         {alert.show && (
-          <Alert variant={alert.type} dismissible onClose={()=>setAlert({show:false})} 
-                 className="mb-4 border-0 shadow" style={{borderRadius:"15px"}}>
-            <i className={`fas ${alert.type==="success"?"fa-check-circle":"fa-exclamation-triangle"} me-2`}></i>
+          <Alert
+            variant={alert.type}
+            dismissible
+            onClose={() => setAlert({ show: false })}
+            className="shadow-sm border-0 mb-4"
+            style={{ borderRadius: "15px" }}
+          >
+            <i className={`fas ${
+              alert.type === "success" ? "fa-check-circle" :
+              alert.type === "warning" ? "fa-exclamation-triangle" :
+              "fa-exclamation-circle"
+            } me-2`}></i>
             {alert.message}
           </Alert>
         )}
 
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <div>
-            <h1 className="fw-bold mb-2" style={{color:"#2c3e50",fontSize:"2.2rem"}}>
-              {currentUser?.type === 'admin' ? 'Appels d\'Offre' : 'Mes Appels d\'Offre'}
-            </h1>
-            <p className="text-muted mb-0" style={{fontSize:"1.1rem"}}>
-              {currentUser?.type === 'admin' 
-                ? 'Gérez tous les appels d\'offre' 
-                : 'Gérez vos appels d\'offre - En attente de validation par l\'administrateur'}
-            </p>
-          </div>
-          <Button variant="primary" onClick={handleShowAdd} className="rounded-pill px-4 py-2" 
-                  style={{background:"linear-gradient(135deg,#667eea 0%,#764ba2 100%)",border:"none",fontWeight:"600",fontSize:"1rem"}}>
-            <i className="fas fa-plus-circle me-2"></i>Nouvel Appel
-          </Button>
-        </div>
+        {/* Search and Filters */}
+        <Card className="shadow-sm border-0 mb-4" style={{ borderRadius: "18px", background: COLORS.white }}>
+          <Card.Body className="p-4">
+            <Row className="g-3">
+              <Col md={8}>
+                <InputGroup>
+                  <InputGroup.Text style={{ 
+                    background: 'transparent', 
+                    borderRight: 'none',
+                    borderTopLeftRadius: '12px',
+                    borderBottomLeftRadius: '12px'
+                  }}>
+                    <FaSearch size={14} style={{ color: COLORS.gray }} />
+                  </InputGroup.Text>
+                  <Form.Control
+                    type="text"
+                    placeholder={t("search_offers_placeholder")}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{
+                      borderLeft: 'none',
+                      borderRadius: '0 12px 12px 0',
+                      padding: '0.75rem',
+                      fontSize: '0.95rem'
+                    }}
+                    className="border-start-0"
+                  />
+                </InputGroup>
+              </Col>
+              <Col md={4}>
+                <Form.Select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  style={{
+                    borderRadius: "12px",
+                    padding: "0.75rem 1rem",
+                    border: "1px solid #e9ecef",
+                    fontSize: "0.95rem"
+                  }}
+                >
+                  <option value="all">{t("all_status")}</option>
+                  <option value="Validé">{t("Validé")}</option>
+                  <option value="En attente">{t("En attente")}</option>
+                  <option value="Rejeté">{t("Rejeté")}</option>
+                  <option value="Clôturé">{t("Clôturé")}</option>
+                </Form.Select>
+              </Col>
+            </Row>
+          </Card.Body>
+        </Card>
 
-        {/* Statistiques Dashboard */}
-        <Row className="mb-5">
-          {[
-            {n:offres.length, l:"Total", c:"primary", i:"briefcase"},
-            {n:offres.filter(o=>o.statut==="Validé").length, l:"Validées", c:"success", i:"check-circle"},
-            {n:offres.filter(o=>o.statut==="En attente").length, l:"En attente", c:"warning", i:"clock"},
-            {n:offres.filter(urgent).length, l:"Urgents", c:"danger", i:"exclamation-triangle"},
-            {n:offres.reduce((total, o) => total + (o.stats?.total_views || 0), 0), l:"Vues totales", c:"info", i:"eye"},
-            {n:offres.reduce((total, o) => total + (o.stats?.total_reactions || 0), 0), l:"Réactions totales", c:"secondary", i:"heart"}
-          ].map((s,k) => (
-            <Col key={k} xl={4} lg={4} md={6} className="mb-4">
-              <Card className="shadow-lg border-0 text-center p-4 h-100" style={{borderRadius:"20px"}}>
-                <div className={`bg-${s.c} bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3`} 
-                     style={{width:60,height:60}}>
-                  <i className={`fas fa-${s.i} text-${s.c} fs-4`}></i>
-                </div>
-                <h3 className={`fw-bold text-${s.c} mb-2`}>{s.n}</h3>
-                <p className="text-muted mb-0">{s.l}</p>
-              </Card>
+        {/* Stats Cards */}
+        <Row className="mb-5 g-4">
+          {statsCards.map((stat, index) => (
+            <Col xl={4} lg={4} md={6} key={index}>
+              <StatsCard {...stat} />
             </Col>
           ))}
         </Row>
 
-        {/* Indicateur de statut pour les membres */}
+        {/* Info pour les membres */}
         {currentUser?.type === 'membre' && offres.some(o => o.statut === "En attente") && (
           <Alert variant="info" className="mb-4">
             <i className="fas fa-info-circle me-2"></i>
-            <strong>Information :</strong> Vos offres en attente de validation ne sont visibles que par vous. 
-            Elles seront publiées après validation par l'administrateur.
+            <strong>{t("information")}:</strong> {t("pending_offers_info")}
           </Alert>
         )}
 
-        {/* Liste des Appels d'Offre */}
+        {/* Liste des offres */}
         {loading ? (
           <div className="text-center py-5">
-            <div className="spinner-border text-primary" style={{width: '3rem', height: '3rem'}}>
-              <span className="visually-hidden">Chargement...</span>
-            </div>
-            <p className="mt-3 text-muted">Chargement des appels d'offre...</p>
+            <Spinner animation="border" variant="primary" style={{ width: '3rem', height: '3rem' }} />
+            <p className="mt-3 text-muted">{t("loading_offers")}</p>
           </div>
-        ) : offres.length === 0 ? (
-          <Alert variant="info" className="text-center w-100">
-            <i className="fas fa-info-circle me-2"></i>
-            {currentUser?.type === 'admin' 
-              ? 'Aucun appel d\'offre trouvé.' 
-              : 'Aucun appel d\'offre personnel trouvé. Créez votre premier appel d\'offre !'}
-          </Alert>
+        ) : filteredOffres.length === 0 ? (
+          <Card className="text-center border-0 shadow-sm p-5" style={{ borderRadius: "20px", minHeight: "300px" }}>
+            <div className="d-flex flex-column justify-content-center align-items-center h-100">
+              <FaBriefcase size={80} className="text-muted mb-4" />
+              <h3 className="text-dark mb-3">{t("no_offers_found")}</h3>
+              <p className="text-muted mb-4">
+                {searchTerm || statusFilter !== "all" 
+                  ? t("no_offers_match")
+                  : currentUser?.type === 'admin' 
+                    ? t("no_offers_system")
+                    : t("start_first_offer")}
+              </p>
+              <Button 
+                onClick={handleShowAdd}
+                className="rounded-pill px-4 py-2"
+                style={{
+                  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                  border: "none"
+                }}
+              >
+                <FaPlusCircle className="me-2" />
+                {t("create_offer")}
+              </Button>
+            </div>
+          </Card>
         ) : (
-          <Row>
-            {offres.map(o => {
-              const userIsAuthor = isUserAuthor(o);
-              
+          <Row className="g-4">
+            {filteredOffres.map(offre => {
+              const userIsAuthor = isUserAuthor(offre);
+              const isUrgent = offre.est_urgent || 
+                (offre.date_cloture && 
+                 new Date(offre.date_cloture).setHours(0,0,0,0) - new Date().setHours(0,0,0,0) <= 7 * 86400000);
+
               return (
-                <Col key={o.id} xl={6} lg={6} className="mb-4">
-                  <Card className="shadow-lg border-0 h-100" 
-                        style={{
-                          borderRadius:"20px",
-                          transition:"all .3s ease",
-                          overflow:"hidden",
-                          borderLeft:`4px solid ${
-                            o.est_urgent ? "#ff6b6b" : 
-                            o.statut === "Validé" ? "#28a745" : 
-                            o.statut === "En attente" ? "#ffc107" : 
-                            o.statut === "Rejeté" ? "#dc3545" : "#6c757d"
-                          }`
-                        }}
-                        onMouseEnter={e => {
-                          e.currentTarget.style.transform = "translateY(-8px)";
-                          e.currentTarget.style.boxShadow = "0 12px 35px rgba(0,0,0,.15)";
-                        }} 
-                        onMouseLeave={e => {
-                          e.currentTarget.style.transform = "translateY(0)";
-                          e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,.1)";
-                        }}>
+                <Col key={offre.id} xl={6} lg={6} className="mb-4">
+                  <Card
+                    className="border-0 shadow-sm h-100"
+                    style={{
+                      borderRadius: "18px",
+                      borderLeft: `4px solid ${
+                        isUrgent ? "#ff6b6b" : 
+                        offre.statut === "Validé" ? "#28a745" : 
+                        offre.statut === "En attente" ? "#ffc107" : 
+                        offre.statut === "Rejeté" ? "#dc3545" : "#6c757d"
+                      }`,
+                      transition: "all 0.3s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-8px)";
+                      e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.15)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.1)";
+                    }}
+                  >
                     <Card.Body className="p-4">
-                      {/* En-tête avec titre et statut */}
+                      {/* Header */}
                       <div className="d-flex justify-content-between align-items-start mb-3">
                         <div className="flex-grow-1">
-                          <Card.Title className="h5 fw-bold mb-1" style={{lineHeight:"1.3",color:"#2c3e50"}}>
-                            {o.intitule}
-                            {o.est_urgent && (
+                          <Card.Title className="h5 fw-bold mb-1" style={{ color: COLORS.dark }}>
+                            {offre.intitule}
+                            {isUrgent && (
                               <Badge bg="danger" className="ms-2">
-                                <i className="fas fa-exclamation-triangle me-1"></i>Urgent
+                                <FaExclamationTriangle size={12} className="me-1" />
+                                {t("urgent")}
                               </Badge>
                             )}
                           </Card.Title>
-                          <div className="d-flex align-items-center flex-wrap gap-1 mt-1">
-                            {o.type_contrat && typeBadge(o.type_contrat)}
-                            {getUserBadge(o)}
-                            {getAnonymeBadge(o)}
+                          <div className="d-flex align-items-center flex-wrap gap-1 mt-2">
+                            {offre.type_contrat && <TypeBadge type={offre.type_contrat} />}
+                            <UserBadge offre={offre} />
                           </div>
                         </div>
-                        {statusBadge(o.statut)}
+                        <StatusBadge statut={offre.statut} />
                       </div>
 
-                      {/* Informations détaillées */}
+                      {/* Informations */}
                       <div className="mb-3">
                         <div className="d-flex align-items-center mb-2">
-                          <i className="fas fa-user-tie text-primary me-2"></i>
-                          <span className="fw-semibold">Membre: {o.membre || "NC"}</span>
+                          <FaUserTie className="text-primary me-2" size={14} />
+                          <span className="fw-semibold">{t("member")}: {offre.membre || "NC"}</span>
                         </div>
                         <div className="d-flex align-items-center mb-2">
-                          <i className="fas fa-map-marker-alt text-danger me-2"></i>
-                          <span>{o.localisation || "Non spécifié"}</span>
+                          <FaMapMarkerAlt className="text-danger me-2" size={14} />
+                          <span>{offre.localisation || t("not_specified")}</span>
                         </div>
                         <div className="d-flex align-items-center mb-2">
-                          <i className="fas fa-money-bill-wave text-success me-2"></i>
-                          <span className="fw-semibold">{o.salaire_remuneration || "À négocier"}</span>
+                          <FaMoneyBillWave className="text-success me-2" size={14} />
+                          <span className="fw-semibold">{offre.salaire_remuneration || t("negotiable")}</span>
                         </div>
                       </div>
 
                       {/* Description */}
-                      <Card.Text className="text-muted mb-4" style={{lineHeight:"1.6",fontSize:"0.95rem"}}>
-                        {o.description.length > 120 ? o.description.substring(0, 120) + "..." : o.description}
+                      <Card.Text className="text-muted mb-3" style={{ lineHeight: 1.6 }}>
+                        {offre.description.length > 120 
+                          ? `${offre.description.substring(0, 120)}...` 
+                          : offre.description}
                       </Card.Text>
 
                       {/* Fichier */}
-                      {o.fichier && <div className="mb-3">{renderFile(o.fichier)}</div>}
+                      {offre.fichier && (
+                        <div className="mb-3">
+                          <FilePreview filePath={offre.fichier} fileName={offre.fichier.split('/').pop()} />
+                        </div>
+                      )}
 
-                      {/* Date de clôture */}
+                      {/* Dates */}
                       <div className="d-flex justify-content-between align-items-center mb-3">
-                        <div className="text-end w-100">
-                          <div className="fw-semibold" style={{color: urgent(o) ? "#ff6b6b" : "#6c757d"}}>
-                            <i className="fas fa-clock me-1"></i>
-                            Clôture: {format(o.date_cloture)}
-                          </div>
+                        <div>
+                          <small className="text-muted">
+                            <FaCalendarAlt className="me-1" size={12} />
+                            {t("opening")}: {new Date(offre.date_ouverture).toLocaleDateString()}
+                          </small>
+                        </div>
+                        <div>
+                          <small className="fw-semibold" style={{ color: isUrgent ? "#ff6b6b" : COLORS.gray }}>
+                            <FaCalendarAlt className="me-1" size={12} />
+                            {t("closing")}: {new Date(offre.date_cloture).toLocaleDateString()}
+                          </small>
                         </div>
                       </div>
 
-                      {/* Statistiques (uniquement pour les offres validées) */}
-                      {o.statut === "Validé" && renderStats(o)}
+                      {/* Statistiques */}
+                      {offre.statut === "Validé" && offre.stats && (
+                        <div className="border-top pt-3 mt-3">
+                          <div className="d-flex justify-content-between align-items-center">
+                            <div className="d-flex align-items-center gap-3">
+                              <div className="d-flex align-items-center text-muted">
+                                <FaEye className="me-1" size={14} />
+                                <small className="fw-semibold">{offre.stats.total_views || 0}</small>
+                                <span className="ms-1">{t("views")}</span>
+                              </div>
+                              
+                              {offre.stats.total_reactions > 0 && (
+                                <div className="d-flex align-items-center gap-2">
+                                  {offre.stats.reactions_by_type.like > 0 && (
+                                    <div className="d-flex align-items-center text-primary">
+                                      <i className="fas fa-thumbs-up me-1"></i>
+                                      <small className="fw-semibold">{offre.stats.reactions_by_type.like}</small>
+                                    </div>
+                                  )}
+                                  {offre.stats.reactions_by_type.love > 0 && (
+                                    <div className="d-flex align-items-center text-danger">
+                                      <i className="fas fa-heart me-1"></i>
+                                      <small className="fw-semibold">{offre.stats.reactions_by_type.love}</small>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {offre.stats.total_reactions > 0 && (
+                              <small className="text-muted fw-semibold">
+                                {offre.stats.total_reactions} {t("reaction" + (offre.stats.total_reactions > 1 ? "s" : ""))}
+                              </small>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
-                      {/* Message pour les offres en attente */}
-                      {o.statut === "En attente" && (
+                      {/* Message pour offres en attente */}
+                      {offre.statut === "En attente" && (
                         <Alert variant="warning" className="py-2 mb-3">
-                          <i className="fas fa-clock me-2"></i>
-                          <small>En attente de validation par l'administrateur</small>
+                          <FaClock className="me-2" />
+                          <small>{t("pending_validation")}</small>
                         </Alert>
                       )}
 
                       {/* Actions */}
-                      <div className="mt-auto pt-3 border-top">
+                      <div className="border-top pt-3 mt-3">
                         <div className="d-flex justify-content-between align-items-center">
-                          <div className="d-flex gap-1">
+                          <div>
                             {userIsAuthor ? (
                               <>
-                                {(o.statut === "En attente" || o.statut === "Validé" || o.statut === "Rejeté") && (
+                                {(offre.statut === "En attente" || offre.statut === "Validé" || offre.statut === "Rejeté") && (
                                   <Button 
-                                    variant={o.statut === "En attente" ? "outline-warning" : "outline-primary"} 
+                                    variant={offre.statut === "En attente" ? "outline-warning" : "outline-primary"} 
                                     size="sm" 
-                                    onClick={() => handleShowEdit(o)} 
-                                    className="d-flex align-items-center" 
-                                    style={{borderRadius:"8px"}} 
-                                    title="Modifier"
+                                    onClick={() => handleShowEdit(offre)}
+                                    className="rounded-pill px-3 d-flex align-items-center"
                                   >
-                                    <i className="fas fa-edit me-1"></i>
-                                    Modifier
+                                    <FaEdit className="me-1" size={12} />
+                                    {t("edit")}
                                   </Button>
                                 )}
                               </>
                             ) : (
                               <Badge bg="secondary" className="px-3 py-2">
-                                <i className="fas fa-eye me-1"></i>Lecture seule
+                                <FaEye className="me-1" />
+                                {t("read_only")}
                               </Badge>
                             )}
                           </div>
-                          <div className="d-flex gap-1">
+                          <div>
                             {userIsAuthor && (
                               <Button 
                                 variant="outline-danger" 
                                 size="sm" 
-                                onClick={() => confirmDelete(o.id)} 
-                                className="d-flex align-items-center" 
-                                style={{borderRadius:"8px"}} 
-                                title="Supprimer"
+                                onClick={() => confirmDelete(offre.id)}
+                                className="rounded-pill px-3 d-flex align-items-center"
                               >
-                                <i className="fas fa-trash me-1"></i>
-                                Supprimer
+                                <FaTrash className="me-1" size={12} />
+                                {t("delete")}
                               </Button>
                             )}
                           </div>
@@ -702,255 +965,303 @@ const AppelOffreMembre = () => {
         )}
 
         {/* Modal d'ajout/modification */}
-        <Modal show={showModal} onHide={handleClose} centered size="lg" className="modern-modal">
-          <Modal.Header className="border-0" 
-                       style={{
-                         background:"linear-gradient(135deg,#667eea 0%,#764ba2 100%)",
-                         color:"white",
-                         borderTopLeftRadius:"20px",
-                         borderTopRightRadius:"20px"
-                       }}>
-            <Modal.Title className="fw-bold">
-              <i className="fas fa-briefcase me-2"></i>
-              {editMode ? "Modifier" : "Créer"} l'appel d'offre
+        <Modal show={showModal} onHide={handleClose} centered size="lg">
+          <Modal.Header closeButton style={styles.modalHeader}>
+            <Modal.Title className="fw-bold d-flex align-items-center">
+              {editMode ? <FaEdit className="me-2" /> : <FaPlusCircle className="me-2" />}
+              {editMode ? t("edit_offer_modal") : t("add_offer_modal")}
             </Modal.Title>
-            <Button variant="link" onClick={handleClose} className="text-white p-0" style={{fontSize:"1.5rem"}}>
-              <i className="fas fa-times"></i>
-            </Button>
           </Modal.Header>
-          
-          <Modal.Body className="p-4">
-            {/* Indication du statut pour les nouvelles offres */}
+
+          <Modal.Body className="p-4 p-md-5">
+            {/* Info pour nouvelles offres */}
             {!editMode && currentUser?.type !== 'admin' && (
               <Alert variant="info" className="mb-4">
                 <i className="fas fa-info-circle me-2"></i>
-                Votre offre sera créée avec le statut <strong>"En attente"</strong> et devra être validée par un administrateur avant publication.
+                {t("offer_pending_info")}
               </Alert>
             )}
 
             <Form onSubmit={handleSave}>
-              <Row>
+              <Row className="g-4">
                 <Col md={8}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold">
-                      <i className="fas fa-heading me-2 text-primary"></i>Intitulé *
+                  <Form.Group>
+                    <Form.Label className="fw-semibold mb-2">
+                      <FaBriefcase className="me-2" style={{ color: COLORS.primary }} />
+                      {t("offer_title")} *
                     </Form.Label>
-                    <Form.Control 
-                      type="text" 
-                      name="intitule" 
-                      value={nouvelleOffre.intitule} 
-                      onChange={handleChange} 
-                      required 
-                      className="border-0 shadow-sm rounded-3 py-3" 
-                      placeholder="Ex: Développeur web fullstack..." 
-                      style={{background:"#f8f9fa"}}
+                    <Form.Control
+                      type="text"
+                      name="intitule"
+                      value={nouvelleOffre.intitule}
+                      onChange={handleChange}
+                      required
+                      style={styles.input}
+                      placeholder={t("offer_title_placeholder")}
                     />
                   </Form.Group>
                 </Col>
+
                 <Col md={4}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold">
-                      <i className="fas fa-tag me-2 text-success"></i>Type de contrat
+                  <Form.Group>
+                    <Form.Label className="fw-semibold mb-2">
+                      <FaTag className="me-2" style={{ color: COLORS.success }} />
+                      {t("contract_type")}
                     </Form.Label>
-                    <Form.Select 
-                      name="type" 
-                      value={nouvelleOffre.type} 
-                      onChange={handleChange} 
-                      className="border-0 shadow-sm rounded-3 py-3" 
-                      style={{background:"#f8f9fa"}}
+                    <Form.Select
+                      name="type_contrat"
+                      value={nouvelleOffre.type_contrat}
+                      onChange={handleChange}
+                      style={styles.input}
                     >
-                      {["CDI","CDD","Stage","Freelance","Alternance"].map(t => (
-                        <option key={t} value={t}>{t}</option>
+                      {["CDI", "CDD", "Stage", "Freelance", "Alternance"].map(type => (
+                        <option key={type} value={type}>{type}</option>
                       ))}
                     </Form.Select>
                   </Form.Group>
                 </Col>
               </Row>
 
-              <Row>
+              <Row className="g-4 mt-2">
                 <Col md={6}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold">
-                      <i className="fas fa-user-tie me-2 text-info"></i>Membre
+                  <Form.Group>
+                    <Form.Label className="fw-semibold mb-2">
+                      <FaUserTie className="me-2" style={{ color: COLORS.info }} />
+                      {t("issuing_member")}
                     </Form.Label>
-                    <Form.Control type="text" name="membre" value={nouvelleOffre.membre} 
-                                  onChange={handleChange} 
-                                  className="border-0 shadow-sm rounded-3 py-3" 
-                                  placeholder="Ministère..." 
-                                  style={{background:"#f8f9fa"}}/>
+                    <Form.Control
+                      type="text"
+                      name="membre"
+                      value={nouvelleOffre.membre}
+                      onChange={handleChange}
+                      style={styles.input}
+                      placeholder={t("issuing_member_placeholder")}
+                      readOnly={currentUser?.type === 'membre'}
+                    />
                   </Form.Group>
                 </Col>
+
                 <Col md={6}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold">
-                      <i className="fas fa-map-marker-alt me-2 text-danger"></i>Localisation
+                  <Form.Group>
+                    <Form.Label className="fw-semibold mb-2">
+                      <FaMapMarkerAlt className="me-2" style={{ color: COLORS.danger }} />
+                      {t("location")}
                     </Form.Label>
-                    <Form.Control type="text" name="localisation" value={nouvelleOffre.localisation} 
-                                  onChange={handleChange} 
-                                  className="border-0 shadow-sm rounded-3 py-3" 
-                                  placeholder="Ville..." 
-                                  style={{background:"#f8f9fa"}}/>
+                    <Form.Control
+                      type="text"
+                      name="localisation"
+                      value={nouvelleOffre.localisation}
+                      onChange={handleChange}
+                      style={styles.input}
+                      placeholder={t("select_location")}
+                    />
                   </Form.Group>
                 </Col>
               </Row>
 
-              <Row>
+              <Row className="g-4 mt-2">
                 <Col md={6}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold">
-                      <i className="fas fa-money-bill-wave me-2 text-success"></i>Salaire
+                  <Form.Group>
+                    <Form.Label className="fw-semibold mb-2">
+                      <FaMoneyBillWave className="me-2" style={{ color: COLORS.success }} />
+                      {t("salary")}
                     </Form.Label>
-                    <Form.Control type="text" name="salaire" value={nouvelleOffre.salaire} 
-                                  onChange={handleChange} 
-                                  className="border-0 shadow-sm rounded-3 py-3" 
-                                  placeholder="1 500 000 Ar..." 
-                                  style={{background:"#f8f9fa"}}/>
+                    <Form.Control
+                      type="text"
+                      name="salaire_remuneration"
+                      value={nouvelleOffre.salaire_remuneration}
+                      onChange={handleChange}
+                      style={styles.input}
+                      placeholder={t("salary_placeholder")}
+                    />
                   </Form.Group>
                 </Col>
+
                 <Col md={6}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold">
-                      <i className="fas fa-file-upload me-2 text-warning"></i>Fichier
+                  <Form.Group>
+                    <Form.Label className="fw-semibold mb-2">
+                      <FaFileUpload className="me-2" style={{ color: COLORS.warning }} />
+                      {t("file_label")}
                     </Form.Label>
-                    <Form.Control type="file" name="fichier" onChange={handleChange} 
-                                  className="border-0 shadow-sm rounded-3 py-3" 
-                                  style={{background:"#f8f9fa"}}/>
+                    <Form.Control
+                      type="file"
+                      name="fichier"
+                      onChange={handleChange}
+                      style={styles.input}
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+                    />
                     {editMode && currentOffre?.fichier && !nouvelleOffre.fichier && (
                       <Form.Text className="text-muted">
-                        Fichier actuel: <a href={getFileUrl(currentOffre.fichier)} target="_blank" rel="noopener noreferrer">Voir</a>
+                        {t("current_file")}: {currentOffre.fichier.split('/').pop()}
                       </Form.Text>
                     )}
                   </Form.Group>
                 </Col>
               </Row>
 
-              <Row>
+              <Row className="g-4 mt-2">
                 <Col md={6}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold">
-                      <i className="fas fa-calendar-alt me-2 text-info"></i>Date ouverture
+                  <Form.Group>
+                    <Form.Label className="fw-semibold mb-2">
+                      <FaCalendarAlt className="me-2" style={{ color: COLORS.info }} />
+                      {t("opening_date")}
                     </Form.Label>
-                    <Form.Control type="date" name="date_ouverture" value={nouvelleOffre.date_ouverture} 
-                                  onChange={handleChange} 
-                                  className="border-0 shadow-sm rounded-3 py-3" 
-                                  style={{background:"#f8f9fa"}}/>
+                    <Form.Control
+                      type="date"
+                      name="date_ouverture"
+                      value={nouvelleOffre.date_ouverture}
+                      onChange={handleChange}
+                      style={styles.input}
+                    />
                   </Form.Group>
                 </Col>
+
                 <Col md={6}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold">
-                      <i className="fas fa-calendar-times me-2 text-danger"></i>Date clôture *
+                  <Form.Group>
+                    <Form.Label className="fw-semibold mb-2">
+                      <FaCalendarAlt className="me-2" style={{ color: COLORS.danger }} />
+                      {t("closing_date")} *
                     </Form.Label>
-                    <Form.Control type="date" name="date_cloture" value={nouvelleOffre.date_cloture} 
-                                  onChange={handleChange} required 
-                                  className="border-0 shadow-sm rounded-3 py-3" 
-                                  style={{background:"#f8f9fa"}}/>
+                    <Form.Control
+                      type="date"
+                      name="date_cloture"
+                      value={nouvelleOffre.date_cloture}
+                      onChange={handleChange}
+                      required
+                      style={styles.input}
+                    />
                   </Form.Group>
                 </Col>
               </Row>
 
-              <Form.Group className="mb-4">
-                <Form.Label className="fw-semibold">
-                  <i className="fas fa-align-left me-2 text-info"></i>Description *
+              <Form.Group className="mt-3">
+                <Form.Label className="fw-semibold mb-2">
+                  <FaBriefcase className="me-2" style={{ color: COLORS.info }} />
+                  {t("description")} *
                 </Form.Label>
-                <Form.Control as="textarea" rows={5} name="description" value={nouvelleOffre.description} 
-                              onChange={handleChange} required 
-                              className="border-0 shadow-sm rounded-3 py-3" 
-                              placeholder="Détails..." 
-                              style={{background:"#f8f9fa",resize:"none"}}/>
+                <Form.Control
+                  as="textarea"
+                  rows={4}
+                  name="description"
+                  value={nouvelleOffre.description}
+                  onChange={handleChange}
+                  required
+                  style={{ ...styles.input, resize: "none" }}
+                  placeholder={t("description_placeholder")}
+                  maxLength={2000}
+                />
+                <Form.Text className="text-muted d-block text-end mt-2">
+                  {nouvelleOffre.description.length}/2000 {t("characters")}
+                </Form.Text>
               </Form.Group>
 
-              <Form.Group className="mb-4">
-                <Form.Check type="checkbox" name="est_urgent" 
-                            label="Urgent (UI)" 
-                            checked={nouvelleOffre.est_urgent} 
-                            onChange={handleChange} 
-                            className="fw-semibold"/>
-                <Form.Text className="text-muted">Mise en avant</Form.Text>
+              <Form.Group className="mt-3">
+                <Form.Check
+                  type="checkbox"
+                  name="est_urgent"
+                  label={t("mark_as_urgent")}
+                  checked={nouvelleOffre.est_urgent}
+                  onChange={handleChange}
+                  className="fw-semibold"
+                />
+                <Form.Text className="text-muted">
+                  {t("urgent_note")}
+                </Form.Text>
               </Form.Group>
-
-              <Modal.Footer className="border-0 p-0 pt-4">
-                <Button 
-                  variant="outline-secondary" 
-                  onClick={handleClose} 
-                  className="rounded-pill px-4 py-2" 
-                  style={{fontWeight:"600"}} 
-                  disabled={isSubmitting}
-                >
-                  <i className="fas fa-times me-2"></i>Annuler
-                </Button>
-                <Button 
-                  type="submit" 
-                  variant="primary" 
-                  className="rounded-pill px-4 py-2" 
-                  style={{
-                    background:"linear-gradient(135deg,#667eea 0%,#764ba2 100%)",
-                    border:"none",
-                    fontWeight:"600"
-                  }} 
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="spinner-border spinner-border-sm me-2" role="status">
-                        <span className="visually-hidden">Chargement...</span>
-                      </div>
-                      Envoi...
-                    </>
-                  ) : (
-                    <>
-                      <i className={`fas ${editMode ? 'fa-save' : 'fa-plus'} me-2`}></i>
-                      {editMode ? "Modifier" : "Créer l'offre"}
-                    </>
-                  )}
-                </Button>
-              </Modal.Footer>
             </Form>
           </Modal.Body>
+
+          <Modal.Footer className="border-0 p-4">
+            <Button 
+              variant="outline-secondary" 
+              onClick={handleClose} 
+              className="rounded-pill px-4 px-lg-5 py-2" 
+              disabled={isSubmitting}
+              style={{ minWidth: '120px' }}
+            >
+              <i className="fas fa-times me-2"></i>
+              {t("cancel_button")}
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              onClick={handleSave}
+              disabled={isSubmitting}
+              className="rounded-pill px-4 px-lg-5 py-2 shadow-lg"
+              style={{
+                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                border: "none",
+                fontWeight: "600",
+                minWidth: '150px'
+              }}
+            >
+              {isSubmitting ? (
+                <>
+                  <Spinner animation="border" size="sm" className="me-2" />
+                  {editMode ? t("saving") : t("creating")}
+                </>
+              ) : (
+                <>
+                  {editMode ? <FaEdit className="me-2" /> : <FaRocket className="me-2" />}
+                  {editMode ? t("save_button") : t("create_offer_button")}
+                </>
+              )}
+            </Button>
+          </Modal.Footer>
         </Modal>
 
         {/* Modal de confirmation de suppression */}
         <Modal show={showConfirm} onHide={() => setShowConfirm(false)} centered size="sm">
           <Modal.Header closeButton className="border-0">
             <Modal.Title className="fw-bold text-danger">
-              <i className="fas fa-exclamation-triangle me-2"></i>Confirmer
+              <FaExclamationTriangle className="me-2" />
+              {t("confirm")}
             </Modal.Title>
           </Modal.Header>
           <Modal.Body className="text-center py-4">
-            <p className="mb-0">Supprimer cet appel d'offre ?</p>
+            <p className="mb-0">{t("delete_confirmation")}</p>
           </Modal.Body>
           <Modal.Footer className="border-0 justify-content-center">
-            <Button variant="secondary" onClick={() => setShowConfirm(false)} className="px-4">
-              Annuler
+            <Button variant="secondary" onClick={() => setShowConfirm(false)} className="px-4 rounded-pill">
+              {t("cancel_button")}
             </Button>
-            <Button variant="danger" onClick={executeDelete} className="px-4">
-              <i className="fas fa-trash me-1"></i>Supprimer
+            <Button variant="danger" onClick={executeDelete} className="px-4 rounded-pill">
+              <FaTrash className="me-1" />
+              {t("delete")}
             </Button>
           </Modal.Footer>
         </Modal>
-
-        <style>{`
-          .modern-modal .modal-content {
-            border-radius: 20px !important;
-            border: none !important;
-            box-shadow: 0 25px 50px rgba(0,0,0,.2) !important;
-          }
-          .form-control:focus, .form-select:focus {
-            box-shadow: 0 0 0 .2rem rgba(102,126,234,.25) !important;
-            border-color: #667eea !important;
-            background: #fff !important;
-          }
-          .card {
-            transition: transform .3s ease, box-shadow .3s ease;
-          }
-          .btn {
-            transition: all .3s ease;
-          }
-          .btn:hover {
-            transform: translateY(-2px);
-          }
-        `}</style>
       </div>
+
+      {/* Language Switcher */}
+      <footer style={{ 
+        position: "fixed",
+        bottom: "20px",
+        right: "20px",
+        zIndex: 1000,
+        background: "rgba(255, 255, 255, 0.9)",
+        padding: "10px",
+        borderRadius: "10px",
+        backdropFilter: "blur(5px)",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.1)"
+      }}>
+        <LanguageSwitcher />
+      </footer>
+
+      {/* Custom Styles */}
+      <style jsx>{`
+        .modal-content {
+          border-radius: 18px !important;
+          border: none !important;
+          box-shadow: 0 25px 50px rgba(0,0,0,0.2) !important;
+        }
+        
+        .form-control:focus,
+        .form-select:focus {
+          border-color: #667eea !important;
+          box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25) !important;
+        }
+      `}</style>
     </div>
   );
 };

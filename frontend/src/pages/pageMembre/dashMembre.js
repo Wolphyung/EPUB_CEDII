@@ -8,8 +8,7 @@ import {
   ListGroup, 
   Spinner, 
   Badge,
-  Container,
-  Footer
+  Container
 } from "react-bootstrap";
 import { 
   FaBullhorn, 
@@ -443,35 +442,19 @@ const DashMembre = () => {
         </Card>
       </div>
 
-      {/* === FOOTER AVEC SELECTEUR DE LANGUE === */}
+      {/* === FOOTER MINIMALISTE AVEC SELECTEUR DE LANGUE EN BAS À DROITE === */}
       <footer style={{ 
-        background: "linear-gradient(135deg, #2c3e50, #34495e)",
-        color: "white",
-        padding: "1.5rem 2rem",
-        marginLeft: sidebarCollapsed ? "80px" : "280px",
-        transition: "margin 0.4s ease",
-        borderTop: "1px solid rgba(255,255,255,0.1)"
+        position: "fixed",
+        bottom: "20px",
+        right: "20px",
+        zIndex: 1000,
+        background: "rgba(0, 0, 0, 0)", // Transparent
+        padding: "10px",
+        borderRadius: "10px",
+        backdropFilter: "blur(5px)",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.1)"
       }}>
-        <Container fluid>
-          <Row className="align-items-center">
-            <Col md={4} className="text-center text-md-start mb-3 mb-md-0">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
-                <i className="fas fa-language fs-5" style={{ color: "#667eea" }}></i>
-                <span style={{ fontSize: "0.9rem", opacity: 0.8 }}>{t('choose_language')}</span>
-              </div>
-            </Col>
-            
-            <Col md={4} className="text-center mb-3 mb-md-0">
-              <LanguageSwitcher />
-            </Col>
-            
-            <Col md={4} className="text-center text-md-end">
-              <small style={{ fontSize: "0.8rem", opacity: 0.7 }}>
-                &copy; {new Date().getFullYear()} {t('platform_name')} • v2.1.0
-              </small>
-            </Col>
-          </Row>
-        </Container>
+        <LanguageSwitcher />
       </footer>
     </div>
   );

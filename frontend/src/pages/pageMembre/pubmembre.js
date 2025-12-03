@@ -10,14 +10,45 @@ import {
   Col,
   Badge,
   Alert,
-  Spinner
+  Spinner,
+  Container,
+  ListGroup
 } from "react-bootstrap";
 import MembreSidebar from "../../components/MembreSidebar";
+import LanguageSwitcher from "../../components/LanguageSwitcher";
+import { useTranslation } from 'react-i18next';
+import {
+  FaNewspaper,
+  FaCheckCircle,
+  FaClock,
+  FaTimesCircle,
+  FaHeart,
+  FaEye,
+  FaChartLine,
+  FaUsers,
+  FaPlusCircle,
+  FaEdit,
+  FaTrash,
+  FaCalendar,
+  FaUser,
+  FaDownload,
+  FaRocket,
+  FaPaperclip,
+  FaFileImage,
+  FaFileVideo,
+  FaFileAlt,
+  FaArrowUp,
+  FaSearch
+} from "react-icons/fa";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const API_URL = "http://localhost:8000/api";
 
 const PubMembre = () => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  
   /* -------------------------- STATE -------------------------- */
   const [showModal, setShowModal] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -28,6 +59,8 @@ const PubMembre = () => {
   const [previewFile, setPreviewFile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const [newPub, setNewPub] = useState({
     titre: "",
@@ -37,6 +70,22 @@ const PubMembre = () => {
     date: new Date().toISOString().split("T")[0],
     categorie: "Actualité",
   });
+
+  /* -------------------------- COULEURS -------------------------- */
+  const C = {
+    primary: "#667eea",
+    secondary: "#764ba2",
+    accent: "#4facfe",
+    neon: "#00f2fe",
+    gray: "#6c757d",
+    white: "#FFFFFF",
+    bg: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
+    cardBg: "#FFFFFF",
+    success: "#28a745",
+    warning: "#ffc107",
+    danger: "#dc3545",
+    info: "#17a2b8"
+  };
 
   /* -------------------------- INITIALISATION -------------------------- */
   useEffect(() => {
@@ -50,7 +99,6 @@ const PubMembre = () => {
     timeout: 15000,
   });
 
-  // Intercepteur pour ajouter le token automatiquement
   apiClient.interceptors.request.use(
     (config) => {
       const token = localStorage.getItem('token');
@@ -64,7 +112,6 @@ const PubMembre = () => {
     }
   );
 
-  // Intercepteur pour les erreurs d'authentification
   apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -78,66 +125,23 @@ const PubMembre = () => {
   );
 
   /* -------------------------- FONCTIONS UTILITAIRES -------------------------- */
-  
-  // Vérifier si l'utilisateur est l'auteur de la publication
   const isUserAuthor = (publication) => {
     if (!currentUser) return false;
-    
-    // Si l'utilisateur est admin, il peut tout modifier
     if (currentUser.type === 'admin') return true;
     
-    // Comparaison par membre_id
     if (publication.membre_id && currentUser.id) {
       return publication.membre_id === currentUser.id;
     }
     
-    // Fallback: comparaison par nom d'auteur
     return publication.auteur === currentUser.nom_complet || 
            publication.auteur === currentUser.nom || 
            publication.auteur === currentUser.email;
   };
 
-  // Vérifier si l'utilisateur peut voir la publication
   const canUserSeePublication = (publication) => {
     if (!currentUser) return false;
-    
-    // L'admin peut tout voir
     if (currentUser.type === 'admin') return true;
-    
-    // Les membres ne voient que leurs propres publications
     return isUserAuthor(publication);
-  };
-
-  // Badge indicateur "Votre publication"
-  const getUserBadge = (publication) => {
-    if (isUserAuthor(publication)) {
-      return (
-        <Badge 
-          bg="info" 
-          className="ms-2 d-inline-flex align-items-center px-2 py-1"
-          style={{ borderRadius: "10px", fontSize: "0.6rem" }}
-        >
-          <i className="fas fa-user me-1"></i>Votre publication
-        </Badge>
-      );
-    }
-    return null;
-  };
-
-  // Badge pour les publications anonymes
-  const getAnonymeBadge = (publication) => {
-    if (publication.auteur === "Anonyme" || !publication.membre_id) {
-      return (
-        <Badge 
-          bg="secondary" 
-          className="ms-2 d-inline-flex align-items-center px-2 py-1"
-          style={{ borderRadius: "10px", fontSize: "0.6rem" }}
-        >
-          <i className="fas fa-user-secret me-1"></i>Anonyme
-        </Badge>
-      );
-    }
-    return null;
   };
 
   /* -------------------------- CLEANUP -------------------------- */
@@ -166,7 +170,7 @@ const PubMembre = () => {
           date: pub.date_publication
             ? new Date(pub.date_publication).toISOString().split("T")[0]
             : new Date().toISOString().split("T")[0],
-          auteur: pub.auteur || "Anonyme",
+          auteur: pub.auteur || t("anonymous"),
           statut: (pub.statut || "En attente").toLowerCase().replace(/\s+/g, "_"),
           categorie: pub.categorie || "Actualité",
           membre_id: pub.membre_id,
@@ -174,9 +178,7 @@ const PubMembre = () => {
           vues: pub.vues || 0
         }));
         
-        // Filtrer les publications selon le type d'utilisateur
         let filteredPublications = adapted;
-        
         if (currentUser && currentUser.type === 'membre') {
           filteredPublications = adapted.filter(pub => 
             pub.membre_id === currentUser.id || 
@@ -189,19 +191,19 @@ const PubMembre = () => {
         setPublications(filteredPublications.reverse());
       } else {
         console.error('Structure de réponse inattendue:', response.data);
-        showAlert("Erreur de format des données.", "danger");
+        showAlert(t("error_load"), "danger");
       }
     } catch (err) {
       console.error('Erreur fetch publications:', err);
       if (err.response?.status === 401) {
-        showAlert("Session expirée. Veuillez vous reconnecter.", "danger");
+        showAlert(t("session_expired"), "danger");
       } else {
-        showAlert("Erreur de chargement des publications.", "danger");
+        showAlert(t("error_load"), "danger");
       }
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, t]);
 
   useEffect(() => {
     if (currentUser) {
@@ -239,14 +241,14 @@ const PubMembre = () => {
         }
       });
       await fetchPublications();
-      showAlert("Publication créée avec succès ! En attente de validation.", "success");
+      showAlert(t("success_add"), "success");
       handleClose();
     } catch (err) {
       console.error('Erreur création publication:', err);
       if (err.response?.status === 401) {
-        showAlert("Session expirée. Veuillez vous reconnecter.", "danger");
+        showAlert(t("session_expired"), "danger");
       } else {
-        showAlert(`Échec : ${err.response?.data?.message || err.message}`, "danger");
+        showAlert(`${t("error_add")}: ${err.response?.data?.message || err.message}`, "danger");
       }
     } finally {
       setIsSubmitting(false);
@@ -266,14 +268,14 @@ const PubMembre = () => {
       });
       
       await fetchPublications();
-      showAlert("Publication modifiée avec succès !", "success");
+      showAlert(t("success_edit"), "success");
       handleClose();
     } catch (err) {
       console.error('Erreur modification publication:', err);
       if (err.response?.status === 401) {
-        showAlert("Session expirée. Veuillez vous reconnecter.", "danger");
+        showAlert(t("session_expired"), "danger");
       } else {
-        showAlert(`Échec : ${err.response?.data?.message || err.message}`, "danger");
+        showAlert(`${t("error_edit")}: ${err.response?.data?.message || err.message}`, "danger");
       }
     } finally {
       setIsSubmitting(false);
@@ -281,18 +283,18 @@ const PubMembre = () => {
   };
 
   const handleDeletePublication = async (id) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette publication ?")) return;
+    if (!window.confirm(t("delete_confirmation"))) return;
     
     try {
       await apiClient.delete(`/publications/${id}`);
       setPublications((prev) => prev.filter((p) => p.id !== id));
-      showAlert("Publication supprimée avec succès.", "success");
+      showAlert(t("success_delete"), "success");
     } catch (err) {
       console.error('Erreur suppression publication:', err);
       if (err.response?.status === 401) {
-        showAlert("Session expirée. Veuillez vous reconnecter.", "danger");
+        showAlert(t("session_expired"), "danger");
       } else {
-        showAlert("Erreur lors de la suppression de la publication.", "danger");
+        showAlert(t("error_delete"), "danger");
       }
     }
   };
@@ -300,17 +302,17 @@ const PubMembre = () => {
   const handleSavePublication = () => {
     const token = localStorage.getItem('token');
     if (!token) {
-      showAlert("Vous devez être connecté pour publier.", "warning");
+      showAlert(t("login_required"), "warning");
       return;
     }
 
     if (!newPub.titre.trim()) {
-      showAlert("Le titre est obligatoire.", "warning");
+      showAlert(t("title_required"), "warning");
       return;
     }
 
     if (!newPub.contenu.trim()) {
-      showAlert("Le contenu est obligatoire.", "warning");
+      showAlert(t("content_required"), "warning");
       return;
     }
 
@@ -334,7 +336,7 @@ const PubMembre = () => {
 
   const handleShowEdit = (pub) => {
     if (!isUserAuthor(pub)) {
-      showAlert("Vous n'êtes pas autorisé à modifier cette publication.", "warning");
+      showAlert(t("unauthorized_edit"), "warning");
       return;
     }
     
@@ -392,10 +394,10 @@ const PubMembre = () => {
 
   const getStatusBadge = (statut) => {
     const cfg = {
-      validé: { v: "success", t: "Validé", i: "fa-check-circle" },
-      en_attente: { v: "warning", t: "En attente", i: "fa-clock" },
-      brouillon: { v: "secondary", t: "Brouillon", i: "fa-pencil-alt" },
-      rejeté: { v: "danger", t: "Rejeté", i: "fa-times-circle" },
+      validé: { v: "success", t: t("Validé"), i: <FaCheckCircle /> },
+      en_attente: { v: "warning", t: t("En attente"), i: <FaClock /> },
+      brouillon: { v: "secondary", t: t("Brouillon"), i: <FaEdit /> },
+      rejeté: { v: "danger", t: t("Rejeté"), i: <FaTimesCircle /> },
     };
     const c = cfg[statut] || cfg.en_attente;
     return (
@@ -404,8 +406,8 @@ const PubMembre = () => {
         className="d-inline-flex align-items-center px-3 py-2"
         style={{ borderRadius: "15px", fontSize: "0.8rem" }}
       >
-        <i className={`fas ${c.i} me-1`}></i>
-        {c.t}
+        {c.i}
+        <span className="ms-1">{c.t}</span>
       </Badge>
     );
   };
@@ -429,25 +431,25 @@ const PubMembre = () => {
   };
 
   const getFileIcon = (name) => {
-    if (!name) return "fa-file";
+    if (!name) return <FaFileAlt />;
     const ext = name.split(".").pop().toLowerCase();
     const map = {
-      pdf: "fa-file-pdf",
-      doc: "fa-file-word",
-      docx: "fa-file-word",
-      xls: "fa-file-excel",
-      xlsx: "fa-file-excel",
-      jpg: "fa-file-image",
-      jpeg: "fa-file-image",
-      png: "fa-file-image",
-      gif: "fa-file-image",
-      mp4: "fa-file-video",
-      avi: "fa-file-video",
-      mov: "fa-file-video",
-      zip: "fa-file-archive",
-      rar: "fa-file-archive",
+      pdf: <FaFileAlt className="text-danger" />,
+      doc: <FaFileAlt className="text-primary" />,
+      docx: <FaFileAlt className="text-primary" />,
+      xls: <FaFileAlt className="text-success" />,
+      xlsx: <FaFileAlt className="text-success" />,
+      jpg: <FaFileImage className="text-info" />,
+      jpeg: <FaFileImage className="text-info" />,
+      png: <FaFileImage className="text-info" />,
+      gif: <FaFileImage className="text-info" />,
+      mp4: <FaFileVideo className="text-warning" />,
+      avi: <FaFileVideo className="text-warning" />,
+      mov: <FaFileVideo className="text-warning" />,
+      zip: <FaFileAlt className="text-secondary" />,
+      rar: <FaFileAlt className="text-secondary" />,
     };
-    return map[ext] || "fa-file";
+    return map[ext] || <FaFileAlt />;
   };
 
   const handleDownload = (url, name) => {
@@ -467,65 +469,73 @@ const PubMembre = () => {
   /* -------------------------- STATISTIQUES -------------------------- */
   const stats = [
     {
-      icon: "fa-newspaper",
-      color: "#5B11EE",
-      bg: "rgba(91, 17, 238, 0.1)",
+      icon: FaNewspaper,
+      color: C.primary,
+      bg: "rgba(102, 126, 234, 0.1)",
       count: publications.length,
-      label: "Mes publications",
+      label: t("my_publications"),
     },
     {
-      icon: "fa-check-circle",
-      color: "#0671B6",
-      bg: "rgba(6, 113, 182, 0.1)",
+      icon: FaCheckCircle,
+      color: C.success,
+      bg: "rgba(40, 167, 69, 0.1)",
       count: publications.filter((p) => p.statut === "validé").length,
-      label: "Publications Validées",
+      label: t("validated_publications"),
     },
     {
-      icon: "fa-clock",
-      color: "#0405BF",
-      bg: "rgba(4, 5, 191, 0.1)",
+      icon: FaClock,
+      color: C.warning,
+      bg: "rgba(255, 193, 7, 0.1)",
       count: publications.filter((p) => p.statut === "en_attente").length,
-      label: "Publications En attente",
+      label: t("pending_publications"),
     },
     {
-      icon: "fa-times-circle",
-      color: "#5E5E5E",
-      bg: "rgba(94, 94, 94, 0.1)",
+      icon: FaTimesCircle,
+      color: C.danger,
+      bg: "rgba(220, 53, 69, 0.1)",
       count: publications.filter((p) => p.statut === "rejeté").length,
-      label: "Publications Rejetées",
+      label: t("rejected_publications"),
     },
   ];
 
   const engagementStats = [
     {
-      icon: "fa-heart",
+      icon: FaHeart,
       color: "#E91E63",
       bg: "rgba(233, 30, 99, 0.1)",
       count: publications.reduce((sum, pub) => sum + (pub.total_reactions || 0), 0),
-      label: "Total Réactions",
+      label: t("total_reactions"),
     },
     {
-      icon: "fa-eye",
+      icon: FaEye,
       color: "#2196F3",
       bg: "rgba(33, 150, 243, 0.1)",
       count: publications.reduce((sum, pub) => sum + (pub.vues || 0), 0),
-      label: "Total Vues",
+      label: t("total_views"),
     },
     {
-      icon: "fa-chart-line",
+      icon: FaChartLine,
       color: "#4CAF50",
       bg: "rgba(76, 175, 80, 0.1)",
       count: publications.filter(pub => pub.statut === "validé").length,
-      label: "Publications Actives",
+      label: t("active_publications"),
     },
     {
-      icon: "fa-users",
+      icon: FaUsers,
       color: "#FF9800",
       bg: "rgba(255, 152, 0, 0.1)",
       count: [...new Set(publications.map(pub => pub.auteur))].length,
-      label: "Auteurs Uniques",
+      label: t("unique_authors"),
     }
   ];
+
+  /* -------------------------- FILTRAGE -------------------------- */
+  const filteredPublications = publications.filter(pub => {
+    const matchesSearch = pub.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         pub.contenu.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "all" || pub.statut === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   /* -------------------------- RENDER -------------------------- */
   if (!currentUser) {
@@ -537,26 +547,51 @@ const PubMembre = () => {
   }
 
   return (
-    <div
-      className="d-flex min-vh-100"
-      style={{
-        background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
-        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-      }}
-    >
-      {/* Sidebar */}
-      <div
-        style={{
-          width: sidebarCollapsed ? "80px" : "280px",
-          transition: "width 0.3s ease",
-          flexShrink: 0,
+    <div className="min-vh-100 d-flex flex-column" style={{ background: C.bg }}>
+      <MembreSidebar onCollapse={setSidebarCollapsed} dark={false} />
+
+      <div 
+        className="flex-grow-1"
+        style={{ 
+          marginLeft: sidebarCollapsed ? "80px" : "280px", 
+          padding: "2rem", 
+          transition: "margin 0.4s ease",
+          minHeight: "calc(100vh - 80px)"
         }}
       >
-        <MembreSidebar onCollapse={setSidebarCollapsed} />
-      </div>
+        {/* Header */}
+        <div className="d-flex justify-content-between align-items-center mb-5">
+          <div>
+            <h1 style={{ 
+              color: "#2c3e50", 
+              fontWeight: "bold", 
+              fontSize: "2rem",
+              marginBottom: "1rem"
+            }}>
+              {currentUser.type === 'admin' ? t("publication_management_title") : t("my_publications")}
+            </h1>
+            <p style={{ color: C.gray, fontSize: "1rem", margin: 0 }}>
+              {currentUser.type === 'admin' 
+                ? t("publication_management_subtitle") 
+                : t("manage_your_publications")}
+            </p>
+          </div>
+          <Button
+            onClick={handleShow}
+            className="shadow-lg rounded-pill px-4 px-lg-5 py-2 py-lg-3"
+            style={{
+              background: "linear-gradient(135deg, #5B11EE 0%, #0405BF 100%)",
+              border: "none",
+              fontWeight: "600",
+              fontSize: "1rem",
+              minWidth: "200px"
+            }}
+          >
+            <FaPlusCircle className="me-2" />
+            {t("new_publication_button")}
+          </Button>
+        </div>
 
-      {/* Main Content */}
-      <div className="flex-grow-1 p-4 p-md-5" style={{ overflowX: 'hidden' }}>
         {/* Alert */}
         {alert.show && (
           <Alert
@@ -579,63 +614,86 @@ const PubMembre = () => {
           </Alert>
         )}
 
-        {/* Header */}
-        <div className="d-flex justify-content-between align-items-center mb-5">
-          <div>
-            <h1 className="fw-bold mb-2" style={{ color: "#02061E", fontSize: "2.3rem" }}>
-              {currentUser.type === 'admin' ? 'Gestion des Publications' : 'Mes Publications'}
-            </h1>
-            <p className="text-muted mb-0">
-              {currentUser.type === 'admin' 
-                ? 'Gérez toutes les publications du système' 
-                : 'Gérez et consultez vos publications'}
-            </p>
-          </div>
-          <Button
-            onClick={handleShow}
-            className="shadow-lg rounded-pill px-4 px-lg-5 py-2 py-lg-3"
-            style={{
-              background: "linear-gradient(135deg, #5B11EE 0%, #0405BF 100%)",
-              border: "none",
-              fontWeight: "600",
-              fontSize: "1rem",
-              minWidth: "200px"
-            }}
-          >
-            <i className="fas fa-plus-circle me-2"></i>
-            Nouvelle Publication
-          </Button>
-        </div>
-
         {/* Loading State */}
         {loading && (
           <div className="text-center py-5">
             <Spinner animation="border" variant="primary" style={{ width: '3rem', height: '3rem' }} />
-            <p className="mt-3 text-muted">Chargement des publications...</p>
+            <p className="mt-3 text-muted">{t("loading_publications")}</p>
           </div>
         )}
 
         {!loading && (
           <>
+            {/* Search and Filters */}
+            <Card className="shadow-sm border-0 mb-4" style={{ borderRadius: "18px", background: C.cardBg }}>
+              <Card.Body className="p-4">
+                <Row className="g-3">
+                  <Col md={8}>
+                    <div className="position-relative">
+                      <FaSearch 
+                        style={{ 
+                          position: "absolute", 
+                          left: "15px", 
+                          top: "50%", 
+                          transform: "translateY(-50%)", 
+                          color: C.gray 
+                        }} 
+                      />
+                      <Form.Control
+                        type="text"
+                        placeholder={t("search_placeholder")}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{
+                          borderRadius: "12px",
+                          padding: "0.75rem 1rem 0.75rem 45px",
+                          border: "1px solid #e9ecef",
+                          fontSize: "0.95rem"
+                        }}
+                      />
+                    </div>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      style={{
+                        borderRadius: "12px",
+                        padding: "0.75rem 1rem",
+                        border: "1px solid #e9ecef",
+                        fontSize: "0.95rem"
+                      }}
+                    >
+                      <option value="all">{t("all_status")}</option>
+                      <option value="validé">{t("Validé")}</option>
+                      <option value="en_attente">{t("En attente")}</option>
+                      <option value="rejeté">{t("Rejeté")}</option>
+                      <option value="brouillon">{t("Brouillon")}</option>
+                    </Form.Select>
+                  </Col>
+                </Row>
+              </Card.Body>
+            </Card>
+
             {/* STATS CARDS - PUBLICATIONS */}
             <Row className="mb-4 g-4">
               {stats.map((s, i) => (
                 <Col xl={3} lg={6} md={6} key={i}>
                   <Card
-                    className="border-0 shadow-sm text-center p-4 h-100 position-relative overflow-hidden"
+                    className="border-0 shadow-sm text-center p-4 h-100"
                     style={{
-                      borderRadius: "20px",
-                      background: "white",
-                      transition: "all 0.3s ease",
-                      minHeight: "180px"
+                      borderRadius: "18px",
+                      background: C.cardBg,
+                      cursor: "pointer",
+                      transition: "all 0.3s ease"
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = "translateY(-8px)";
-                      e.currentTarget.style.boxShadow = "0 15px 30px rgba(0,0,0,0.1)";
+                      e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.15)";
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = "0 5px 15px rgba(0,0,0,0.05)";
+                      e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.1)";
                     }}
                   >
                     <div
@@ -647,12 +705,24 @@ const PubMembre = () => {
                         border: `3px solid ${s.color}`,
                       }}
                     >
-                      <i className={`fas ${s.icon} fs-4`} style={{ color: s.color }}></i>
+                      <s.icon size={28} style={{ color: s.color }} />
                     </div>
-                    <h3 className="fw-bold mb-1" style={{ color: s.color, fontSize: "1.8rem" }}>
+                    <h3 style={{ 
+                      fontWeight: "bold", 
+                      color: "#2c3e50", 
+                      fontSize: "2rem",
+                      margin: 0 
+                    }}>
                       {s.count}
                     </h3>
-                    <p className="text-muted small mb-0">{s.label}</p>
+                    <p style={{ 
+                      fontWeight: "600", 
+                      color: C.gray, 
+                      margin: 0,
+                      fontSize: "0.9rem"
+                    }}>
+                      {s.label}
+                    </p>
                   </Card>
                 </Col>
               ))}
@@ -663,20 +733,20 @@ const PubMembre = () => {
               {engagementStats.map((s, i) => (
                 <Col xl={3} lg={6} md={6} key={i}>
                   <Card
-                    className="border-0 shadow-sm text-center p-4 h-100 position-relative overflow-hidden"
+                    className="border-0 shadow-sm text-center p-4 h-100"
                     style={{
-                      borderRadius: "20px",
-                      background: "white",
-                      transition: "all 0.3s ease",
-                      minHeight: "180px"
+                      borderRadius: "18px",
+                      background: C.cardBg,
+                      cursor: "pointer",
+                      transition: "all 0.3s ease"
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = "translateY(-8px)";
-                      e.currentTarget.style.boxShadow = "0 15px 30px rgba(0,0,0,0.1)";
+                      e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.15)";
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = "0 5px 15px rgba(0,0,0,0.05)";
+                      e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.1)";
                     }}
                   >
                     <div
@@ -688,46 +758,58 @@ const PubMembre = () => {
                         border: `3px solid ${s.color}`,
                       }}
                     >
-                      <i className={`fas ${s.icon} fs-4`} style={{ color: s.color }}></i>
+                      <s.icon size={28} style={{ color: s.color }} />
                     </div>
-                    <h3 className="fw-bold mb-1" style={{ color: s.color, fontSize: "1.8rem" }}>
+                    <h3 style={{ 
+                      fontWeight: "bold", 
+                      color: "#2c3e50", 
+                      fontSize: "2rem",
+                      margin: 0 
+                    }}>
                       {s.count}
                     </h3>
-                    <p className="text-muted small mb-0">{s.label}</p>
+                    <p style={{ 
+                      fontWeight: "600", 
+                      color: C.gray, 
+                      margin: 0,
+                      fontSize: "0.9rem"
+                    }}>
+                      {s.label}
+                    </p>
                   </Card>
                 </Col>
               ))}
             </Row>
 
             {/* Publications List */}
-            <Row className="g-4">
-              {publications.length === 0 ? (
-                <Col xs={12}>
-                  <Card className="text-center border-0 shadow-sm p-5" style={{ borderRadius: "20px", minHeight: "300px" }}>
-                    <div className="d-flex flex-column justify-content-center align-items-center h-100">
-                      <i className="fas fa-newspaper display-1 text-muted mb-4"></i>
-                      <h3 className="text-dark mb-3">Aucune publication</h3>
-                      <p className="text-muted mb-4">
-                        {currentUser.type === 'admin' 
-                          ? 'Aucune publication dans le système' 
-                          : 'Commencez par créer votre première publication'}
-                      </p>
-                      <Button 
-                        onClick={handleShow}
-                        className="rounded-pill px-4 py-2"
-                        style={{
-                          background: "linear-gradient(135deg, #5B11EE 0%, #0405BF 100%)",
-                          border: "none"
-                        }}
-                      >
-                        <i className="fas fa-plus me-2"></i>
-                        Créer une publication
-                      </Button>
-                    </div>
-                  </Card>
-                </Col>
-              ) : (
-                publications.map((pub) => {
+            {filteredPublications.length === 0 ? (
+              <Card className="text-center border-0 shadow-sm p-5" style={{ borderRadius: "20px", minHeight: "300px" }}>
+                <div className="d-flex flex-column justify-content-center align-items-center h-100">
+                  <FaNewspaper size={80} className="text-muted mb-4" />
+                  <h3 className="text-dark mb-3">{t("no_publications_found")}</h3>
+                  <p className="text-muted mb-4">
+                    {searchTerm || statusFilter !== "all" 
+                      ? t("no_publications_match")
+                      : currentUser.type === 'admin' 
+                        ? t("no_publications_system")
+                        : t("start_first_publication")}
+                  </p>
+                  <Button 
+                    onClick={handleShow}
+                    className="rounded-pill px-4 py-2"
+                    style={{
+                      background: "linear-gradient(135deg, #5B11EE 0%, #0405BF 100%)",
+                      border: "none"
+                    }}
+                  >
+                    <FaPlusCircle className="me-2" />
+                    {t("create_publication")}
+                  </Button>
+                </div>
+              </Card>
+            ) : (
+              <Row className="g-4">
+                {filteredPublications.map((pub) => {
                   const fileUrl = pub.fichier_url;
                   const isImage = pub.type_fichier === "image";
                   const isVideo = pub.type_fichier === "video";
@@ -738,12 +820,18 @@ const PubMembre = () => {
                       <Card
                         className="border-0 shadow-sm h-100"
                         style={{
-                          borderRadius: "20px",
+                          borderRadius: "18px",
                           overflow: "hidden",
                           transition: "all 0.3s ease",
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-10px)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = "translateY(-8px)";
+                          e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.15)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "translateY(0)";
+                          e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.1)";
+                        }}
                       >
                         {fileUrl && (isImage || isVideo) && (
                           isImage ? (
@@ -776,15 +864,33 @@ const PubMembre = () => {
                           <div className="d-flex justify-content-between align-items-start mb-3">
                             <div className="d-flex align-items-center flex-wrap gap-1">
                               {getCategoryBadge(pub.categorie)}
-                              {getUserBadge(pub)}
-                              {getAnonymeBadge(pub)}
+                              {userIsAuthor && (
+                                <Badge 
+                                  bg="info" 
+                                  className="ms-2 d-inline-flex align-items-center px-2 py-1"
+                                  style={{ borderRadius: "10px", fontSize: "0.6rem" }}
+                                >
+                                  <FaUser size={10} className="me-1" />
+                                  {t("your_publication")}
+                                </Badge>
+                              )}
+                              {pub.auteur === "Anonyme" && (
+                                <Badge 
+                                  bg="secondary" 
+                                  className="ms-2 d-inline-flex align-items-center px-2 py-1"
+                                  style={{ borderRadius: "10px", fontSize: "0.6rem" }}
+                                >
+                                  <FaUser size={10} className="me-1" />
+                                  {t("anonymous")}
+                                </Badge>
+                              )}
                             </div>
                             {getStatusBadge(pub.statut)}
                           </div>
 
                           <Card.Title 
-                            className="fw-bold mb-2 flex-grow-0" 
-                            style={{ fontSize: "1.2rem", color: "#02061E", minHeight: "60px" }}
+                            className="fw-bold mb-2" 
+                            style={{ fontSize: "1.2rem", color: "#2c3e50", minHeight: "60px" }}
                           >
                             {pub.titre}
                           </Card.Title>
@@ -796,44 +902,44 @@ const PubMembre = () => {
                             {pub.contenu.length > 120 ? `${pub.contenu.substring(0, 120)}...` : pub.contenu}
                           </Card.Text>
 
-                          {/* STATISTIQUES D'ENGAGEMENT */}
+                          {/* ENGAGEMENT STATISTICS */}
                           {pub.statut === "validé" && (
                             <div className="d-flex justify-content-between align-items-center mb-3 p-3 border rounded"
                               style={{ background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)" }}>
                               <div className="text-center">
                                 <div className="d-flex align-items-center justify-content-center mb-1">
-                                  <i className="fas fa-heart text-danger me-2"></i>
+                                  <FaHeart className="text-danger me-2" />
                                   <span className="fw-bold" style={{ color: "#E91E63" }}>
                                     {pub.total_reactions || 0}
                                   </span>
                                 </div>
-                                <small className="text-muted">Réactions</small>
+                                <small className="text-muted">{t("reactions")}</small>
                               </div>
                               <div className="text-center">
                                 <div className="d-flex align-items-center justify-content-center mb-1">
-                                  <i className="fas fa-eye text-primary me-2"></i>
+                                  <FaEye className="text-primary me-2" />
                                   <span className="fw-bold" style={{ color: "#2196F3" }}>
                                     {pub.vues || 0}
                                   </span>
                                 </div>
-                                <small className="text-muted">Vues</small>
+                                <small className="text-muted">{t("views")}</small>
                               </div>
                               <div className="text-center">
                                 <div className="d-flex align-items-center justify-content-center mb-1">
-                                  <i className="fas fa-chart-line text-success me-2"></i>
+                                  <FaChartLine className="text-success me-2" />
                                   <span className="fw-bold" style={{ color: "#4CAF50" }}>
                                     {pub.vues > 0 ? Math.round(((pub.total_reactions || 0) / pub.vues) * 100) : 0}%
                                   </span>
                                 </div>
-                                <small className="text-muted">Engagement</small>
+                                <small className="text-muted">{t("engagement")}</small>
                               </div>
                             </div>
                           )}
 
                           {fileUrl && pub.type_fichier === "document" && (
                             <div className="d-flex align-items-center p-3 border rounded mb-3" style={{ background: "#f8f9fa" }}>
-                              <i className={`fas ${getFileIcon(pub.nom_fichier_original)} me-2 text-primary fs-5`}></i>
-                              <span className="small text-truncate me-2 flex-grow-1" style={{ maxWidth: "160px" }}>
+                              {getFileIcon(pub.nom_fichier_original)}
+                              <span className="small text-truncate ms-2 me-2 flex-grow-1" style={{ maxWidth: "160px" }}>
                                 {pub.nom_fichier_original}
                               </span>
                               <Button 
@@ -843,18 +949,18 @@ const PubMembre = () => {
                                 className="rounded-circle"
                                 style={{ width: '32px', height: '32px' }}
                               >
-                                <i className="fas fa-download"></i>
+                                <FaDownload size={14} />
                               </Button>
                             </div>
                           )}
 
-                          <div className="d-flex justify-content-between text-muted small mb-3 flex-grow-0">
-                            <span><i className="fas fa-calendar me-1"></i>{pub.date}</span>
-                            <span><i className="fas fa-user me-1"></i>{pub.auteur}</span>
+                          <div className="d-flex justify-content-between text-muted small mb-3">
+                            <span><FaCalendar className="me-1" />{pub.date}</span>
+                            <span><FaUser className="me-1" />{pub.auteur}</span>
                           </div>
 
-                          {/* Boutons d'action */}
-                          <div className="d-flex justify-content-end gap-2 flex-grow-0">
+                          {/* Action Buttons */}
+                          <div className="d-flex justify-content-end gap-2">
                             {userIsAuthor ? (
                               <>
                                 <Button 
@@ -864,8 +970,8 @@ const PubMembre = () => {
                                   onClick={() => handleShowEdit(pub)}
                                   disabled={pub.statut === "validé" && currentUser.type === 'membre'}
                                 >
-                                  <i className="fas fa-edit me-1"></i>
-                                  Modifier
+                                  <FaEdit className="me-1" />
+                                  {t("edit")}
                                 </Button>
                                 <Button 
                                   variant="outline-danger" 
@@ -873,13 +979,14 @@ const PubMembre = () => {
                                   className="rounded-pill px-3" 
                                   onClick={() => handleDeletePublication(pub.id)}
                                 >
-                                  <i className="fas fa-trash me-1"></i>
-                                  Supprimer
+                                  <FaTrash className="me-1" />
+                                  {t("delete")}
                                 </Button>
                               </>
                             ) : (
                               <Badge bg="secondary" className="px-3 py-2">
-                                <i className="fas fa-eye me-1"></i>Lecture seule
+                                <FaEye className="me-1" />
+                                {t("read_only")}
                               </Badge>
                             )}
                           </div>
@@ -887,325 +994,313 @@ const PubMembre = () => {
                       </Card>
                     </Col>
                   );
-                })
-              )}
-            </Row>
+                })}
+              </Row>
+            )}
           </>
         )}
-
-        {/* MODAL - FORMULAIRE DE PUBLICATION */}
-        <Modal show={showModal} onHide={handleClose} centered size="lg" className="modern-modal">
-          <Modal.Header closeButton style={{
-            background: "linear-gradient(135deg, #5B11EE 0%, #0405BF 100%)",
-            color: "white",
-            borderTopLeftRadius: "20px",
-            borderTopRightRadius: "20px",
-            padding: "1.5rem 2rem",
-            border: 'none'
-          }}>
-            <Modal.Title className="fw-bold d-flex align-items-center">
-              <i className={`fas ${editingPub ? 'fa-edit' : 'fa-plus-circle'} me-2`}></i>
-              {editingPub ? "Modifier la publication" : "Nouvelle publication"}
-            </Modal.Title>
-          </Modal.Header>
-
-          <Modal.Body className="p-4 p-md-5" style={{ background: "#f8f9fa", maxHeight: '70vh', overflowY: 'auto' }}>
-            <Form>
-              <Row className="g-4">
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label className="fw-semibold mb-3" style={{ color: "#5B11EE" }}>
-                      <i className="fas fa-heading me-2"></i>Titre *
-                    </Form.Label>
-                    <Form.Control
-                      type="text"
-                      name="titre"
-                      value={newPub.titre}
-                      onChange={handleChange}
-                      required
-                      className="shadow-sm border-0"
-                      style={{
-                        borderRadius: "12px",
-                        padding: "0.75rem 1rem",
-                        background: "white",
-                        fontSize: "1rem",
-                        transition: "all 0.2s",
-                      }}
-                      placeholder="Donnez un titre accrocheur à votre publication"
-                    />
-                  </Form.Group>
-                </Col>
-
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label className="fw-semibold mb-3" style={{ color: "#0405BF" }}>
-                      <i className="fas fa-tag me-2"></i>Catégorie
-                    </Form.Label>
-                    <Form.Select
-                      name="categorie"
-                      value={newPub.categorie}
-                      onChange={handleChange}
-                      className="shadow-sm border-0"
-                      style={{
-                        borderRadius: "12px",
-                        padding: "0.75rem 1rem",
-                        background: "white",
-                      }}
-                    >
-                      <option value="Actualité">Actualité</option>
-                      <option value="Événement">Événement</option>
-                      <option value="Offre d'emploi">Offre d'emploi</option>
-                      <option value="Formation">Formation</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-              </Row>
-
-              <Form.Group className="mt-4">
-                <Form.Label className="fw-semibold mb-3" style={{ color: "#0671B6" }}>
-                  <i className="fas fa-align-left me-2"></i>Contenu *
-                </Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={6}
-                  name="contenu"
-                  value={newPub.contenu}
-                  onChange={handleChange}
-                  required
-                  className="shadow-sm border-0"
-                  style={{
-                    borderRadius: "12px",
-                    padding: "1rem",
-                    background: "white",
-                    resize: "none",
-                    transition: "all 0.2s",
-                  }}
-                  placeholder="Rédigez le contenu de votre publication..."
-                  maxLength={2000}
-                />
-                <Form.Text className="text-muted d-block text-end mt-2">
-                  {newPub.contenu.length}/2000 caractères
-                </Form.Text>
-              </Form.Group>
-
-              <Form.Group className="mt-4">
-                <Form.Label className="fw-semibold mb-3" style={{ color: "#5E5E5E" }}>
-                  <i className="fas fa-paperclip me-2"></i>Type de fichier
-                </Form.Label>
-                <div className="d-flex gap-2 flex-wrap">
-                  {["image", "video", "document"].map((t) => (
-                    <Button
-                      key={t}
-                      variant={newPub.type_fichier === t ? "primary" : "outline-secondary"}
-                      size="sm"
-                      onClick={() => handleFileTypeChange(t)}
-                      className="rounded-pill px-3"
-                      style={{
-                        fontWeight: "600",
-                        border: newPub.type_fichier === t ? "none" : "2px solid #ced4da",
-                        background: newPub.type_fichier === t ? "linear-gradient(135deg, #5B11EE, #0405BF)" : "white",
-                        color: newPub.type_fichier === t ? "white" : "#5E5E5E",
-                      }}
-                    >
-                      <i
-                        className={`fas fa-${
-                          t === "image" ? "image" : t === "video" ? "video" : "file-alt"
-                        } me-1`}
-                      ></i>
-                      {t.charAt(0).toUpperCase() + t.slice(1)}
-                    </Button>
-                  ))}
-                </div>
-              </Form.Group>
-
-              <Row className="g-4 mt-3">
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label className="fw-semibold mb-3" style={{ color: "#5B11EE" }}>
-                      <i className="fas fa-upload me-2"></i>
-                      {newPub.type_fichier === 'image' ? 'Image' : newPub.type_fichier === 'video' ? 'Vidéo' : 'Document'}
-                    </Form.Label>
-                    <Form.Control
-                      type="file"
-                      name="fichier"
-                      onChange={handleChange}
-                      accept={
-                        newPub.type_fichier === "image"
-                          ? "image/*"
-                          : newPub.type_fichier === "video"
-                          ? "video/*"
-                          : ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
-                      }
-                      className="shadow-sm border-0"
-                      style={{
-                        borderRadius: "12px",
-                        padding: "0.75rem 1rem",
-                        background: "white",
-                      }}
-                    />
-                    {editingPub?.nom_fichier_original && !newPub.fichier && (
-                      <div className="mt-2">
-                        <small className="text-muted">
-                          <i className="fas fa-paperclip me-1"></i>
-                          Fichier actuel : {editingPub.nom_fichier_original}
-                        </small>
-                      </div>
-                    )}
-                  </Form.Group>
-                </Col>
-
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label className="fw-semibold mb-3" style={{ color: "#0405BF" }}>
-                      <i className="fas fa-calendar me-2"></i>Date de publication
-                    </Form.Label>
-                    <Form.Control
-                      type="date"
-                      name="date"
-                      value={newPub.date}
-                      onChange={handleChange}
-                      className="shadow-sm border-0"
-                      style={{
-                        borderRadius: "12px",
-                        padding: "0.75rem 1rem",
-                        background: "white",
-                      }}
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-
-              {previewFile && (
-                <div
-                  className="mt-4 p-4 border-0 rounded shadow-sm"
-                  style={{
-                    background: "white",
-                    borderRadius: "15px",
-                  }}
-                >
-                  <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h6 className="fw-bold mb-0" style={{ color: "#5B11EE" }}>
-                      <i className="fas fa-eye me-2"></i>Aperçu du fichier
-                    </h6>
-                    <Button
-                      variant="outline-danger"
-                      size="sm"
-                      onClick={handleRemoveFile}
-                      className="rounded-circle"
-                      style={{ width: '32px', height: '32px' }}
-                    >
-                      <i className="fas fa-times"></i>
-                    </Button>
-                  </div>
-                  <div className="text-center">
-                    {previewFile.type.startsWith("image/") ? (
-                      <img
-                        src={previewFile.url}
-                        alt="Aperçu"
-                        style={{
-                          maxHeight: "220px",
-                          maxWidth: "100%",
-                          borderRadius: "12px",
-                          boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
-                        }}
-                      />
-                    ) : previewFile.type.startsWith("video/") ? (
-                      <video
-                        src={previewFile.url}
-                        controls
-                        className="w-100"
-                        style={{
-                          maxHeight: "220px",
-                          borderRadius: "12px",
-                          boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
-                        }}
-                      />
-                    ) : (
-                      <div className="p-4 text-center">
-                        <i
-                          className={`fas ${getFileIcon(previewFile.name)} fa-4x mb-3`}
-                          style={{ color: "#0671B6" }}
-                        ></i>
-                        <p className="fw-semibold text-break">{previewFile.name}</p>
-                        <small className="text-muted">Document à télécharger</small>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </Form>
-          </Modal.Body>
-
-          <Modal.Footer className="border-0 p-4" style={{ 
-            background: "#f8f9fa", 
-            borderBottomLeftRadius: "20px", 
-            borderBottomRightRadius: "20px" 
-          }}>
-            <Button 
-              variant="outline-secondary" 
-              onClick={handleClose} 
-              className="rounded-pill px-4 px-lg-5 py-2" 
-              disabled={isSubmitting}
-              style={{ minWidth: '120px' }}
-            >
-              <i className="fas fa-times me-2"></i>Annuler
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleSavePublication}
-              disabled={isSubmitting}
-              className="rounded-pill px-4 px-lg-5 py-2 shadow-lg"
-              style={{
-                background: "linear-gradient(135deg, #5B11EE 0%, #0405BF 100%)",
-                border: "none",
-                fontWeight: "600",
-                minWidth: '150px'
-              }}
-            >
-              {isSubmitting ? (
-                <>
-                  <Spinner animation="border" size="sm" className="me-2" />
-                  Envoi...
-                </>
-              ) : (
-                <>
-                  <i className={`fas ${editingPub ? 'fa-save' : 'fa-paper-plane'} me-2`}></i>
-                  {editingPub ? "Sauvegarder" : "Publier"}
-                </>
-              )}
-            </Button>
-          </Modal.Footer>
-        </Modal>
       </div>
+
+      {/* MODAL - PUBLICATION FORM */}
+      <Modal show={showModal} onHide={handleClose} centered size="lg">
+        <Modal.Header closeButton style={{
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          color: "white",
+          borderTopLeftRadius: "18px",
+          borderTopRightRadius: "18px",
+          padding: "1.5rem 2rem",
+          border: 'none'
+        }}>
+          <Modal.Title className="fw-bold d-flex align-items-center">
+            {editingPub ? <FaEdit className="me-2" /> : <FaPlusCircle className="me-2" />}
+            {editingPub ? t("edit_publication_modal") : t("add_publication_modal")}
+          </Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body className="p-4 p-md-5" style={{ background: "#f8f9fa" }}>
+          <Form>
+            <Row className="g-4">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label className="fw-semibold mb-3" style={{ color: C.primary }}>
+                    <FaNewspaper className="me-2" />{t("publication_title")}
+                  </Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="titre"
+                    value={newPub.titre}
+                    onChange={handleChange}
+                    required
+                    className="shadow-sm"
+                    style={{
+                      borderRadius: "12px",
+                      padding: "0.75rem 1rem",
+                      fontSize: "1rem",
+                    }}
+                    placeholder={t("title_placeholder")}
+                  />
+                </Form.Group>
+              </Col>
+
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label className="fw-semibold mb-3" style={{ color: C.secondary }}>
+                    <FaEdit className="me-2" />{t("category_label")}
+                  </Form.Label>
+                  <Form.Select
+                    name="categorie"
+                    value={newPub.categorie}
+                    onChange={handleChange}
+                    className="shadow-sm"
+                    style={{
+                      borderRadius: "12px",
+                      padding: "0.75rem 1rem",
+                    }}
+                  >
+                    <option value="Actualité">{t("Actualité")}</option>
+                    <option value="Événement">{t("Événement")}</option>
+                    <option value="Offre d'emploi">{t("Offre d'emploi")}</option>
+                    <option value="Formation">{t("Formation")}</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Form.Group className="mt-4">
+              <Form.Label className="fw-semibold mb-3" style={{ color: C.accent }}>
+                <FaFileAlt className="me-2" />{t("content_label")}
+              </Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={6}
+                name="contenu"
+                value={newPub.contenu}
+                onChange={handleChange}
+                required
+                className="shadow-sm"
+                style={{
+                  borderRadius: "12px",
+                  padding: "1rem",
+                  resize: "none",
+                }}
+                placeholder={t("content_placeholder")}
+                maxLength={2000}
+              />
+              <Form.Text className="text-muted d-block text-end mt-2">
+                {newPub.contenu.length}/2000 {t("characters")}
+              </Form.Text>
+            </Form.Group>
+
+            <Form.Group className="mt-4">
+              <Form.Label className="fw-semibold mb-3" style={{ color: C.gray }}>
+                <FaPaperclip className="me-2" />{t("file_type_label")}
+              </Form.Label>
+              <div className="d-flex gap-2 flex-wrap">
+                {["image", "video", "document"].map((t) => (
+                  <Button
+                    key={t}
+                    variant={newPub.type_fichier === t ? "primary" : "outline-secondary"}
+                    size="sm"
+                    onClick={() => handleFileTypeChange(t)}
+                    className="rounded-pill px-3"
+                    style={{
+                      fontWeight: "600",
+                      border: newPub.type_fichier === t ? "none" : "2px solid #ced4da",
+                      background: newPub.type_fichier === t ? "linear-gradient(135deg, #667eea, #764ba2)" : "white",
+                      color: newPub.type_fichier === t ? "white" : "#5E5E5E",
+                    }}
+                  >
+                    {t === "image" ? <FaFileImage className="me-1" /> : 
+                     t === "video" ? <FaFileVideo className="me-1" /> : 
+                     <FaFileAlt className="me-1" />}
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </Button>
+                ))}
+              </div>
+            </Form.Group>
+
+            <Row className="g-4 mt-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label className="fw-semibold mb-3" style={{ color: C.primary }}>
+                    <FaArrowUp className="me-2" />
+                    {newPub.type_fichier === 'image' ? t("image") : 
+                     newPub.type_fichier === 'video' ? t("video") : 
+                     t("document")}
+                  </Form.Label>
+                  <Form.Control
+                    type="file"
+                    name="fichier"
+                    onChange={handleChange}
+                    accept={
+                      newPub.type_fichier === "image"
+                        ? "image/*"
+                        : newPub.type_fichier === "video"
+                        ? "video/*"
+                        : ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                    }
+                    className="shadow-sm"
+                    style={{
+                      borderRadius: "12px",
+                      padding: "0.75rem 1rem",
+                    }}
+                  />
+                  {editingPub?.nom_fichier_original && !newPub.fichier && (
+                    <div className="mt-2">
+                      <small className="text-muted">
+                        <FaPaperclip className="me-1" />
+                        {t("current_file")}: {editingPub.nom_fichier_original}
+                      </small>
+                    </div>
+                  )}
+                </Form.Group>
+              </Col>
+
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label className="fw-semibold mb-3" style={{ color: C.secondary }}>
+                    <FaCalendar className="me-2" />{t("publication_date")}
+                  </Form.Label>
+                  <Form.Control
+                    type="date"
+                    name="date"
+                    value={newPub.date}
+                    onChange={handleChange}
+                    className="shadow-sm"
+                    style={{
+                      borderRadius: "12px",
+                      padding: "0.75rem 1rem",
+                    }}
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+
+            {previewFile && (
+              <div
+                className="mt-4 p-4 border-0 rounded shadow-sm"
+                style={{
+                  background: "white",
+                  borderRadius: "15px",
+                }}
+              >
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h6 className="fw-bold mb-0" style={{ color: C.primary }}>
+                    <FaEye className="me-2" />{t("file_preview")}
+                  </h6>
+                  <Button
+                    variant="outline-danger"
+                    size="sm"
+                    onClick={handleRemoveFile}
+                    className="rounded-circle"
+                    style={{ width: '32px', height: '32px' }}
+                  >
+                    <FaTimesCircle />
+                  </Button>
+                </div>
+                <div className="text-center">
+                  {previewFile.type.startsWith("image/") ? (
+                    <img
+                      src={previewFile.url}
+                      alt="Aperçu"
+                      style={{
+                        maxHeight: "220px",
+                        maxWidth: "100%",
+                        borderRadius: "12px",
+                        boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+                      }}
+                    />
+                  ) : previewFile.type.startsWith("video/") ? (
+                    <video
+                      src={previewFile.url}
+                      controls
+                      className="w-100"
+                      style={{
+                        maxHeight: "220px",
+                        borderRadius: "12px",
+                        boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+                      }}
+                    />
+                  ) : (
+                    <div className="p-4 text-center">
+                      {getFileIcon(previewFile.name)}
+                      <p className="fw-semibold text-break mt-3">{previewFile.name}</p>
+                      <small className="text-muted">{t("document_to_download")}</small>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </Form>
+        </Modal.Body>
+
+        <Modal.Footer className="border-0 p-4" style={{ 
+          background: "#f8f9fa", 
+          borderBottomLeftRadius: "18px", 
+          borderBottomRightRadius: "18px" 
+        }}>
+          <Button 
+            variant="outline-secondary" 
+            onClick={handleClose} 
+            className="rounded-pill px-4 px-lg-5 py-2" 
+            disabled={isSubmitting}
+            style={{ minWidth: '120px' }}
+          >
+            <FaTimesCircle className="me-2" />{t("cancel_button")}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleSavePublication}
+            disabled={isSubmitting}
+            className="rounded-pill px-4 px-lg-5 py-2 shadow-lg"
+            style={{
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              border: "none",
+              fontWeight: "600",
+              minWidth: '150px'
+            }}
+          >
+            {isSubmitting ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-2" />
+                {t("sending")}
+              </>
+            ) : (
+              <>
+                {editingPub ? <FaEdit className="me-2" /> : <FaRocket className="me-2" />}
+                {editingPub ? t("save_button") : t("publish_button")}
+              </>
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Language Switcher in Footer */}
+      <footer style={{ 
+        position: "fixed",
+        bottom: "20px",
+        right: "20px",
+        zIndex: 1000,
+        background: "rgba(255, 255, 255, 0.9)",
+        padding: "10px",
+        borderRadius: "10px",
+        backdropFilter: "blur(5px)",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.1)"
+      }}>
+        <LanguageSwitcher />
+      </footer>
 
       {/* Custom Styles */}
       <style jsx>{`
-        .modern-modal .modal-content {
-          border-radius: 20px !important;
+        .modal-content {
+          border-radius: 18px !important;
           border: none !important;
           box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2) !important;
-          overflow: hidden;
         }
         .form-control:focus,
         .form-select:focus {
-          border-color: #5B11EE !important;
-          box-shadow: 0 0 0 0.25rem rgba(91, 17, 238, 0.25) !important;
-        }
-        .card {
-          transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        .card:hover {
-          transform: translateY(-10px);
-          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15) !important;
-        }
-        .btn {
-          transition: all 0.2s ease;
-        }
-        .btn:hover:not(:disabled) {
-          transform: translateY(-2px);
-        }
-        .badge {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          border-color: #667eea !important;
+          box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25) !important;
         }
       `}</style>
     </div>
