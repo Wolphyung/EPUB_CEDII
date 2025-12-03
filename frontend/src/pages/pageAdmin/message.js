@@ -2,11 +2,13 @@ import React, { useState, useEffect } from "react";
 import { Card, Button, Form, ListGroup, Row, Col, Badge, InputGroup, Alert, Spinner, Modal } from "react-bootstrap"; 
 import AdminSidebar from "../../components/AdminSidebar";
 import axios from "axios";
+import { useTranslation } from 'react-i18next';
 
 const API_URL = "http://127.0.0.1:8000/api";
 
 // --- Composant Modale ---
 const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showNotification }) => {
+    const { t } = useTranslation();
     const [members, setMembers] = useState([]); 
     const [recipientId, setRecipientId] = useState("");
     const [subject, setSubject] = useState("Information");
@@ -18,7 +20,7 @@ const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showN
     useEffect(() => {
         if (show) {
             setLoadingMembers(true);
-            axios.get(`${API_URL}/messages/members`) // CORRIGÉ : /messages/members
+            axios.get(`${API_URL}/messages/members`)
                 .then(res => {
                     setMembers(res.data);
                     if (res.data.length > 0) {
@@ -28,16 +30,16 @@ const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showN
                 })
                 .catch(err => {
                     console.error("Erreur de chargement des membres:", err);
-                    setError("Impossible de charger la liste des membres.");
+                    setError(t("error_load_members_list"));
                 })
                 .finally(() => setLoadingMembers(false));
         }
-    }, [show]);
+    }, [show, t]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!recipientId || !content.trim()) {
-            setError("Veuillez sélectionner un destinataire et écrire un message.");
+            setError(t("message_validation_error"));
             return;
         }
 
@@ -50,14 +52,14 @@ const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showN
             });
 
             setContent("");
-            onMessageSent("success", `✅ Message envoyé au membre avec succès !`);
+            onMessageSent("success", t("message_sent_success"));
             handleClose();
 
         } catch (err) {
             console.error(err.response || err);
-            const errorMsg = err.response?.data?.message || "Erreur lors de l'envoi du message.";
+            const errorMsg = err.response?.data?.message || t("message_send_error");
             setError(errorMsg);
-            showNotification("error", "Erreur lors de l'envoi : " + errorMsg);
+            showNotification("error", t("message_send_error_prefix") + errorMsg);
         } finally {
             setSending(false);
         }
@@ -66,22 +68,22 @@ const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showN
     return (
         <Modal show={show} onHide={handleClose} centered size="lg">
             <Modal.Header closeButton>
-                <Modal.Title className="fw-bold text-primary"><i className="fas fa-paper-plane me-2"></i>Nouveau Message Admin</Modal.Title>
+                <Modal.Title className="fw-bold text-primary"><i className="fas fa-paper-plane me-2"></i>{t("new_admin_message")}</Modal.Title>
             </Modal.Header>
             <Modal.Body>
                 {error && <Alert variant="danger">{error}</Alert>}
                 <Form onSubmit={handleSubmit}>
                     <Form.Group className="mb-3">
-                        <Form.Label className="fw-semibold">Destinataire (Membre)</Form.Label>
+                        <Form.Label className="fw-semibold">{t("recipient")}</Form.Label>
                         <Form.Select 
                             value={recipientId} 
                             onChange={e => setRecipientId(e.target.value)} 
                             disabled={loadingMembers || sending}
                         >
                             {loadingMembers ? (
-                                <option>Chargement des membres...</option>
+                                <option>{t("loading_members")}</option>
                             ) : members.length === 0 ? (
-                                <option value="">Aucun membre trouvé</option>
+                                <option value="">{t("no_members_found")}</option>
                             ) : (
                                 members.map(member => (
                                     <option key={member.id} value={member.id}>{member.nom} ({member.email})</option>
@@ -91,28 +93,28 @@ const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showN
                     </Form.Group>
 
                     <Form.Group className="mb-3">
-                        <Form.Label className="fw-semibold">Contenu du Message</Form.Label>
+                        <Form.Label className="fw-semibold">{t("message_content")}</Form.Label>
                         <Form.Control 
                             as="textarea" 
                             rows={6} 
                             value={content} 
                             onChange={e => setContent(e.target.value)} 
-                            placeholder="Écrivez le message que vous souhaitez envoyer au membre..."
+                            placeholder={t("message_content_placeholder")}
                             disabled={sending}
                         />
                     </Form.Group>
 
                     <div className="d-flex justify-content-end gap-2 mt-4">
-                        <Button variant="outline-secondary" onClick={handleClose} disabled={sending}>Annuler</Button>
+                        <Button variant="outline-secondary" onClick={handleClose} disabled={sending}>{t("cancel_button")}</Button>
                         <Button variant="primary" type="submit" className="d-flex align-items-center" disabled={sending || !recipientId || !content.trim()}>
                             {sending ? (
                                 <>
                                     <Spinner animation="border" size="sm" className="me-2" />
-                                    Envoi...
+                                    {t("sending")}
                                 </>
                             ) : (
                                 <>
-                                    <i className="fas fa-paper-plane me-2"></i>Envoyer le Message
+                                    <i className="fas fa-paper-plane me-2"></i>{t("send_message")}
                                 </>
                             )}
                         </Button>
@@ -124,6 +126,8 @@ const NewAdminMessageModalComponent = ({ show, handleClose, onMessageSent, showN
 };
 
 const MessageAdmin = () => {
+    const { t } = useTranslation();
+    
     // --- États ---
     const [membres, setMembres] = useState([]);
     const [selectedMembre, setSelectedMembre] = useState(null);
@@ -188,11 +192,11 @@ const MessageAdmin = () => {
     const fetchMembres = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${API_URL}/messages`); // OK
+            const res = await axios.get(`${API_URL}/messages`);
             setMembres(res.data || []);
         } catch (err) {
             console.error("Erreur chargement membres:", err);
-            showNotification("error", "Erreur lors du chargement des membres");
+            showNotification("error", t("error_load_members"));
             setMembres([]);
         } finally {
             setLoading(false);
@@ -208,7 +212,7 @@ const MessageAdmin = () => {
             setConversation(res.data.messages || []);
         } catch (err) {
             console.error("Erreur chargement conversation:", err);
-            showNotification("error", "Erreur lors du chargement de la conversation");
+            showNotification("error", t("error_load_conversation"));
             setConversation([]);
         }
     };
@@ -216,7 +220,7 @@ const MessageAdmin = () => {
     // Envoyer un message à un membre
     const sendMessage = async () => {
         if (!newMessage.trim() || !selectedMembre) {
-            showNotification("error", "Veuillez écrire un message");
+            showNotification("error", t("message_write_error"));
             return;
         }
 
@@ -233,14 +237,14 @@ const MessageAdmin = () => {
 
             setConversation(prev => [...prev, newMsg]);
             setNewMessage("");
-            showNotification("success", "Message envoyé avec succès");
+            showNotification("success", t("message_sent_success"));
 
             // Rafraîchir la conversation
             fetchConversation(selectedMembre.id);
             fetchMembres();
         } catch (err) {
             console.error("Erreur envoi message:", err);
-            showNotification("error", "Erreur lors de l'envoi du message");
+            showNotification("error", t("message_send_error"));
         } finally {
             setSending(false);
         }
@@ -249,7 +253,7 @@ const MessageAdmin = () => {
     // Répondre à un message spécifique
     const replyToMessage = async (messageId) => {
         if (!newMessage.trim()) {
-            showNotification("error", "Veuillez écrire un message");
+            showNotification("error", t("message_write_error"));
             return;
         }
 
@@ -269,7 +273,7 @@ const MessageAdmin = () => {
             
             setConversation(prev => [...prev, newReply]);
             setNewMessage("");
-            showNotification("success", "Réponse envoyée avec succès");
+            showNotification("success", t("reply_sent_success"));
             
             // Rafraîchir la conversation
             if (selectedMembre) {
@@ -277,7 +281,7 @@ const MessageAdmin = () => {
             }
         } catch (err) {
             console.error("Erreur envoi réponse:", err);
-            showNotification("error", "Erreur lors de l'envoi de la réponse");
+            showNotification("error", t("reply_send_error"));
         } finally {
             setSending(false);
         }
@@ -287,14 +291,14 @@ const MessageAdmin = () => {
     const markAllAsRead = async (membreId) => {
         try {
             await axios.put(`${API_URL}/messages/mark-all-read/${membreId}`);
-            showNotification("success", "Tous les messages marqués comme lus");
+            showNotification("success", t("all_messages_marked_read"));
             fetchMembres();
             if (selectedMembre && selectedMembre.id === membreId) {
                 fetchConversation(membreId);
             }
         } catch (err) {
             console.error("Erreur marquage comme lu:", err);
-            showNotification("error", "Erreur lors de la mise à jour");
+            showNotification("error", t("update_error"));
         }
     };
 
@@ -315,18 +319,18 @@ const MessageAdmin = () => {
 
     // Supprimer un message
     const deleteMessage = async (messageId) => {
-        if(!window.confirm("Êtes-vous sûr de vouloir supprimer ce message ?")) return;
+        if(!window.confirm(t("delete_confirmation"))) return;
         
         try {
             await axios.delete(`${API_URL}/messages/${messageId}`);
-            showNotification("success", "Message supprimé avec succès");
+            showNotification("success", t("message_deleted_success"));
             // Recharger la conversation
             if (selectedMembre) {
                 fetchConversation(selectedMembre.id);
             }
         } catch (err) {
             console.error("Erreur suppression:", err);
-            showNotification("error", "Erreur lors de la suppression");
+            showNotification("error", t("delete_error"));
         }
     };
 
@@ -346,25 +350,25 @@ const MessageAdmin = () => {
     // Statistiques
     const stats = [
         { 
-            title: "Total Messages", 
+            title: "total_messages", 
             count: membres.reduce((sum, m) => sum + (m.messages?.length || 0), 0), 
             icon: "fa-envelope", 
             color: "linear-gradient(135deg, #667eea, #764ba2)" 
         },
         { 
-            title: "Non Lus", 
+            title: "unread", 
             count: totalUnread, 
             icon: "fa-bell", 
             color: "linear-gradient(135deg, #00b09b, #96c93d)" 
         },
         { 
-            title: "Support", 
+            title: "support", 
             count: membres.reduce((sum, m) => sum + (m.messages?.filter(msg => msg.category === "Support")?.length || 0), 0), 
             icon: "fa-headset", 
             color: "linear-gradient(135deg, #4facfe, #00f2fe)" 
         },
         { 
-            title: "Partenaires", 
+            title: "partners", 
             count: membres.reduce((sum, m) => sum + (m.messages?.filter(msg => msg.category === "Partenaire")?.length || 0), 0), 
             icon: "fa-handshake", 
             color: "linear-gradient(135deg, #f093fb, #f5576c)" 
@@ -384,7 +388,7 @@ const MessageAdmin = () => {
                             borderLeft:`4px solid ${showAlert.type === "success" ? "#28a745" : "#dc3545"}`,backdropFilter:"blur(10px)",backgroundColor:"rgba(255,255,255,0.95)"}}>
                         <i className={`fas ${showAlert.type==="success"?"fa-check-circle text-success":"fa-exclamation-triangle text-danger"} me-3 fs-5`}></i>
                         <div>
-                            <strong className="d-block">{showAlert.type==="success"?"Succès":"Erreur"}</strong>
+                            <strong className="d-block">{showAlert.type==="success"?t("success"):t("error")}</strong>
                             <span className="text-muted">{showAlert.message}</span>
                         </div>
                     </Alert>
@@ -392,20 +396,22 @@ const MessageAdmin = () => {
 
                 <div className="d-flex justify-content-between align-items-center mb-4">
                     <div>
-                        <h2 className="fw-bold mb-2" style={{background:"linear-gradient(135deg, #2c3e50, #34495e)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent"}}>Messagerie Admin</h2>
+                        <h2 className="fw-bold mb-2" style={{background:"linear-gradient(135deg, #2c3e50, #34495e)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent"}}>
+                            {t("messages_admin_title")}
+                        </h2>
                         <p className="text-muted mb-0 d-flex align-items-center">
                             <i className="fas fa-comments me-2"></i>
-                            Communiquez avec les membres
+                            {t("messages_admin_subtitle")}
                         </p>
                     </div>
                     <div className="d-flex align-items-center gap-3">
                         {totalUnread > 0 && (
                             <Badge bg="danger" className="d-flex align-items-center" style={{borderRadius:"20px",padding:"8px 12px",fontSize:"0.8rem"}}>
-                                <i className="fas fa-bell me-1"></i>{totalUnread} non lu{totalUnread>1?"s":""}
+                                <i className="fas fa-bell me-1"></i>{totalUnread} {t("unread")}{totalUnread>1?"s":""}
                             </Badge>
                         )}
                         <Button variant="success" onClick={() => setShowNewMessageModal(true)} className="d-flex align-items-center" style={{borderRadius:"10px"}}>
-                            <i className="fas fa-plus me-2"></i>Nouveau Message
+                            <i className="fas fa-plus me-2"></i>{t("new_message_button")}
                         </Button>
                     </div>
                 </div>
@@ -418,7 +424,7 @@ const MessageAdmin = () => {
                                 <Card.Body className="p-4">
                                     <div className="d-flex justify-content-between align-items-center">
                                         <div>
-                                            <h6 className="card-title text-muted mb-2">{stat.title}</h6>
+                                            <h6 className="card-title text-muted mb-2">{t(stat.title)}</h6>
                                             <h2 className="fw-bold mb-0" style={{background:stat.color, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent"}}>{stat.count}</h2>
                                         </div>
                                         <div className="rounded-circle d-flex align-items-center justify-content-center" style={{width:"60px",height:"60px",background:stat.color}}>
@@ -437,12 +443,12 @@ const MessageAdmin = () => {
                         <Row className="g-3 align-items-end">
                             <Col md={6}>
                                 <Form.Group>
-                                    <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-search me-2"></i>Recherche</Form.Label>
+                                    <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-search me-2"></i>{t("search")}</Form.Label>
                                     <InputGroup>
                                         <InputGroup.Text style={{background:"linear-gradient(135deg, #667eea, #764ba2)",border:"none",color:"white"}}><i className="fas fa-search"></i></InputGroup.Text>
                                         <Form.Control 
                                             type="text" 
-                                            placeholder="Rechercher un membre..." 
+                                            placeholder={t("search_member_placeholder")} 
                                             value={searchTerm} 
                                             onChange={e=>setSearchTerm(e.target.value)} 
                                             style={{borderRadius:"0 10px 10px 0"}}
@@ -452,14 +458,14 @@ const MessageAdmin = () => {
                             </Col>
                             <Col md={4}>
                                 <Form.Group>
-                                    <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-filter me-2"></i>Catégorie</Form.Label>
+                                    <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-filter me-2"></i>{t("category")}</Form.Label>
                                     <Form.Select value={filterCategory} onChange={e=>setFilterCategory(e.target.value)} style={{borderRadius:"10px"}}>
-                                        <option value="Tous">Toutes les catégories</option>
-                                        <option value="Support">Support</option>
-                                        <option value="Technique">Technique</option>
-                                        <option value="Partenaire">Partenaire</option>
-                                        <option value="Urgent">Urgent</option>
-                                        <option value="Information">Admin</option>
+                                        <option value="Tous">{t("all_categories")}</option>
+                                        <option value="Support">{t("Support")}</option>
+                                        <option value="Technique">{t("Technique")}</option>
+                                        <option value="Partenaire">{t("Partenaire")}</option>
+                                        <option value="Urgent">{t("Urgent")}</option>
+                                        <option value="Information">{t("Admin")}</option>
                                     </Form.Select>
                                 </Form.Group>
                             </Col>
@@ -470,7 +476,7 @@ const MessageAdmin = () => {
                                     className="d-flex align-items-center w-100" 
                                     style={{borderRadius:"10px"}}
                                 >
-                                    <i className="fas fa-times me-2"></i>Effacer
+                                    <i className="fas fa-times me-2"></i>{t("clear")}
                                 </Button>
                             </Col>
                         </Row>
@@ -485,7 +491,7 @@ const MessageAdmin = () => {
                                 <div className="p-3 border-bottom">
                                     <h5 className="fw-bold mb-3 d-flex align-items-center">
                                         <i className="fas fa-users me-2 text-primary"></i>
-                                        Membres
+                                        {t("members")}
                                         <Badge bg="primary" className="ms-2">{filteredMembres.length}</Badge>
                                     </h5>
                                 </div>
@@ -493,7 +499,7 @@ const MessageAdmin = () => {
                                     {loading ? (
                                         <div className="text-center py-5">
                                             <Spinner animation="border" variant="primary" />
-                                            <p className="text-muted mt-2">Chargement des membres...</p>
+                                            <p className="text-muted mt-2">{t("loading_members")}</p>
                                         </div>
                                     ) : filteredMembres.length > 0 ? (
                                         <ListGroup variant="flush">
@@ -527,10 +533,10 @@ const MessageAdmin = () => {
                                                             </div>
                                                             <div>
                                                                 <h6 className={`mb-1 fw-bold ${membre.unread_count > 0 && selectedMembre?.id !== membre.id ? 'text-primary' : ''}`}>
-                                                                    {membre.nom || 'Membre'}
+                                                                    {membre.nom || t("member")}
                                                                 </h6>
                                                                 <small className={selectedMembre?.id === membre.id ? "text-white-50" : "text-muted"}>
-                                                                    {membre.email || 'Aucun email'}
+                                                                    {membre.email || t("no_email")}
                                                                 </small>
                                                                 {membre.messages && membre.messages.length > 0 && (
                                                                     <p className="mb-0 small mt-1" style={{
@@ -539,7 +545,7 @@ const MessageAdmin = () => {
                                                                     }}>
                                                                         {membre.messages[0]?.content?.length > 40 
                                                                             ? `${membre.messages[0].content.substring(0, 40)}...`
-                                                                            : membre.messages[0]?.content || "Aucun message"
+                                                                            : membre.messages[0]?.content || t("no_message")
                                                                         }
                                                                     </p>
                                                                 )}
@@ -553,7 +559,7 @@ const MessageAdmin = () => {
                                                             )}
                                                             <br />
                                                             <small className={selectedMembre?.id === membre.id ? "text-white-50" : "text-muted"}>
-                                                                {membre.type || 'Membre'}
+                                                                {membre.type || t("member")}
                                                             </small>
                                                         </div>
                                                     </div>
@@ -563,8 +569,8 @@ const MessageAdmin = () => {
                                     ) : (
                                         <div className="text-center py-5">
                                             <i className="fas fa-user-slash fs-1 text-muted mb-3 d-block" style={{opacity:0.5}}></i>
-                                            <h6 className="text-muted mb-2">Aucun membre trouvé</h6>
-                                            <p className="text-muted small">Aucun membre ne correspond à votre recherche</p>
+                                            <h6 className="text-muted mb-2">{t("no_members_found")}</h6>
+                                            <p className="text-muted small">{t("no_members_match")}</p>
                                         </div>
                                     )}
                                 </div>
@@ -593,8 +599,8 @@ const MessageAdmin = () => {
                                                     {selectedMembre.nom?.charAt(0)?.toUpperCase() || 'M'}
                                                 </div>
                                                 <div>
-                                                    <h5 className="fw-bold mb-1">{selectedMembre.nom || 'Membre'}</h5>
-                                                    <p className="text-muted mb-0">{selectedMembre.email || 'Aucun email'} • {selectedMembre.type || 'Membre'}</p>
+                                                    <h5 className="fw-bold mb-1">{selectedMembre.nom || t("member")}</h5>
+                                                    <p className="text-muted mb-0">{selectedMembre.email || t("no_email")} • {selectedMembre.type || t("member")}</p>
                                                 </div>
                                             </div>
                                             <div className="d-flex gap-2">
@@ -606,7 +612,7 @@ const MessageAdmin = () => {
                                                     style={{borderRadius: "8px"}}
                                                 >
                                                     <i className="fas fa-check-double me-2"></i>
-                                                    Tout marquer comme lu
+                                                    {t("mark_all_as_read")}
                                                 </Button>
                                             </div>
                                         </div>
@@ -695,8 +701,8 @@ const MessageAdmin = () => {
                                         ) : (
                                             <div className="text-center text-muted py-5">
                                                 <i className="fas fa-comments fs-1 text-muted mb-3 d-block" style={{opacity:0.5}}></i>
-                                                <h6 className="text-muted mb-2">Aucun message</h6>
-                                                <p className="text-muted small">Commencez la conversation avec {selectedMembre.nom || 'ce membre'}</p>
+                                                <h6 className="text-muted mb-2">{t("no_messages")}</h6>
+                                                <p className="text-muted small">{t("start_conversation")} {selectedMembre.nom || t("this_member")}</p>
                                             </div>
                                         )}
                                     </div>
@@ -709,7 +715,7 @@ const MessageAdmin = () => {
                                                 rows={3} 
                                                 value={newMessage} 
                                                 onChange={e => setNewMessage(e.target.value)} 
-                                                placeholder={`Écrivez votre message à ${selectedMembre.nom || 'ce membre'}...`} 
+                                                placeholder={`${t("write_message_to")} ${selectedMembre.nom || t("this_member")}...`} 
                                                 style={{
                                                     borderRadius: "15px", 
                                                     padding: "12px", 
@@ -737,11 +743,11 @@ const MessageAdmin = () => {
                                                 {sending ? (
                                                     <>
                                                         <Spinner animation="border" size="sm" className="me-2" />
-                                                        Envoi...
+                                                        {t("sending")}
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <i className="fas fa-paper-plane me-2"></i>Envoyer
+                                                        <i className="fas fa-paper-plane me-2"></i>{t("send")}
                                                     </>
                                                 )}
                                             </Button>
@@ -752,7 +758,7 @@ const MessageAdmin = () => {
                                                 style={{borderRadius: "15px", fontSize: "14px"}} 
                                                 disabled={sending}
                                             >
-                                                <i className="fas fa-times me-2"></i>Effacer
+                                                <i className="fas fa-times me-2"></i>{t("clear")}
                                             </Button>
                                         </div>
                                     </div>
@@ -762,8 +768,8 @@ const MessageAdmin = () => {
                             <Card className="border-0 shadow-sm h-100 d-flex align-items-center justify-content-center" style={{borderRadius:"20px"}}>
                                 <Card.Body className="text-center py-5">
                                     <i className="fas fa-comments fs-1 text-muted mb-3 d-block" style={{opacity:0.5}}></i>
-                                    <h5 className="text-muted mb-2">Aucune conversation sélectionnée</h5>
-                                    <p className="text-muted mb-0">Sélectionnez un membre pour commencer à discuter</p>
+                                    <h5 className="text-muted mb-2">{t("no_conversation_selected")}</h5>
+                                    <p className="text-muted mb-0">{t("select_member_to_start")}</p>
                                 </Card.Body>
                             </Card>
                         )}

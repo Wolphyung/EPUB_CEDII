@@ -97,7 +97,7 @@ const FilePreviewCard = ({ fichier, fileName, onDownload }) => {
           {isImage && !imageError ? (
             <img 
               src={fileUrl} 
-              alt="Aperçu" 
+              alt={t('preview')}
               style={{ 
                 maxWidth: '100%', 
                 maxHeight: '150px', 
@@ -172,7 +172,7 @@ const FilePreviewModal = ({ file }) => {
         <div className="text-center">
           <img 
             src={file.url} 
-            alt="Aperçu" 
+            alt={t('preview')}
             style={{ 
               maxWidth: '100%', 
               maxHeight: '200px', 
@@ -186,7 +186,7 @@ const FilePreviewModal = ({ file }) => {
         <div className="text-center">
           <iframe 
             src={file.url} 
-            title="Aperçu PDF"
+            title={t('pdf_preview')}
             style={{ 
               width: '100%', 
               height: '300px', 
@@ -222,18 +222,16 @@ const Evenement = () => {
   const [filterType, setFilterType] = useState("Tous");
   const [previewFile, setPreviewFile] = useState(null);
 
-  // ✅ MODIFIÉ : Statut "Validé" par défaut pour l'admin
   const [newEvent, setNewEvent] = useState({
     titre: "",
     description: "",
     date_heure: "",
     lieu: "",
     type: "Présentiel",
-    statut: "Validé", // ✅ Statut validé par défaut
+    statut: "Validé",
     fichier: null,
   });
 
-  // Afficher messages temporairement
   const showNotification = (type, message) => {
     setShowAlert({ show: true, type, message });
     setTimeout(() => {
@@ -241,14 +239,12 @@ const Evenement = () => {
     }, 5000);
   };
 
-  // Charger les événements avec les statistiques
   const fetchEvenements = async () => {
     setLoading(true);
     try {
       const res = await axios.get(`${API_URL}/evenements`);
       const events = res.data.data || res.data;
       
-      // Charger les statistiques pour chaque événement
       const eventsWithStats = await Promise.all(
         events.map(async (event) => {
           try {
@@ -262,7 +258,7 @@ const Evenement = () => {
               }
             };
           } catch (error) {
-            console.error(`Erreur chargement stats pour événement ${event.id}:`, error);
+            console.error(`${t('error_load_stats')} ${event.id}:`, error);
             return {
               ...event,
               stats: {
@@ -288,7 +284,6 @@ const Evenement = () => {
     fetchEvenements();
   }, []);
 
-  // Recherche et filtres
   const filteredEvenements = evenements.filter(ev => {
     const matchesSearch = ev.titre?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          ev.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -306,14 +301,13 @@ const Evenement = () => {
 
   const handleCloseAddModal = () => {
     setShowAddModal(false);
-    // ✅ MODIFIÉ : Réinitialiser avec statut "Validé"
     setNewEvent({
       titre: "",
       description: "",
       date_heure: "",
       lieu: "",
       type: "Présentiel",
-      statut: "Validé", // ✅ Statut validé par défaut
+      statut: "Validé",
       fichier: null,
     });
     setPreviewFile(null);
@@ -325,7 +319,6 @@ const Evenement = () => {
     setPreviewFile(null);
   };
 
-  // Fonction pour obtenir l'URL du fichier
   const getFileUrl = (fichier) => {
     if (!fichier) return null;
     
@@ -345,7 +338,6 @@ const Evenement = () => {
     const file = e.target.files[0];
     setNewEvent({ ...newEvent, fichier: file });
     
-    // Prévisualisation du fichier
     if (file) {
       const fileURL = URL.createObjectURL(file);
       setPreviewFile({
@@ -362,7 +354,6 @@ const Evenement = () => {
     const file = e.target.files[0];
     setSelectedEvent({ ...selectedEvent, fichier: file });
     
-    // Prévisualisation du fichier
     if (file) {
       const fileURL = URL.createObjectURL(file);
       setPreviewFile({
@@ -385,32 +376,28 @@ const Evenement = () => {
     setSelectedEvent(prev => ({ ...prev, [name]: value }));
   };
 
-  // ✅ CORRIGÉ : Ajouter événement sans envoyer 'auteur'
   const handleAddEvent = async (e) => {
     e.preventDefault();
     setLoading(true);
     
     const formData = new FormData();
     
-    // ✅ CORRIGÉ : Supprimer l'envoi de 'auteur'
     formData.append('titre', newEvent.titre);
     formData.append('description', newEvent.description);
     formData.append('date_heure', newEvent.date_heure);
     formData.append('lieu', newEvent.lieu);
     formData.append('type', newEvent.type);
     formData.append('statut', newEvent.statut);
-    // ❌ SUPPRIMÉ: formData.append('auteur', 'Administration');
     
     if (newEvent.fichier) {
       formData.append('fichier', newEvent.fichier);
     }
     
     try {
-      const res = await axios.post(`${API_URL}/evenements`, formData, {
+      await axios.post(`${API_URL}/evenements`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       
-      // Recharger la liste pour avoir les statistiques
       await fetchEvenements();
       showNotification("success", t('success_add_event'));
       handleCloseAddModal();
@@ -422,7 +409,6 @@ const Evenement = () => {
     }
   };
 
-  // ✅ CORRIGÉ : Modifier événement sans envoyer 'auteur'
   const handleEditEvent = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -431,27 +417,22 @@ const Evenement = () => {
       const formData = new FormData();
       const { id, fichier, ...dataToSend } = selectedEvent;
 
-      // ✅ CORRIGÉ : Supprimer l'envoi de 'auteur'
       Object.keys(dataToSend).forEach(key => {
         if (dataToSend[key] !== null && dataToSend[key] !== undefined) {
           formData.append(key, dataToSend[key]);
         }
       });
       
-      // ❌ SUPPRIMÉ: formData.append('auteur', 'Administration');
-
-      // Format date
       if (selectedEvent.date_heure) {
         const formatted = selectedEvent.date_heure.replace('T', ' ') + ':00';
         formData.append('date_heure', formatted);
       }
 
-      // N'envoyer fichier QUE si c'est un vrai File (nouvel upload)
       if (fichier instanceof File) {
         formData.append('fichier', fichier);
       }
 
-      const res = await axios.post(
+      await axios.post(
         `${API_URL}/evenements/${id}/update`,
         formData,
         {
@@ -459,19 +440,17 @@ const Evenement = () => {
         }
       );
 
-      // Recharger la liste pour avoir les statistiques mises à jour
       await fetchEvenements();
       showNotification("success", t('success_edit_event'));
       handleCloseEditModal();
     } catch (err) {
-      console.error('Erreur:', err.response?.data || err);
+      console.error(`${t('error')}:`, err.response?.data || err);
       showNotification("error", err.response?.data?.message || t('error_edit_event'));
     } finally {
       setLoading(false);
     }
   };
 
-  // Supprimer événement
   const handleDeleteEvent = async (id) => {
     if (!window.confirm(t('delete_event_confirmation'))) return;
     try {
@@ -484,14 +463,12 @@ const Evenement = () => {
     }
   };
 
-  // Changer statut
   const handleChangeStatus = async (id, newStatus) => {
     try {
-      const res = await axios.post(`${API_URL}/evenements/${id}/status`, {
+      await axios.post(`${API_URL}/evenements/${id}/status`, {
         statut: newStatus
       });
 
-      // Recharger la liste pour avoir les statistiques mises à jour
       await fetchEvenements();
       showNotification("success", t('success_change_status', { status: newStatus }));
     } catch (err) {
@@ -509,7 +486,6 @@ const Evenement = () => {
     setPreviewFile(null);
   };
 
-  // Fonction pour télécharger le fichier
   const handleDownloadFile = async (fichier, fileName) => {
     try {
       const fileUrl = getFileUrl(fichier);
@@ -518,9 +494,7 @@ const Evenement = () => {
         return;
       }
 
-      // Pour les fichiers stockés sur le serveur
       if (typeof fichier === 'string') {
-        // Créer un lien de téléchargement direct
         const link = document.createElement('a');
         link.href = fileUrl;
         link.download = fileName || 'fichier';
@@ -529,7 +503,6 @@ const Evenement = () => {
         link.click();
         document.body.removeChild(link);
       } else {
-        // Pour les nouveaux fichiers (File objects)
         const response = await fetch(fileUrl);
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -544,7 +517,7 @@ const Evenement = () => {
       
       showNotification("success", t('success_download'));
     } catch (error) {
-      console.error('Erreur lors du téléchargement:', error);
+      console.error(`${t('download_error')}:`, error);
       showNotification("error", t('error_download'));
     }
   };
@@ -600,7 +573,6 @@ const Evenement = () => {
     return new Date(dateTimeString) > new Date();
   };
 
-  // ✅ AJOUTÉ : Fonction pour calculer le total des réactions
   const getTotalReactions = (stats) => {
     if (!stats?.reactions_by_type) return 0;
     return Object.values(stats.reactions_by_type).reduce((sum, count) => sum + count, 0);
@@ -672,7 +644,7 @@ const Evenement = () => {
           </Button>
         </div>
 
-        {/* Cartes de statistiques - MODIFIÉ pour inclure réactions et vues */}
+        {/* Cartes de statistiques */}
         <Row className="mb-4">
           {[
             { 
@@ -814,7 +786,7 @@ const Evenement = () => {
                     className="d-flex align-items-center"
                     style={{ borderRadius: "10px" }}
                   >
-                    <i className="fas fa-times"></i>
+                    <i className="fas fa-times me-2"></i>{t('clear_filters')}
                   </Button>
                 </div>
               </Col>
@@ -822,7 +794,7 @@ const Evenement = () => {
           </Card.Body>
         </Card>
 
-        {/* Liste des événements - MODIFIÉ pour afficher réactions et vues */}
+        {/* Liste des événements */}
         {loading ? (
           <div className="text-center py-5">
             <div className="spinner-border text-primary mb-3" style={{ width: "3rem", height: "3rem" }} role="status">
@@ -847,7 +819,6 @@ const Evenement = () => {
                   }}
                 >
                   <Card.Body className="d-flex flex-column p-4">
-                    {/* En-tête avec titre et statut */}
                     <div className="d-flex justify-content-between align-items-start mb-3">
                       <Card.Title 
                         className="h5 fw-bold mb-0"
@@ -873,7 +844,6 @@ const Evenement = () => {
                       </Badge>
                     </div>
 
-                    {/* Description */}
                     <Card.Text 
                       className="text-muted flex-grow-1 mb-3" 
                       style={{ lineHeight: "1.5", fontSize: "0.9rem" }}
@@ -881,24 +851,20 @@ const Evenement = () => {
                       {ev.description?.length > 120 ? `${ev.description.substring(0, 120)}...` : ev.description}
                     </Card.Text>
 
-                    {/* ✅ AJOUTÉ : Statistiques d'engagement */}
                     <div className="mb-3">
                       <div className="d-flex justify-content-between align-items-center small text-muted">
                         <div className="d-flex align-items-center gap-3">
-                          {/* Vues */}
                           <div className="d-flex align-items-center">
                             <i className="fas fa-eye me-1 text-primary"></i>
-                            <span>{ev.stats?.total_views || 0} vues</span>
+                            <span>{ev.stats?.total_views || 0} {t('views')}</span>
                           </div>
                           
-                          {/* Réactions totales */}
                           <div className="d-flex align-items-center">
                             <i className="fas fa-heart me-1 text-danger"></i>
-                            <span>{getTotalReactions(ev.stats)} réactions</span>
+                            <span>{getTotalReactions(ev.stats)} {t('reactions')}</span>
                           </div>
                         </div>
                         
-                        {/* Détails des réactions par type */}
                         {ev.stats?.reactions_by_type && Object.keys(ev.stats.reactions_by_type).length > 0 && (
                           <div className="d-flex gap-1">
                             {Object.entries(ev.stats.reactions_by_type).map(([type, count]) => (
@@ -922,7 +888,6 @@ const Evenement = () => {
                       </div>
                     </div>
 
-                    {/* Informations détaillées */}
                     <div className="small text-muted mb-3">
                       <div className="d-flex align-items-center mb-2">
                         <i className="fas fa-calendar text-primary me-2" style={{ width: "16px" }}></i>
@@ -944,15 +909,13 @@ const Evenement = () => {
                         <span>{t(ev.type.toLowerCase())}</span>
                       </div>
 
-                      {/* ✅ AJOUTÉ : Affichage de l'auteur */}
                       <div className="d-flex align-items-center mb-2">
                         <i className="fas fa-user text-primary me-2" style={{ width: "16px" }}></i>
                         <span className="small text-muted">
-                          Auteur: <strong>{ev.auteur || 'Administration'}</strong>
+                          {t('author')}: <strong>{ev.auteur || t('administration')}</strong>
                         </span>
                       </div>
 
-                      {/* Section Fichier avec aperçu VISUEL */}
                       {ev.fichier && (
                         <FilePreviewCard 
                           fichier={ev.fichier} 
@@ -962,7 +925,6 @@ const Evenement = () => {
                       )}
                     </div>
 
-                    {/* Actions */}
                     <div className="mt-auto pt-3 border-top">
                       <div className="d-flex justify-content-between align-items-center">
                         <div className="d-flex gap-1">
@@ -1103,7 +1065,6 @@ const Evenement = () => {
                   </Form.Group>
                 </Col>
                 <Col md={4}>
-                  {/* ✅ MODIFIÉ : Sélecteur de statut avec "Validé" par défaut */}
                   <Form.Group className="mb-4">
                     <Form.Label className="fw-semibold text-muted">
                       <i className="fas fa-chart-line me-2 text-primary"></i>
@@ -1121,7 +1082,7 @@ const Evenement = () => {
                     </Form.Select>
                     <Form.Text className="text-muted">
                       <i className="fas fa-info-circle me-1"></i>
-                      Les événements créés par l'administration sont validés par défaut
+                      {t('admin_event_note')}
                     </Form.Text>
                   </Form.Group>
                 </Col>
@@ -1218,7 +1179,6 @@ const Evenement = () => {
                 </Col>
               </Row>
 
-              {/* Aperçu du fichier sélectionné */}
               <FilePreviewModal file={previewFile} />
             </Form>
           </Modal.Body>
@@ -1409,7 +1369,6 @@ const Evenement = () => {
                   </Col>
                 </Row>
 
-                {/* Aperçu du fichier sélectionné */}
                 <FilePreviewModal file={previewFile} />
               </Form>
             </Modal.Body>

@@ -49,10 +49,11 @@ const Publication = () => {
   const [loading, setLoading] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
 
+  // Définir les catégories avec les traductions
   const categories = [
-    "Technologie", "Santé", "Éducation", "Sport", "Culture", "Économie",
-    "Politique", "Environnement", "Science", "Voyage", "Mode", "Cuisine",
-    "Automobile", "Immobilier", "Divertissement"
+    t('Technology'), t('Health'), t('Education'), t('Sports'), t('Culture'), 
+    t('Economy'), t('Politics'), t('Environment'), t('Science'), t('Travel'), 
+    t('Fashion'), t('Cuisine'), t('Automobile'), t('Real Estate'), t('Entertainment')
   ];
 
   const [newPub, setNewPub] = useState({
@@ -126,8 +127,8 @@ const Publication = () => {
           type_fichier: pub.type_fichier || "image",
           fichier_url: pub.fichier_url || null,
           nom_fichier_original: pub.nom_fichier_original || null,
-          total_reactions: pub.total_reactions || 0, // Assurer que total_reactions existe
-          vues: pub.vues || 0 // Assurer que vues existe
+          total_reactions: pub.total_reactions || 0,
+          vues: pub.vues || 0
         }));
 
       setPublications(validPubs);
@@ -224,7 +225,7 @@ const Publication = () => {
         statut: "Validé",
         auteur: "Admin",
         date_publication: formatDateForAPI(newPub.date_publication),
-        total_reactions: pubData.total_reactions || 0, // Utiliser total_reactions au lieu de likes
+        total_reactions: pubData.total_reactions || 0,
         vues: pubData.vues || 0,
         fichier_url: newPub.fichier ? URL.createObjectURL(newPub.fichier) : pubData.fichier_url,
         nom_fichier_original: newPub.fichier?.name || pubData.nom_fichier_original
@@ -268,7 +269,7 @@ const Publication = () => {
 
   const handleEditShow = (pub) => {
     if (!pub || !pub.id_publication || typeof pub.id_publication !== 'number') {
-      showNotification("error", "Publication invalide ou ID manquant");
+      showNotification("error", t('invalid_publication'));
       return;
     }
     setSelectedPub({
@@ -310,7 +311,7 @@ const Publication = () => {
 
   const handleSaveEdit = async () => {
     if (!selectedPub?.id_publication) {
-      showNotification("error", "ID de publication manquant");
+      showNotification("error", t('missing_publication_id'));
       return;
     }
 
@@ -347,7 +348,7 @@ const Publication = () => {
           : selectedPub.fichier_url,
         nom_fichier_original: selectedPub.fichier?.name || selectedPub.nom_fichier_original,
         date_publication: formatDateForInput(selectedPub.date_publication),
-        total_reactions: pubData.total_reactions || selectedPub.total_reactions || 0, // Conserver total_reactions
+        total_reactions: pubData.total_reactions || selectedPub.total_reactions || 0,
         vues: pubData.vues || selectedPub.vues || 0
       };
 
@@ -448,13 +449,15 @@ const Publication = () => {
   };
 
   const FilePreview = ({ file }) => {
+    const { t } = useTranslation();
+    
     if (!file) return null;
     const isImage = file.type.startsWith('image/');
     const isPDF = file.type === 'application/pdf';
 
     return (
       <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
-        <h6 className="mb-3">Preview File</h6>
+        <h6 className="mb-3">{t('preview_file')}</h6>
         {isImage ? (
           <div className="text-center">
             <img src={file.url} alt="Aperçu" style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '8px' }} />
@@ -469,7 +472,7 @@ const Publication = () => {
           <div className="text-center">
             <i className={`fas ${getFileIcon(file.name)} fa-3x text-${getFileBadgeVariant(file.name)} mb-2`}></i>
             <p className="mb-0 small text-muted">{file.name}</p>
-            <p className="small text-muted">Preview not available</p>
+            <p className="small text-muted">{t('preview_not_available')}</p>
           </div>
         )}
       </div>
@@ -665,7 +668,6 @@ const Publication = () => {
                           </div>
                         )}
                         <div className="d-flex justify-content-between align-items-center">
-                          {/* MODIFICATION ICI : Affichage des réactions au lieu des likes */}
                           <div className="d-flex gap-2 text-muted small">
                             <span title="Nombre de réactions">
                               <i className="fas fa-heart me-1 text-danger"></i>{pub.total_reactions || 0}
@@ -746,7 +748,9 @@ const Publication = () => {
                     <Form.Label className="fw-semibold text-muted"><i className="fas fa-folder me-2 text-primary"></i>{t('category_label')}</Form.Label>
                     <Form.Select name="categorie" value={newPub.categorie} onChange={handleChange} required style={{ borderRadius: "10px", padding: "12px" }}>
                       <option value="">{t('select_category')}</option>
-                      {categories.map((cat, i) => <option key={i} value={cat}>{cat}</option>)}
+                      {categories.map((cat, i) => (
+                        <option key={i} value={cat}>{cat}</option>
+                      ))}
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -853,7 +857,9 @@ const Publication = () => {
                       <Form.Label className="fw-semibold text-muted"><i className="fas fa-folder me-2 text-primary"></i>{t('category_label')}</Form.Label>
                       <Form.Select name="categorie" value={selectedPub.categorie} onChange={handleEditChange} required style={{ borderRadius: "10px", padding: "12px" }}>
                         <option value="">{t('select_category')}</option>
-                        {categories.map((cat, i) => <option key={i} value={cat}>{cat}</option>)}
+                        {categories.map((cat, i) => (
+                          <option key={i} value={cat}>{cat}</option>
+                        ))}
                       </Form.Select>
                     </Form.Group>
                   </Col>

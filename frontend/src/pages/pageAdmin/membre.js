@@ -61,7 +61,7 @@ const MembrePage = () => {
       setMembres(membresNormalises);
     } catch (err) {
       console.error("Erreur chargement membres:", err);
-      showNotification("error", t("error_load_members") || "Erreur de chargement");
+      showNotification("error", t("error_load_members") || t("error_load"));
     } finally {
       setLoading(false);
     }
@@ -105,13 +105,13 @@ const MembrePage = () => {
       const file = files[0];
       const maxSize = 2 * 1024 * 1024;
       if (file.size > maxSize) {
-        setAvatarError("L'image ne doit pas dépasser 2 Mo");
+        setAvatarError(t("avatar_size_error"));
         e.target.value = "";
         return;
       }
       const validTypes = ["image/jpeg", "image/png", "image/jpg", "image/gif"];
       if (!validTypes.includes(file.type)) {
-        setAvatarError("Format non supporté (JPEG, PNG, GIF)");
+        setAvatarError(t("avatar_format_error"));
         e.target.value = "";
         return;
       }
@@ -123,9 +123,9 @@ const MembrePage = () => {
   };
 
   const handleSave = async () => {
-    if (!currentMembre.nom?.trim()) return showNotification("error", "Le nom est requis");
-    if (!currentMembre.email?.trim()) return showNotification("error", "L'email est requis");
-    if (!currentMembre.id && !currentMembre.password) return showNotification("error", "Mot de passe requis");
+    if (!currentMembre.nom?.trim()) return showNotification("error", t("name_required"));
+    if (!currentMembre.email?.trim()) return showNotification("error", t("email_required"));
+    if (!currentMembre.id && !currentMembre.password) return showNotification("error", t("password_required"));
     if (avatarError) return showNotification("error", avatarError);
 
     try {
@@ -142,10 +142,10 @@ const MembrePage = () => {
 
       if (currentMembre.id) {
         await updateMembre(currentMembre.id, formData);
-        showNotification("success", "Membre modifié avec succès");
+        showNotification("success", t("member_updated_success"));
       } else {
         await addMembre(formData);
-        showNotification("success", "Membre créé avec succès");
+        showNotification("success", t("member_created_success"));
       }
       loadMembres();
       setShowModal(false);
@@ -155,19 +155,19 @@ const MembrePage = () => {
         const msg = Object.values(errors).flat().join(", ");
         showNotification("error", msg);
       } else {
-        showNotification("error", err.response?.data?.message || "Erreur serveur");
+        showNotification("error", err.response?.data?.message || t("server_error"));
       }
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Supprimer ce membre ?")) return;
+    if (!window.confirm(t("delete_confirmation"))) return;
     try {
       await deleteMembre(id);
-      showNotification("success", "Membre supprimé");
+      showNotification("success", t("member_deleted_success"));
       loadMembres();
     } catch (err) {
-      showNotification("error", "Erreur lors de la suppression");
+      showNotification("error", t("error_delete"));
     }
   };
 
@@ -185,11 +185,11 @@ const MembrePage = () => {
 
   const getStatusBadge = (statut) => {
     const map = {
-      actif: { label: "Actif", variant: "success", icon: "fa-check-circle" },
-      inactif: { label: "En attente", variant: "warning", icon: "fa-clock" },
-      suspendu: { label: "Suspendu", variant: "danger", icon: "fa-ban" },
+      actif: { label: t("Actif"), variant: "success", icon: "fa-check-circle" },
+      inactif: { label: t("En attente"), variant: "warning", icon: "fa-clock" },
+      suspendu: { label: t("Suspendu"), variant: "danger", icon: "fa-ban" },
     };
-    const s = map[statut] || { label: "Inconnu", variant: "secondary", icon: "fa-question" };
+    const s = map[statut] || { label: t("unknown"), variant: "secondary", icon: "fa-question" };
     return (
       <Badge bg={s.variant} className="px-3 py-2">
         <i className={`fas ${s.icon} me-2`}></i> {s.label}
@@ -199,14 +199,14 @@ const MembrePage = () => {
 
   const getTypeBadge = (type) => {
     const map = {
-      admin: { label: "Admin", variant: "primary", icon: "fa-crown" },
-      membre: { label: "Membre", variant: "info", icon: "fa-user" },
-      moderateur: { label: "Modérateur", variant: "secondary", icon: "fa-user-shield" },
+      admin: { label: t("admin_label"), variant: "primary", icon: "fa-crown" },
+      membre: { label: t("member_label"), variant: "info", icon: "fa-user" },
+      moderateur: { label: t("moderator_label"), variant: "secondary", icon: "fa-user-shield" },
     };
-    const t = map[type] || { label: type, variant: "dark", icon: "fa-user" };
+    const tBadge = map[type] || { label: type, variant: "dark", icon: "fa-user" };
     return (
-      <Badge bg={t.variant} className="px-3 py-2">
-        <i className={`fas ${t.icon} me-2`}></i> {t.label}
+      <Badge bg={tBadge.variant} className="px-3 py-2">
+        <i className={`fas ${tBadge.icon} me-2`}></i> {tBadge.label}
       </Badge>
     );
   };
@@ -236,7 +236,7 @@ const MembrePage = () => {
             onClose={() => setShowAlert({ ...showAlert, show: false })}
             dismissible
           >
-            <strong>{showAlert.type === "success" ? "Succès" : "Erreur"}</strong>
+            <strong>{showAlert.type === "success" ? t("success") : t("error")}</strong>
             <p className="mb-0">{showAlert.message}</p>
           </Alert>
         )}
@@ -244,23 +244,23 @@ const MembrePage = () => {
         {/* Header */}
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div>
-            <h2 className="fw-bold mb-2 text-gradient">Gestion des membres</h2>
+            <h2 className="fw-bold mb-2 text-gradient">{t("member_management_title")}</h2>
             <p className="text-muted">
-              <i className="fas fa-users me-2"></i> Administration complète des utilisateurs
+              <i className="fas fa-users me-2"></i> {t("member_management_subtitle")}
             </p>
           </div>
           <Button variant="success" onClick={openAddModal} className="shadow">
-            <i className="fas fa-user-plus me-2"></i> Nouveau membre
+            <i className="fas fa-user-plus me-2"></i> {t("new_member_button")}
           </Button>
         </div>
 
         {/* Stats */}
         <Row className="mb-4">
           {[
-            { title: "Total", count: membres.length, icon: "fa-users", color: "#667eea" },
-            { title: "Actifs", count: membres.filter(m => m.statut === "actif").length, icon: "fa-user-check", color: "#00b09b" },
-            { title: "En attente", count: membres.filter(m => m.statut === "inactif").length, icon: "fa-clock", color: "#f093fb" },
-            { title: "Suspendus", count: membres.filter(m => m.statut === "suspendu").length, icon: "fa-user-slash", color: "#fd746c" },
+            { title: "total", count: membres.length, icon: "fa-users", color: "#667eea" },
+            { title: "active", count: membres.filter(m => m.statut === "actif").length, icon: "fa-user-check", color: "#00b09b" },
+            { title: "pending", count: membres.filter(m => m.statut === "inactif").length, icon: "fa-clock", color: "#f093fb" },
+            { title: "suspended", count: membres.filter(m => m.statut === "suspendu").length, icon: "fa-user-slash", color: "#fd746c" },
           ].map((s, i) => (
             <Col md={3} key={i}>
               <Card className="border-0 shadow-sm h-100">
@@ -269,7 +269,7 @@ const MembrePage = () => {
                     <i className={`fas ${s.icon} text-white fs-4`}></i>
                   </div>
                   <h4 className="mb-0">{s.count}</h4>
-                  <small className="text-muted">{s.title}</small>
+                  <small className="text-muted">{t(s.title)}</small>
                 </Card.Body>
               </Card>
             </Col>
@@ -283,30 +283,30 @@ const MembrePage = () => {
               <Col md={4}>
                 <Form.Control
                   type="text"
-                  placeholder="Rechercher un membre..."
+                  placeholder={t("search_member_placeholder")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </Col>
               <Col md={3}>
                 <Form.Select value={filterStatut} onChange={(e) => setFilterStatut(e.target.value)}>
-                  <option value="Tous">Tous les statuts</option>
-                  <option value="actif">Actif</option>
-                  <option value="inactif">En attente</option>
-                  <option value="suspendu">Suspendu</option>
+                  <option value="Tous">{t("all_status")}</option>
+                  <option value="actif">{t("Actif")}</option>
+                  <option value="inactif">{t("En attente")}</option>
+                  <option value="suspendu">{t("Suspendu")}</option>
                 </Form.Select>
               </Col>
               <Col md={3}>
                 <Form.Select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-                  <option value="Tous">Tous les rôles</option>
-                  <option value="admin">Admin</option>
-                  <option value="membre">Membre</option>
-                  <option value="moderateur">Modérateur</option>
+                  <option value="Tous">{t("all_roles")}</option>
+                  <option value="admin">{t("admin_label")}</option>
+                  <option value="membre">{t("member_label")}</option>
+                  <option value="moderateur">{t("moderator_label")}</option>
                 </Form.Select>
               </Col>
               <Col md={2}>
                 <Button variant="outline-secondary" onClick={clearFilters}>
-                  Réinitialiser
+                  {t("reset_filters")}
                 </Button>
               </Col>
             </Row>
@@ -319,18 +319,19 @@ const MembrePage = () => {
             {loading ? (
               <div className="text-center py-5">
                 <div className="spinner-border text-primary" style={{ width: "3rem", height: "3rem" }}></div>
+                <p className="mt-2">{t("loading")}</p>
               </div>
             ) : (
               <Table hover responsive>
                 <thead className="bg-primary text-white">
                   <tr>
                     <th>#</th>
-                    <th>Avatar</th>
-                    <th>Membre</th>
-                    <th>Rôle</th>
-                    <th>Email</th>
-                    <th>Statut</th>
-                    <th>Actions</th>
+                    <th>{t("avatar")}</th>
+                    <th>{t("member")}</th>
+                    <th>{t("role")}</th>
+                    <th>{t("email")}</th>
+                    <th>{t("status")}</th>
+                    <th>{t("actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -349,21 +350,29 @@ const MembrePage = () => {
                       <td>
                         <strong>{m.nom}</strong>
                         <br />
-                        <small className="text-muted">Inscrit le {new Date(m.created_at).toLocaleDateString()}</small>
+                        <small className="text-muted">{t("registered_on")} {new Date(m.created_at).toLocaleDateString()}</small>
                       </td>
                       <td>{getTypeBadge(m.type)}</td>
                       <td>{m.email}</td>
                       <td>{getStatusBadge(m.statut)}</td>
                       <td>
-                        <Button size="sm" variant="outline-warning" onClick={() => openEditModal(m)} className="me-2">
+                        <Button size="sm" variant="outline-warning" onClick={() => openEditModal(m)} className="me-2" title={t("edit")}>
                           <i className="fas fa-edit"></i>
                         </Button>
-                        <Button size="sm" variant="outline-danger" onClick={() => handleDelete(m.id)}>
+                        <Button size="sm" variant="outline-danger" onClick={() => handleDelete(m.id)} title={t("delete")}>
                           <i className="fas fa-trash"></i>
                         </Button>
                       </td>
                     </tr>
                   ))}
+                  {filteredMembres.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="text-center py-4">
+                        <i className="fas fa-users fs-1 text-muted mb-3 d-block"></i>
+                        <h5 className="text-muted">{t("no_members_found")}</h5>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </Table>
             )}
@@ -374,7 +383,7 @@ const MembrePage = () => {
         <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
           <Modal.Header closeButton className="bg-primary text-white">
             <Modal.Title>
-              {currentMembre.id ? "Modifier le membre" : "Nouveau membre"}
+              {currentMembre.id ? t("edit_member_modal") : t("add_member_modal")}
             </Modal.Title>
           </Modal.Header>
           <Modal.Body>
@@ -382,23 +391,24 @@ const MembrePage = () => {
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Nom complet *</Form.Label>
+                    <Form.Label>{t("full_name")} *</Form.Label>
                     <Form.Control
                       type="text"
                       name="nom"
                       value={currentMembre.nom || ""}
                       onChange={handleChange}
                       required
+                      placeholder={t("full_name_placeholder")}
                     />
                   </Form.Group>
                 </Col>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Rôle *</Form.Label>
+                    <Form.Label>{t("role")} *</Form.Label>
                     <Form.Select name="type" value={currentMembre.type} onChange={handleChange}>
-                      <option value="membre">Membre</option>
-                      <option value="admin">Administrateur</option>
-                      <option value="moderateur">Modérateur</option>
+                      <option value="membre">{t("member_label")}</option>
+                      <option value="admin">{t("admin_label")}</option>
+                      <option value="moderateur">{t("moderator_label")}</option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -407,24 +417,28 @@ const MembrePage = () => {
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Email *</Form.Label>
+                    <Form.Label>{t("email")} *</Form.Label>
                     <Form.Control
                       type="email"
                       name="email"
                       value={currentMembre.email || ""}
                       onChange={handleChange}
                       required
+                      placeholder={t("email_placeholder")}
                     />
                   </Form.Group>
                 </Col>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Mot de passe {currentMembre.id ? "(laisser vide si inchangé)" : "*"}</Form.Label>
+                    <Form.Label>
+                      {t("password")} {currentMembre.id ? `(${t("password_leave_blank")})` : "*"}
+                    </Form.Label>
                     <Form.Control
                       type="password"
                       name="password"
                       value={currentMembre.password || ""}
                       onChange={handleChange}
+                      placeholder={t("password_placeholder")}
                     />
                   </Form.Group>
                 </Col>
@@ -433,17 +447,17 @@ const MembrePage = () => {
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Statut *</Form.Label>
+                    <Form.Label>{t("status")} *</Form.Label>
                     <Form.Select name="statut" value={currentMembre.statut} onChange={handleChange}>
-                      <option value="actif">Actif</option>
-                      <option value="inactif">En attente</option>
-                      <option value="suspendu">Suspendu</option>
+                      <option value="actif">{t("Actif")}</option>
+                      <option value="inactif">{t("En attente")}</option>
+                      <option value="suspendu">{t("Suspendu")}</option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Avatar (max 2 Mo)</Form.Label>
+                    <Form.Label>{t("avatar")} ({t("max_2mo")})</Form.Label>
                     <Form.Control type="file" name="avatar" accept="image/*" onChange={handleChange} />
                     {avatarError && <small className="text-danger">{avatarError}</small>}
                     {currentMembre.avatar && (
@@ -455,7 +469,7 @@ const MembrePage = () => {
                           height={100}
                           className="border"
                         />
-                        <Button variant="danger" size="sm" className="position-absolute top-0 end-0 rounded-circle" onClick={removeAvatar}>
+                        <Button variant="danger" size="sm" className="position-absolute top-0 end-0 rounded-circle" onClick={removeAvatar} title={t("remove_avatar")}>
                           ×
                         </Button>
                       </div>
@@ -466,9 +480,11 @@ const MembrePage = () => {
             </Form>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>Annuler</Button>
+            <Button variant="secondary" onClick={() => setShowModal(false)}>
+              {t("cancel_button")}
+            </Button>
             <Button variant="primary" onClick={handleSave}>
-              {currentMembre.id ? "Enregistrer" : "Créer"}
+              {currentMembre.id ? t("save_button") : t("create_button")}
             </Button>
           </Modal.Footer>
         </Modal>

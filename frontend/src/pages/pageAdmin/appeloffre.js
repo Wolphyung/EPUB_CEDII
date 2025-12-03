@@ -13,10 +13,12 @@ import {
   Spinner
 } from "react-bootstrap";
 import axios from "axios";
+import { useTranslation } from 'react-i18next';
 
 const API_URL = "http://127.0.0.1:8000/api";
 
 const AppelOffreAdmin = () => {
+  const { t } = useTranslation();
   const [appelOffres, setAppelOffres] = useState([]);
   const [membres, setMembres] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -113,7 +115,7 @@ const AppelOffreAdmin = () => {
       
       setAppelOffres(offresWithStats);
     } catch (err) {
-      showNotification("error", "Erreur lors du chargement des offres");
+      showNotification("error", t("error_load"));
     } finally {
       setLoading(false);
     }
@@ -200,10 +202,10 @@ const AppelOffreAdmin = () => {
 
   const validateForm = (data) => {
     const newErrors = {};
-    if (!data.intitule.trim()) newErrors.intitule = "Le titre est obligatoire";
-    if (!data.membre.trim()) newErrors.membre = "Le membre émetteur est obligatoire";
-    if (!data.date_cloture) newErrors.date_cloture = "La date de clôture est obligatoire";
-    if (!data.description.trim()) newErrors.description = "La description est obligatoire";
+    if (!data.intitule.trim()) newErrors.intitule = t("publication_title");
+    if (!data.membre.trim()) newErrors.membre = t("menu_member");
+    if (!data.date_cloture) newErrors.date_cloture = t("date_cloture");
+    if (!data.description.trim()) newErrors.description = t("content_label");
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -211,7 +213,7 @@ const AppelOffreAdmin = () => {
   const handleAddOffre = async (e) => {
     e.preventDefault();
     if (!validateForm(newOffre)) {
-      showNotification("error", "Veuillez remplir tous les champs obligatoires");
+      showNotification("error", t("error_add"));
       return;
     }
 
@@ -232,11 +234,11 @@ const AppelOffreAdmin = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setAppelOffres(prev => [res.data.data || res.data, ...prev]);
-      showNotification("success", "Appel d'offre ajouté avec succès");
+      showNotification("success", t("success_add"));
       handleCloseAdd();
     } catch (err) {
       console.error(err.response?.data);
-      showNotification("error", "Erreur lors de l'ajout");
+      showNotification("error", t("error_add"));
     } finally {
       setLoading(false);
     }
@@ -270,7 +272,7 @@ const AppelOffreAdmin = () => {
   const handleSaveEdit = async () => {
     if (!editOffre?.id) return;
     if (!validateForm(editOffre)) {
-      showNotification("error", "Veuillez remplir tous les champs obligatoires");
+      showNotification("error", t("error_edit"));
       return;
     }
 
@@ -293,11 +295,11 @@ const AppelOffreAdmin = () => {
       });
       const updated = res.data.data || res.data;
       setAppelOffres(prev => prev.map(o => o.id === editOffre.id ? updated : o));
-      showNotification("success", "Appel d'offre modifié avec succès");
+      showNotification("success", t("success_edit"));
       handleCloseEdit();
     } catch (err) {
       console.error(err.response?.data);
-      showNotification("error", "Erreur lors de la modification");
+      showNotification("error", t("error_edit"));
     } finally {
       setLoading(false);
     }
@@ -326,25 +328,25 @@ const AppelOffreAdmin = () => {
       setAppelOffres(prev => prev.map(o => o.id === id ? updatedOffre : o));
       
       const message = newStatus === "Validé" 
-        ? "Offre validée avec succès !" 
-        : "Offre rejetée avec succès !";
+        ? t("success_validate") 
+        : t("offer_rejected");
       
       showNotification("success", message);
     } catch (err) {
-      showNotification("error", "Erreur lors du changement de statut");
+      showNotification("error", t("error_validate"));
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Confirmer la suppression ?")) return;
+    if (!window.confirm(t("delete_confirmation"))) return;
     try {
       await axios.delete(`${API_URL}/appeloffres/${id}`);
       setAppelOffres(prev => prev.filter(o => o.id !== id));
-      showNotification("success", "Appel d'offre supprimé");
+      showNotification("success", t("success_delete"));
     } catch (err) {
-      showNotification("error", "Erreur lors de la suppression");
+      showNotification("error", t("error_delete"));
     }
   };
 
@@ -371,9 +373,9 @@ const AppelOffreAdmin = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      showNotification("success", "Téléchargement démarré");
+      showNotification("success", t("success_download"));
     } catch (error) {
-      showNotification("error", "Erreur de téléchargement");
+      showNotification("error", t("error_download"));
     }
   };
 
@@ -417,10 +419,10 @@ const AppelOffreAdmin = () => {
       <div className="stats-container mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
         <h6 className="mb-3 d-flex align-items-center">
           <i className="fas fa-chart-bar me-2 text-primary"></i>
-          Statistiques d'engagement
+          {t("statistics_title")}
           {statsLoading[offreId] && (
             <div className="spinner-border spinner-border-sm text-primary ms-2" role="status">
-              <span className="visually-hidden">Chargement...</span>
+              <span className="visually-hidden">{t("loading")}</span>
             </div>
           )}
         </h6>
@@ -433,7 +435,7 @@ const AppelOffreAdmin = () => {
                 <i className="fas fa-eye text-info fs-5"></i>
               </div>
               <div className="stats-number fw-bold text-dark">{total_views || 0}</div>
-              <div className="stats-label small text-muted">Vues</div>
+              <div className="stats-label small text-muted">{t("views")}</div>
             </div>
           </div>
           
@@ -444,7 +446,7 @@ const AppelOffreAdmin = () => {
                 <i className="fas fa-heart text-danger fs-5"></i>
               </div>
               <div className="stats-number fw-bold text-dark">{total_reactions || 0}</div>
-              <div className="stats-label small text-muted">Réactions</div>
+              <div className="stats-label small text-muted">{t("reactions")}</div>
             </div>
           </div>
           
@@ -457,7 +459,7 @@ const AppelOffreAdmin = () => {
               <div className="stats-number fw-bold text-dark">
                 {total_views > 0 ? Math.round((total_reactions / total_views) * 100) : 0}%
               </div>
-              <div className="stats-label small text-muted">Engagement</div>
+              <div className="stats-label small text-muted">{t("engagement")}</div>
             </div>
           </div>
         </div>
@@ -503,7 +505,7 @@ const AppelOffreAdmin = () => {
 
     return (
       <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
-        <h6 className="mb-3"><i className="fas fa-eye me-2"></i>Aperçu du fichier</h6>
+        <h6 className="mb-3"><i className="fas fa-eye me-2"></i>{t("file_preview")}</h6>
         {isImage ? (
           <div className="text-center">
             <img src={file.url} alt="Aperçu" style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '8px' }} />
@@ -518,7 +520,7 @@ const AppelOffreAdmin = () => {
           <div className="text-center">
             <i className={`fas ${getFileIcon(file.name)} fa-3x text-${getFileBadgeVariant(file.name)} mb-2`}></i>
             <p className="mb-0 small text-muted">{file.name}</p>
-            <p className="small text-muted">Aperçu non disponible</p>
+            <p className="small text-muted">{t("preview_not_available")}</p>
           </div>
         )}
       </div>
@@ -571,15 +573,15 @@ const AppelOffreAdmin = () => {
 
   const getFileName = (fichier) => {
     if (!fichier) return '';
-    if (typeof fichier === 'string') return fichier.split('/').pop() || 'Fichier joint';
+    if (typeof fichier === 'string') return fichier.split('/').pop() || t("attached_file");
     if (fichier instanceof File) return fichier.name;
-    return 'Fichier joint';
+    return t("attached_file");
   };
 
   const getMembreDisplayName = (membre) => {
-    if (!membre) return 'Non assigné';
+    if (!membre) return t("not_assigned");
     const found = membres.find(m => m.id == membre);
-    return found ? (found.nom_entreprise || found.nom_contact || found.name || `Membre ${membre}`) : membre;
+    return found ? (found.nom_entreprise || found.nom_contact || found.name || `${t("menu_member")} ${membre}`) : membre;
   };
 
   // Calcul des statistiques globales
@@ -602,7 +604,7 @@ const AppelOffreAdmin = () => {
             }}>
             <i className={`fas ${showAlert.type === "success" ? "fa-check-circle text-success" : "fa-exclamation-triangle text-danger"} me-3 fs-5`}></i>
             <div>
-              <strong className="d-block">{showAlert.type === "success" ? "Succès" : "Erreur"}</strong>
+              <strong className="d-block">{showAlert.type === "success" ? t("success") : t("error")}</strong>
               <span className="text-muted">{showAlert.message}</span>
             </div>
           </Alert>
@@ -611,35 +613,35 @@ const AppelOffreAdmin = () => {
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div>
             <h2 className="fw-bold mb-2" style={{ background: "linear-gradient(135deg, #2c3e50, #34495e)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              Gestion des Appels d'Offre
+              {t("offer_management_title")}
             </h2>
             <p className="text-muted mb-0 d-flex align-items-center">
               <i className="fas fa-file-contract me-2"></i>
-              Validez, rejetez et gérez les appels d'offre des membres
+              {t("offer_management_subtitle")}
             </p>
           </div>
           <Button variant="success" onClick={() => setShowAddModal(true)} className="d-flex align-items-center shadow-sm"
             style={{ background: "linear-gradient(135deg, #00b09b, #96c93d)", border: "none", borderRadius: "12px", padding: "12px 24px", fontWeight: "600" }}>
-            <i className="fas fa-plus me-2"></i>Nouvel appel d'offre
+            <i className="fas fa-plus me-2"></i>{t("new_offer_button")}
           </Button>
         </div>
 
         {/* Cartes de statistiques */}
         <Row className="mb-4">
           {[
-            { title: "Total", count: appelOffres.length, icon: "fa-file-contract", color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" },
-            { title: "En attente", count: appelOffres.filter(o => o.statut === "En attente").length, icon: "fa-clock", color: "linear-gradient(135deg, #00b09b, #96c93d)" },
-            { title: "Validés", count: appelOffres.filter(o => o.statut === "Validé").length, icon: "fa-check-circle", color: "linear-gradient(135deg, #4facfe, #00f2fe)" },
-            { title: "Rejetés", count: appelOffres.filter(o => o.statut === "Rejeté").length, icon: "fa-times-circle", color: "linear-gradient(135deg, #f093fb, #f5576c)" },
-            { title: "Urgents", count: appelOffres.filter(o => o.urgent).length, icon: "fa-exclamation-triangle", color: "linear-gradient(135deg, #ff9a9e, #fecfef)" },
-            { title: "Vues totales", count: totalVues, icon: "fa-eye", color: "linear-gradient(135deg, #a8edea, #fed6e3)" }
+            { title: "total", count: appelOffres.length, icon: "fa-file-contract", color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" },
+            { title: "pending", count: appelOffres.filter(o => o.statut === "En attente").length, icon: "fa-clock", color: "linear-gradient(135deg, #00b09b, #96c93d)" },
+            { title: "validated", count: appelOffres.filter(o => o.statut === "Validé").length, icon: "fa-check-circle", color: "linear-gradient(135deg, #4facfe, #00f2fe)" },
+            { title: "rejected", count: appelOffres.filter(o => o.statut === "Rejeté").length, icon: "fa-times-circle", color: "linear-gradient(135deg, #f093fb, #f5576c)" },
+            { title: "urgent", count: appelOffres.filter(o => o.urgent).length, icon: "fa-exclamation-triangle", color: "linear-gradient(135deg, #ff9a9e, #fecfef)" },
+            { title: "total_views", count: totalVues, icon: "fa-eye", color: "linear-gradient(135deg, #a8edea, #fed6e3)" }
           ].map((stat, i) => (
             <Col md={4} lg={2} key={i} className="mb-3">
               <Card className="border-0 shadow-sm h-100" style={{ borderRadius: "20px" }}>
                 <Card.Body className="p-3">
                   <div className="d-flex justify-content-between align-items-center">
                     <div>
-                      <h6 className="card-title text-muted mb-2 small">{stat.title}</h6>
+                      <h6 className="card-title text-muted mb-2 small">{t(stat.title)}</h6>
                       <h4 className="fw-bold mb-0" style={{ background: stat.color, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
                         {stat.count}
                       </h4>
@@ -660,41 +662,41 @@ const AppelOffreAdmin = () => {
             <Row className="g-3 align-items-end">
               <Col md={4}>
                 <Form.Group>
-                  <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-search me-2"></i>Recherche</Form.Label>
+                  <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-search me-2"></i>{t("search")}</Form.Label>
                   <InputGroup>
                     <InputGroup.Text style={{ background: "linear-gradient(135deg, #667eea, #764ba2)", border: "none", color: "white" }}><i className="fas fa-search"></i></InputGroup.Text>
-                    <Form.Control type="text" placeholder="Rechercher par titre ou description..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ borderRadius: "0 10px 10px 0" }} />
+                    <Form.Control type="text" placeholder={t("search_placeholder")} value={search} onChange={(e) => setSearch(e.target.value)} style={{ borderRadius: "0 10px 10px 0" }} />
                   </InputGroup>
                 </Form.Group>
               </Col>
               <Col md={3}>
                 <Form.Group>
-                  <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-filter me-2"></i>Statut</Form.Label>
+                  <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-filter me-2"></i>{t("status_filter")}</Form.Label>
                   <Form.Select value={filterStatut} onChange={(e) => setFilterStatut(e.target.value)} style={{ borderRadius: "10px" }}>
-                    <option value="Tous">Tous</option>
-                    <option value="En attente">En attente</option>
-                    <option value="Validé">Validé</option>
-                    <option value="Rejeté">Rejeté</option>
-                    <option value="Actif">Actif</option>
-                    <option value="Clôturé">Clôturé</option>
+                    <option value="Tous">{t("all_status")}</option>
+                    <option value="En attente">{t("En attente")}</option>
+                    <option value="Validé">{t("Validé")}</option>
+                    <option value="Rejeté">{t("Rejeté")}</option>
+                    <option value="Actif">{t("Actif")}</option>
+                    <option value="Clôturé">{t("Clôturé")}</option>
                   </Form.Select>
                 </Form.Group>
               </Col>
               <Col md={3}>
                 <Form.Group>
-                  <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-sort me-2"></i>Trier par</Form.Label>
+                  <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-sort me-2"></i>{t("sort_by")}</Form.Label>
                   <Form.Select style={{ borderRadius: "10px" }}>
-                    <option>Date d'ouverture</option>
-                    <option>Date de clôture</option>
-                    <option>Titre</option>
-                    <option>Statut</option>
+                    <option>{t("opening_date")}</option>
+                    <option>{t("closing_date")}</option>
+                    <option>{t("title")}</option>
+                    <option>{t("status")}</option>
                   </Form.Select>
                 </Form.Group>
               </Col>
               <Col md={2}>
                 <div className="d-flex gap-2">
                   <Button variant="outline-primary" onClick={fetchAppelOffres} style={{ borderRadius: "10px" }}><i className="fas fa-refresh"></i></Button>
-                  <Button variant="outline-secondary" onClick={clearFilters} style={{ borderRadius: "10px" }}><i className="fas fa-times"></i></Button>
+                  <Button variant="outline-secondary" onClick={clearFilters} style={{ borderRadius: "10px" }}><i className="fas fa-times"></i>{t("clear_filters")}</Button>
                 </div>
               </Col>
             </Row>
@@ -705,9 +707,9 @@ const AppelOffreAdmin = () => {
         {loading ? (
           <div className="text-center py-5">
             <div className="spinner-border text-primary mb-3" style={{ width: "3rem", height: "3rem" }} role="status">
-              <span className="visually-hidden">Chargement...</span>
+              <span className="visually-hidden">{t("loading")}</span>
             </div>
-            <p className="text-muted fw-semibold">Chargement des offres...</p>
+            <p className="text-muted fw-semibold">{t("loading_offers")}</p>
           </div>
         ) : (
           <Row>
@@ -728,12 +730,12 @@ const AppelOffreAdmin = () => {
                       <div className="flex-grow-1">
                         <Card.Title className="h5 fw-bold mb-1" style={{ lineHeight: "1.3", color: "#2c3e50" }}>
                           {offre.intitule}
-                          {offre.urgent && <Badge bg="danger" className="ms-2"><i className="fas fa-exclamation-triangle me-1"></i>Urgent</Badge>}
+                          {offre.urgent && <Badge bg="danger" className="ms-2"><i className="fas fa-exclamation-triangle me-1"></i>{t("urgent")}</Badge>}
                         </Card.Title>
                         {offre.type && <Badge bg="info" className="mb-2">{offre.type}</Badge>}
                       </div>
                       <Badge bg={getStatusVariant(offre.statut)} className="d-flex align-items-center" style={{ borderRadius: "20px", padding: "6px 12px", fontSize: "0.75rem", fontWeight: "600" }}>
-                        <i className={`fas ${getStatusIcon(offre.statut)} me-1`}></i>{offre.statut}
+                        <i className={`fas ${getStatusIcon(offre.statut)} me-1`}></i>{t(offre.statut)}
                       </Badge>
                     </div>
 
@@ -760,14 +762,14 @@ const AppelOffreAdmin = () => {
                       )}
                       <div className="d-flex align-items-center mb-2">
                         <i className="fas fa-calendar-plus text-primary me-2"></i>
-                        <span>Ouverture: {formatDate(offre.date_ouverture)}</span>
+                        <span>{t("opening")}: {formatDate(offre.date_ouverture)}</span>
                       </div>
                       <div className="d-flex align-items-center mb-2">
                         <i className="fas fa-calendar-check text-primary me-2"></i>
                         <span>
-                          Clôture: {formatDate(offre.date_cloture)}
+                          {t("closing")}: {formatDate(offre.date_cloture)}
                           {isDatePassed(offre.date_cloture) && (
-                            <Badge bg="danger" className="ms-2" style={{ fontSize: "0.65rem" }}>Expiré</Badge>
+                            <Badge bg="danger" className="ms-2" style={{ fontSize: "0.65rem" }}>{t("expired")}</Badge>
                           )}
                         </span>
                       </div>
@@ -777,10 +779,10 @@ const AppelOffreAdmin = () => {
                           <div className="d-flex justify-content-between align-items-center mb-2">
                             <div className="d-flex align-items-center">
                               <i className={`fas ${getFileIcon(getFileName(offre.fichier))} text-${getFileBadgeVariant(getFileName(offre.fichier))} me-2`}></i>
-                              <span className="small fw-semibold">Document:</span>
+                              <span className="small fw-semibold">{t("document")}:</span>
                             </div>
                             <Button variant="outline-primary" size="sm" onClick={() => handleDownloadFile(offre.fichier, getFileName(offre.fichier))} style={{ borderRadius: "6px", fontSize: "0.7rem" }}>
-                              <i className="fas fa-download me-1"></i>Télécharger
+                              <i className="fas fa-download me-1"></i>{t("download")}
                             </Button>
                           </div>
                           <p className="small text-muted mb-2">{getFileName(offre.fichier)}</p>
@@ -802,12 +804,12 @@ const AppelOffreAdmin = () => {
                                 size="sm" 
                                 onClick={() => handleValidateOffre(offre.id, "Validé")} 
                                 disabled={actionLoading === offre.id}
-                                title="Valider cette offre"
+                                title={t("validate_offer")}
                               >
                                 {actionLoading === offre.id ? (
                                   <Spinner animation="border" size="sm" />
                                 ) : (
-                                  <><i className="fas fa-check me-1"></i>Valider</>
+                                  <><i className="fas fa-check me-1"></i>{t("validate")}</>
                                 )}
                               </Button>
                               <Button 
@@ -815,12 +817,12 @@ const AppelOffreAdmin = () => {
                                 size="sm" 
                                 onClick={() => handleValidateOffre(offre.id, "Rejeté")} 
                                 disabled={actionLoading === offre.id}
-                                title="Rejeter cette offre"
+                                title={t("reject_offer")}
                               >
                                 {actionLoading === offre.id ? (
                                   <Spinner animation="border" size="sm" />
                                 ) : (
-                                  <><i className="fas fa-times me-1"></i>Rejeter</>
+                                  <><i className="fas fa-times me-1"></i>{t("reject")}</>
                                 )}
                               </Button>
                             </>
@@ -832,12 +834,12 @@ const AppelOffreAdmin = () => {
                               size="sm" 
                               onClick={() => handleValidateOffre(offre.id, "Validé")} 
                               disabled={actionLoading === offre.id}
-                              title="Valider cette offre"
+                              title={t("validate_offer")}
                             >
                               {actionLoading === offre.id ? (
                                 <Spinner animation="border" size="sm" />
                               ) : (
-                                <><i className="fas fa-check me-1"></i>Valider</>
+                                <><i className="fas fa-check me-1"></i>{t("validate")}</>
                               )}
                             </Button>
                           )}
@@ -847,107 +849,107 @@ const AppelOffreAdmin = () => {
                               variant="outline-warning" 
                               size="sm" 
                               onClick={() => handleValidateOffre(offre.id, "Rejeté")} 
-                              disabled={actionLoading === offre.id}
-                              title="Rejeter cette offre"
-                            >
-                              {actionLoading === offre.id ? (
-                                <Spinner animation="border" size="sm" />
-                              ) : (
-                                <><i className="fas fa-times me-1"></i>Rejeter</>
-                              )}
-                            </Button>
-                          )}
-                        </div>
+                                disabled={actionLoading === offre.id}
+                                title={t("reject_offer")}
+                              >
+                                {actionLoading === offre.id ? (
+                                  <Spinner animation="border" size="sm" />
+                                ) : (
+                                  <><i className="fas fa-times me-1"></i>{t("reject")}</>
+                                )}
+                              </Button>
+                            )}
+                          </div>
 
-                        <div className="d-flex gap-1">
-                          <Button variant="outline-warning" size="sm" onClick={() => handleEditShow(offre)} title="Modifier">
-                            <i className="fas fa-edit"></i>
-                          </Button>
-                          <Button variant="outline-danger" size="sm" onClick={() => handleDelete(offre.id)} title="Supprimer">
-                            <i className="fas fa-trash"></i>
-                          </Button>
+                          <div className="d-flex gap-1">
+                            <Button variant="outline-warning" size="sm" onClick={() => handleEditShow(offre)} title={t("edit")}>
+                              <i className="fas fa-edit"></i>
+                            </Button>
+                            <Button variant="outline-danger" size="sm" onClick={() => handleDelete(offre.id)} title={t("delete")}>
+                              <i className="fas fa-trash"></i>
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </Card.Body>
-                </Card>
-              </Col>
-            ))}
+                    </Card.Body>
+                  </Card>
+                </Col>
+              ))}
 
-            {filteredOffres.length === 0 && (
-              <Col md={12}>
-                <Card className="border-0 shadow-sm text-center" style={{ borderRadius: "20px" }}>
-                  <Card.Body className="py-5">
-                    <i className="fas fa-file-contract fs-1 text-muted mb-3 d-block" style={{ opacity: 0.5 }}></i>
-                    <h5 className="text-muted mb-2">Aucun appel d'offre trouvé</h5>
-                    <Button variant="primary" onClick={clearFilters} className="d-flex align-items-center mx-auto">
-                      <i className="fas fa-times me-2"></i>Effacer les filtres
-                    </Button>
-                  </Card.Body>
-                </Card>
-              </Col>
-            )}
-          </Row>
+              {filteredOffres.length === 0 && (
+                <Col md={12}>
+                  <Card className="border-0 shadow-sm text-center" style={{ borderRadius: "20px" }}>
+                    <Card.Body className="py-5">
+                      <i className="fas fa-file-contract fs-1 text-muted mb-3 d-block" style={{ opacity: 0.5 }}></i>
+                      <h5 className="text-muted mb-2">{t("no_offers_found")}</h5>
+                      <Button variant="primary" onClick={clearFilters} className="d-flex align-items-center mx-auto">
+                        <i className="fas fa-times me-2"></i>{t("clear_filters")}
+                      </Button>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              )}
+            </Row>
         )}
 
         {/* Modal Ajout */}
         <Modal show={showAddModal} onHide={handleCloseAdd} size="lg" centered scrollable>
           <Modal.Header closeButton className="border-0" style={{ background: "linear-gradient(135deg, #667eea, #764ba2)", color: "white" }}>
-            <Modal.Title className="d-flex align-items-center fw-bold"><i className="fas fa-plus me-2"></i>Ajouter un Appel d'Offre</Modal.Title>
+            <Modal.Title className="d-flex align-items-center fw-bold"><i className="fas fa-plus me-2"></i>{t("add_offer_modal")}</Modal.Title>
           </Modal.Header>
           <Modal.Body className="p-4">
             <Form onSubmit={handleAddOffre}>
               <Form.Group className="mb-4">
-                <Form.Label className="fw-semibold text-muted"><i className="fas fa-heading me-2 text-primary"></i>Titre de l'offre *</Form.Label>
-                <Form.Control type="text" name="intitule" value={newOffre.intitule} onChange={handleChange} isInvalid={!!errors.intitule} required style={{ borderRadius: "10px", padding: "12px" }} placeholder="Ex: Construction d'un pont à Toamasina" />
+                <Form.Label className="fw-semibold text-muted"><i className="fas fa-heading me-2 text-primary"></i>{t("offer_title")} *</Form.Label>
+                <Form.Control type="text" name="intitule" value={newOffre.intitule} onChange={handleChange} isInvalid={!!errors.intitule} required style={{ borderRadius: "10px", padding: "12px" }} placeholder={t("offer_title_placeholder")} />
                 <Form.Control.Feedback type="invalid">{errors.intitule}</Form.Control.Feedback>
               </Form.Group>
 
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold text-muted"><i className="fas fa-file-contract me-2 text-primary"></i>Type de contrat</Form.Label>
+                    <Form.Label className="fw-semibold text-muted"><i className="fas fa-file-contract me-2 text-primary"></i>{t("contract_type")}</Form.Label>
                     <Form.Select name="type" value={newOffre.type} onChange={handleChange} style={{ borderRadius: "10px", padding: "12px" }}>
-                      <option value="">Sélectionner un type</option>
+                      <option value="">{t("select_type")}</option>
                       {typesContrat.map((t, i) => <option key={i} value={t}>{t}</option>)}
                     </Form.Select>
                   </Form.Group>
                 </Col>
                 <Col md={6}>
                   <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold text-muted"><i className="fas fa-chart-line me-2 text-primary"></i>Statut *</Form.Label>
+                    <Form.Label className="fw-semibold text-muted"><i className="fas fa-chart-line me-2 text-primary"></i>{t("status_label")} *</Form.Label>
                     <Form.Select name="statut" value={newOffre.statut} onChange={handleChange} style={{ borderRadius: "10px", padding: "12px" }}>
-                      <option value="Validé">Validé</option>
-                      <option value="En attente">En attente</option>
-                      <option value="Rejeté">Rejeté</option>
-                      <option value="Actif">Actif</option>
-                      <option value="Clôturé">Clôturé</option>
+                      <option value="Validé">{t("Validé")}</option>
+                      <option value="En attente">{t("En attente")}</option>
+                      <option value="Rejeté">{t("Rejeté")}</option>
+                      <option value="Actif">{t("Actif")}</option>
+                      <option value="Clôturé">{t("Clôturé")}</option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
               </Row>
 
               <Form.Group className="mb-4">
-                <Form.Label className="fw-semibold text-muted"><i className="fas fa-building me-2 text-primary"></i>Membre émetteur *</Form.Label>
-                <Form.Control type="text" name="membre" value={newOffre.membre} onChange={handleChange} isInvalid={!!errors.membre} required style={{ borderRadius: "10px", padding: "12px" }} placeholder="Ex: Ministère des Travaux Publics" />
+                <Form.Label className="fw-semibold text-muted"><i className="fas fa-building me-2 text-primary"></i>{t("issuing_member")} *</Form.Label>
+                <Form.Control type="text" name="membre" value={newOffre.membre} onChange={handleChange} isInvalid={!!errors.membre} required style={{ borderRadius: "10px", padding: "12px" }} placeholder={t("issuing_member_placeholder")} />
                 <Form.Control.Feedback type="invalid">{errors.membre}</Form.Control.Feedback>
               </Form.Group>
 
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold text-muted"><i className="fas fa-map-marker-alt me-2 text-primary"></i>Localisation</Form.Label>
+                    <Form.Label className="fw-semibold text-muted"><i className="fas fa-map-marker-alt me-2 text-primary"></i>{t("location")}</Form.Label>
                     <Form.Select name="localisation" value={newOffre.localisation} onChange={handleChange} style={{ borderRadius: "10px", padding: "12px" }}>
-                      <option value="">Sélectionner une localisation</option>
-                      <optgroup label="Villes">{villesMadagascar.map((v, i) => <option key={`v-${i}`} value={v}>{v}</option>)}</optgroup>
-                      <optgroup label="Régions">{regionsMadagascar.map((r, i) => <option key={`r-${i}`} value={r}>{r}</option>)}</optgroup>
+                      <option value="">{t("select_location")}</option>
+                      <optgroup label={t("cities")}>{villesMadagascar.map((v, i) => <option key={`v-${i}`} value={v}>{v}</option>)}</optgroup>
+                      <optgroup label={t("regions")}>{regionsMadagascar.map((r, i) => <option key={`r-${i}`} value={r}>{r}</option>)}</optgroup>
                     </Form.Select>
                   </Form.Group>
                 </Col>
                 <Col md={6}>
                   <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold text-muted"><i className="fas fa-money-bill-wave me-2 text-primary"></i>Salaire / Rémunération</Form.Label>
-                    <Form.Control type="text" name="salaire" value={newOffre.salaire} onChange={handleChange} style={{ borderRadius: "10px", padding: "12px" }} placeholder="Ex: 2 500 000 Ar" />
+                    <Form.Label className="fw-semibold text-muted"><i className="fas fa-money-bill-wave me-2 text-primary"></i>{t("salary")}</Form.Label>
+                    <Form.Control type="text" name="salaire" value={newOffre.salaire} onChange={handleChange} style={{ borderRadius: "10px", padding: "12px" }} placeholder={t("salary_placeholder")} />
                   </Form.Group>
                 </Col>
               </Row>
@@ -955,13 +957,13 @@ const AppelOffreAdmin = () => {
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold text-muted"><i className="fas fa-calendar-plus me-2 text-primary"></i>Date d'ouverture</Form.Label>
+                    <Form.Label className="fw-semibold text-muted"><i className="fas fa-calendar-plus me-2 text-primary"></i>{t("opening_date")}</Form.Label>
                     <Form.Control type="date" name="date_ouverture" value={newOffre.date_ouverture} onChange={handleChange} style={{ borderRadius: "10px", padding: "12px" }} />
                   </Form.Group>
                 </Col>
                 <Col md={6}>
                   <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold text-muted"><i className="fas fa-calendar-check me-2 text-primary"></i>Date de clôture *</Form.Label>
+                    <Form.Label className="fw-semibold text-muted"><i className="fas fa-calendar-check me-2 text-primary"></i>{t("closing_date")} *</Form.Label>
                     <Form.Control type="date" name="date_cloture" value={newOffre.date_cloture} onChange={handleChange} isInvalid={!!errors.date_cloture} required style={{ borderRadius: "10px", padding: "12px" }} />
                     <Form.Control.Feedback type="invalid">{errors.date_cloture}</Form.Control.Feedback>
                   </Form.Group>
@@ -969,32 +971,32 @@ const AppelOffreAdmin = () => {
               </Row>
 
               <Form.Group className="mb-4">
-                <Form.Label className="fw-semibold text-muted"><i className="fas fa-paperclip me-2 text-primary"></i>Fichier joint</Form.Label>
+                <Form.Label className="fw-semibold text-muted"><i className="fas fa-paperclip me-2 text-primary"></i>{t("file_label")}</Form.Label>
                 <Form.Control type="file" name="fichier" onChange={handleChange} style={{ borderRadius: "10px", padding: "12px" }} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
-                <Form.Text className="text-muted"><i className="fas fa-info-circle me-1"></i>Formats acceptés : PDF, DOC, DOCX, ZIP, JPG, PNG</Form.Text>
+                <Form.Text className="text-muted"><i className="fas fa-info-circle me-1"></i>{t("accepted_formats")}</Form.Text>
               </Form.Group>
 
               <FilePreview file={previewFile} />
 
               <Form.Group className="mb-4">
-                <Form.Label className="fw-semibold text-muted"><i className="fas fa-align-left me-2 text-primary"></i>Description *</Form.Label>
-                <Form.Control as="textarea" rows={5} name="description" value={newOffre.description} onChange={handleChange} isInvalid={!!errors.description} required style={{ borderRadius: "10px", padding: "12px" }} placeholder="Décrivez l'appel d'offre en détail..." />
+                <Form.Label className="fw-semibold text-muted"><i className="fas fa-align-left me-2 text-primary"></i>{t("description")} *</Form.Label>
+                <Form.Control as="textarea" rows={5} name="description" value={newOffre.description} onChange={handleChange} isInvalid={!!errors.description} required style={{ borderRadius: "10px", padding: "12px" }} placeholder={t("description_placeholder")} />
                 <Form.Control.Feedback type="invalid">{errors.description}</Form.Control.Feedback>
               </Form.Group>
 
               <Form.Group className="mb-4">
                 <Form.Check type="checkbox" name="urgent" checked={newOffre.urgent} onChange={handleChange}
-                  label={<span className="fw-semibold"><i className="fas fa-exclamation-triangle me-2 text-warning"></i>Marquer comme urgent</span>} />
-                <Form.Text className="text-muted"><i className="fas fa-info-circle me-1"></i>Cet appel d'offre sera mis en avant</Form.Text>
+                  label={<span className="fw-semibold"><i className="fas fa-exclamation-triangle me-2 text-warning"></i>{t("mark_as_urgent")}</span>} />
+                <Form.Text className="text-muted"><i className="fas fa-info-circle me-1"></i>{t("urgent_note")}</Form.Text>
               </Form.Group>
             </Form>
           </Modal.Body>
           <Modal.Footer className="border-0">
             <Button variant="outline-secondary" onClick={handleCloseAdd} style={{ borderRadius: "10px", padding: "10px 20px" }}>
-              <i className="fas fa-times me-2"></i>Annuler
+              <i className="fas fa-times me-2"></i>{t("cancel_button")}
             </Button>
             <Button variant="primary" onClick={handleAddOffre} disabled={loading} style={{ borderRadius: "10px", padding: "10px 20px", background: "linear-gradient(135deg, #667eea, #764ba2)", border: "none" }}>
-              <i className="fas fa-save me-2"></i>{loading ? "Création..." : "Créer l'offre"}
+              <i className="fas fa-save me-2"></i>{loading ? t("creating") : t("create_offer")}
             </Button>
           </Modal.Footer>
         </Modal>
@@ -1003,12 +1005,12 @@ const AppelOffreAdmin = () => {
         {editOffre && (
           <Modal show={showEditModal} onHide={handleCloseEdit} size="lg" centered scrollable>
             <Modal.Header closeButton className="border-0" style={{ background: "linear-gradient(135deg, #667eea, #764ba2)", color: "white" }}>
-              <Modal.Title className="d-flex align-items-center fw-bold"><i className="fas fa-edit me-2"></i>Modifier l'Appel d'Offre</Modal.Title>
+              <Modal.Title className="d-flex align-items-center fw-bold"><i className="fas fa-edit me-2"></i>{t("edit_offer_modal")}</Modal.Title>
             </Modal.Header>
             <Modal.Body className="p-4">
               <Form>
                 <Form.Group className="mb-4">
-                  <Form.Label className="fw-semibold text-muted"><i className="fas fa-heading me-2 text-primary"></i>Titre de l'offre *</Form.Label>
+                  <Form.Label className="fw-semibold text-muted"><i className="fas fa-heading me-2 text-primary"></i>{t("offer_title")} *</Form.Label>
                   <Form.Control type="text" name="intitule" value={editOffre.intitule} onChange={(e) => handleChange(e, true)} isInvalid={!!errors.intitule} required style={{ borderRadius: "10px", padding: "12px" }} />
                   <Form.Control.Feedback type="invalid">{errors.intitule}</Form.Control.Feedback>
                 </Form.Group>
@@ -1016,29 +1018,29 @@ const AppelOffreAdmin = () => {
                 <Row>
                   <Col md={6}>
                     <Form.Group className="mb-4">
-                      <Form.Label className="fw-semibold text-muted"><i className="fas fa-file-contract me-2 text-primary"></i>Type de contrat</Form.Label>
+                      <Form.Label className="fw-semibold text-muted"><i className="fas fa-file-contract me-2 text-primary"></i>{t("contract_type")}</Form.Label>
                       <Form.Select name="type" value={editOffre.type} onChange={(e) => handleChange(e, true)} style={{ borderRadius: "10px", padding: "12px" }}>
-                        <option value="">Sélectionner un type</option>
+                        <option value="">{t("select_type")}</option>
                         {typesContrat.map((t, i) => <option key={i} value={t}>{t}</option>)}
                       </Form.Select>
                     </Form.Group>
                   </Col>
                   <Col md={6}>
                     <Form.Group className="mb-4">
-                      <Form.Label className="fw-semibold text-muted"><i className="fas fa-chart-line me-2 text-primary"></i>Statut *</Form.Label>
+                      <Form.Label className="fw-semibold text-muted"><i className="fas fa-chart-line me-2 text-primary"></i>{t("status_label")} *</Form.Label>
                       <Form.Select name="statut" value={editOffre.statut} onChange={(e) => handleChange(e, true)} style={{ borderRadius: "10px", padding: "12px" }}>
-                        <option value="Validé">Validé</option>
-                        <option value="En attente">En attente</option>
-                        <option value="Rejeté">Rejeté</option>
-                        <option value="Actif">Actif</option>
-                        <option value="Clôturé">Clôturé</option>
+                        <option value="Validé">{t("Validé")}</option>
+                        <option value="En attente">{t("En attente")}</option>
+                        <option value="Rejeté">{t("Rejeté")}</option>
+                        <option value="Actif">{t("Actif")}</option>
+                        <option value="Clôturé">{t("Clôturé")}</option>
                       </Form.Select>
                     </Form.Group>
                   </Col>
                 </Row>
 
                 <Form.Group className="mb-4">
-                  <Form.Label className="fw-semibold text-muted"><i className="fas fa-building me-2 text-primary"></i>Membre émetteur *</Form.Label>
+                  <Form.Label className="fw-semibold text-muted"><i className="fas fa-building me-2 text-primary"></i>{t("issuing_member")} *</Form.Label>
                   <Form.Control type="text" name="membre" value={editOffre.membre} onChange={(e) => handleChange(e, true)} isInvalid={!!errors.membre} required style={{ borderRadius: "10px", padding: "12px" }} />
                   <Form.Control.Feedback type="invalid">{errors.membre}</Form.Control.Feedback>
                 </Form.Group>
@@ -1046,17 +1048,17 @@ const AppelOffreAdmin = () => {
                 <Row>
                   <Col md={6}>
                     <Form.Group className="mb-4">
-                      <Form.Label className="fw-semibold text-muted"><i className="fas fa-map-marker-alt me-2 text-primary"></i>Localisation</Form.Label>
+                      <Form.Label className="fw-semibold text-muted"><i className="fas fa-map-marker-alt me-2 text-primary"></i>{t("location")}</Form.Label>
                       <Form.Select name="localisation" value={editOffre.localisation} onChange={(e) => handleChange(e, true)} style={{ borderRadius: "10px", padding: "12px" }}>
-                        <option value="">Sélectionner une localisation</option>
-                        <optgroup label="Villes">{villesMadagascar.map((v, i) => <option key={`v-${i}`} value={v}>{v}</option>)}</optgroup>
-                        <optgroup label="Régions">{regionsMadagascar.map((r, i) => <option key={`r-${i}`} value={r}>{r}</option>)}</optgroup>
+                        <option value="">{t("select_location")}</option>
+                        <optgroup label={t("cities")}>{villesMadagascar.map((v, i) => <option key={`v-${i}`} value={v}>{v}</option>)}</optgroup>
+                        <optgroup label={t("regions")}>{regionsMadagascar.map((r, i) => <option key={`r-${i}`} value={r}>{r}</option>)}</optgroup>
                       </Form.Select>
                     </Form.Group>
                   </Col>
                   <Col md={6}>
                     <Form.Group className="mb-4">
-                      <Form.Label className="fw-semibold text-muted"><i className="fas fa-money-bill-wave me-2 text-primary"></i>Salaire / Rémunération</Form.Label>
+                      <Form.Label className="fw-semibold text-muted"><i className="fas fa-money-bill-wave me-2 text-primary"></i>{t("salary")}</Form.Label>
                     <Form.Control type="text" name="salaire" value={editOffre.salaire} onChange={(e) => handleChange(e, true)} style={{ borderRadius: "10px", padding: "12px" }} />
                     </Form.Group>
                   </Col>
@@ -1065,13 +1067,13 @@ const AppelOffreAdmin = () => {
                 <Row>
                   <Col md={6}>
                     <Form.Group className="mb-4">
-                      <Form.Label className="fw-semibold text-muted"><i className="fas fa-calendar-plus me-2 text-primary"></i>Date d'ouverture</Form.Label>
+                      <Form.Label className="fw-semibold text-muted"><i className="fas fa-calendar-plus me-2 text-primary"></i>{t("opening_date")}</Form.Label>
                     <Form.Control type="date" name="date_ouverture" value={editOffre.date_ouverture} onChange={(e) => handleChange(e, true)} style={{ borderRadius: "10px", padding: "12px" }} />
                     </Form.Group>
                   </Col>
                   <Col md={6}>
                     <Form.Group className="mb-4">
-                      <Form.Label className="fw-semibold text-muted"><i className="fas fa-calendar-check me-2 text-primary"></i>Date de clôture *</Form.Label>
+                      <Form.Label className="fw-semibold text-muted"><i className="fas fa-calendar-check me-2 text-primary"></i>{t("closing_date")} *</Form.Label>
                     <Form.Control type="date" name="date_cloture" value={editOffre.date_cloture} onChange={(e) => handleChange(e, true)} isInvalid={!!errors.date_cloture} required style={{ borderRadius: "10px", padding: "12px" }} />
                     <Form.Control.Feedback type="invalid">{errors.date_cloture}</Form.Control.Feedback>
                     </Form.Group>
@@ -1079,13 +1081,13 @@ const AppelOffreAdmin = () => {
                 </Row>
 
                 <Form.Group className="mb-4">
-                  <Form.Label className="fw-semibold text-muted"><i className="fas fa-paperclip me-2 text-primary"></i>Fichier joint</Form.Label>
+                  <Form.Label className="fw-semibold text-muted"><i className="fas fa-paperclip me-2 text-primary"></i>{t("file_label")}</Form.Label>
                   <Form.Control type="file" name="fichier" onChange={(e) => handleChange(e, true)} style={{ borderRadius: "10px", padding: "12px" }} accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png" />
                   {editOffre.fichier && typeof editOffre.fichier === 'string' && (
                     <div className="mt-2">
-                      <small className="text-muted d-block"><i className="fas fa-file me-1"></i>Fichier actuel: {getFileName(editOffre.fichier)}</small>
+                      <small className="text-muted d-block"><i className="fas fa-file me-1"></i>{t("current_file")}: {getFileName(editOffre.fichier)}</small>
                       <Button variant="outline-primary" size="sm" onClick={() => handleDownloadFile(editOffre.fichier, getFileName(editOffre.fichier))} style={{ borderRadius: "6px", fontSize: "0.7rem" }} className="mt-1">
-                        <i className="fas fa-download me-1"></i>Télécharger
+                        <i className="fas fa-download me-1"></i>{t("download")}
                       </Button>
                     </div>
                   )}
@@ -1094,14 +1096,14 @@ const AppelOffreAdmin = () => {
                 <FilePreview file={previewFile} />
 
                 <Form.Group className="mb-4">
-                  <Form.Label className="fw-semibold text-muted"><i className="fas fa-align-left me-2 text-primary"></i>Description *</Form.Label>
+                  <Form.Label className="fw-semibold text-muted"><i className="fas fa-align-left me-2 text-primary"></i>{t("description")} *</Form.Label>
                   <Form.Control as="textarea" rows={5} name="description" value={editOffre.description} onChange={(e) => handleChange(e, true)} isInvalid={!!errors.description} required style={{ borderRadius: "10px", padding: "12px" }} />
                   <Form.Control.Feedback type="invalid">{errors.description}</Form.Control.Feedback>
                 </Form.Group>
 
                 <Form.Group className="mb-4">
                   <Form.Check type="checkbox" name="urgent" checked={editOffre.urgent} onChange={(e) => handleChange(e, true)}
-                    label={<span className="fw-semibold"><i className="fas fa-exclamation-triangle me-2 text-warning"></i>Marquer comme urgent</span>} />
+                    label={<span className="fw-semibold"><i className="fas fa-exclamation-triangle me-2 text-warning"></i>{t("mark_as_urgent")}</span>} />
                 </Form.Group>
 
                 {/* Affichage des statistiques dans le modal d'édition */}
@@ -1112,10 +1114,10 @@ const AppelOffreAdmin = () => {
             </Modal.Body>
             <Modal.Footer className="border-0">
               <Button variant="outline-secondary" onClick={handleCloseEdit} style={{ borderRadius: "10px", padding: "10px 20px" }}>
-                <i className="fas fa-times me-2"></i>Annuler
+                <i className="fas fa-times me-2"></i>{t("cancel_button")}
               </Button>
               <Button variant="primary" onClick={handleSaveEdit} disabled={loading} style={{ borderRadius: "10px", padding: "10px 20px", background: "linear-gradient(135deg, #667eea, #764ba2)", border: "none" }}>
-                <i className="fas fa-save me-2"></i>{loading ? "Sauvegarde..." : "Enregistrer"}
+                <i className="fas fa-save me-2"></i>{loading ? t("saving") : t("save_button")}
               </Button>
             </Modal.Footer>
           </Modal>
