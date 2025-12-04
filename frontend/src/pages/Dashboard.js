@@ -60,9 +60,46 @@ const Dashboard = () => {
 
   return (
     <div className={`dashboard ${isDarkMode ? 'dark-mode' : ''}`}>
-      {/* Theme Toggle Button */}
-      <ThemeToggle />
-      
+      {/* Header avec navigation et Theme Toggle */}
+      <header className="dashboard-header">
+        <div className="container">
+          <div className="header-content">
+            <div className="logo-section">
+              <Link to="/" className="logo">
+                <span className="logo-text">
+                  <img src="/images/logo.jpg" alt="Logo" className="logo-img" />
+                </span>
+                <span className="logo-text">CEDII</span>
+              </Link>
+              <span className="logo-subtitle">Centre d'Échange, de Documentation et d'Information Interinstitutionnels</span>
+            </div>
+            
+            
+            
+            <div className="header-actions">
+              <div className="auth-buttons">
+                <Link to="/login" className="btn btn-login">
+                  Connexion
+                </Link>
+                <Link to="/register" className="btn btn-register">
+                  Inscription
+                </Link>
+              </div>
+              
+              {/* Theme Toggle placé dans le header */}
+              <div className="theme-toggle-container">
+                <ThemeToggle />
+              </div>
+              
+              {/* Menu mobile (optionnel) */}
+              <button className="mobile-menu-btn">
+                <span className="menu-icon">☰</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
       {/* Hero Section */}
       <section className="hero">
         <div className="hero-background">
@@ -76,7 +113,7 @@ const Dashboard = () => {
               </div>
               <h1 className="hero-title">
                 Centre d'Échange, de Documentation et d'Information{" "}
-                <span className="highlight">Inter-Institutionnelles</span>
+                <span className="highlight">Interinstitutionnels</span>
               </h1>
               <p className="hero-description">
                 La plateforme numérique de référence pour l'échange d'informations 
@@ -253,6 +290,42 @@ const Dashboard = () => {
         </div>
       </section>
 
+      {/* Footer */}
+      <footer className="footer">
+        <div className="container">
+          <div className="footer-content">
+            <div className="footer-section">
+              <div className="footer-logo">
+                <span className="logo-text">
+                  <img src="/images/logo.jpg" alt="Logo" className="logo-img" />
+                </span>
+                <span className="logo-text">CEDII</span>
+              </div>
+              <p className="footer-description">
+                Plateforme officielle d'échange d'informations institutionnelles
+              </p>
+            </div>
+            
+            
+            <div className="footer-section">
+              <h4>Contact</h4>
+              <ul className="footer-contact">
+                <li>📧 contact@cedii.mg</li>
+                <li>📞 +261 34 XX XX XX</li>
+                <li>📍 Fianarantsoa, Madagascar</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="footer-bottom">
+            <p>© 2025 CEDII - Tous droits réservés</p>
+            <div className="footer-theme-toggle">
+              <ThemeToggle variant="small" />
+            </div>
+          </div>
+        </div>
+      </footer>
+
       <style jsx>{`
         .dashboard {
           min-height: 100vh;
@@ -266,10 +339,15 @@ const Dashboard = () => {
         :root {
           --bg-color: #ffffff;
           --text-color: #000000;
+          --header-bg: rgba(255, 255, 255, 0.95);
+          --header-border: #e2e8f0;
+          --nav-link-color: #4a5568;
+          --nav-link-hover: #2d3748;
+          --footer-bg: #f8fafc;
+          --footer-text: #64748b;
           --card-bg: #ffffff;
           --card-border: #e2e8f0;
           --section-bg: #f8fafc;
-          --header-bg: #f0f0f0;
           --hero-bg: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
           --stat-bg: #f8fafc;
           --mission-bg: #ffffff;
@@ -293,10 +371,15 @@ const Dashboard = () => {
         .dashboard.dark-mode {
           --bg-color: #0f172a;
           --text-color: #f1f5f9;
+          --header-bg: rgba(15, 23, 42, 0.95);
+          --header-border: #334155;
+          --nav-link-color: #cbd5e1;
+          --nav-link-hover: #ffffff;
+          --footer-bg: #1e293b;
+          --footer-text: #94a3b8;
           --card-bg: #1e293b;
           --card-border: #334155;
           --section-bg: #1e293b;
-          --header-bg: #1e293b;
           --hero-bg: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
           --stat-bg: #1e293b;
           --mission-bg: #0f172a;
@@ -317,14 +400,164 @@ const Dashboard = () => {
           --access-level-bg: rgba(255, 255, 255, 0.2);
         }
 
-        /* Hero Section */
+        /* Header Styles */
+        .dashboard-header {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          background: var(--header-bg);
+          backdrop-filter: blur(10px);
+          border-bottom: 1px solid var(--header-border);
+          z-index: 1000;
+          padding: 1rem 0;
+        }
+
+        .header-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 2rem;
+        }
+
+        .logo-section {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          min-width: 200px;
+        }
+
+        .logo {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          text-decoration: none;
+          color: var(--text-color);
+          font-weight: 700;
+          font-size: 1.5rem;
+        }
+
+        .logo-icon {
+          font-size: 1.8rem;
+        }
+
+        .logo-subtitle {
+          font-size: 0.8rem;
+          color: var(--text-color);
+          opacity: 0.8;
+          margin-top: 0.25rem;
+        }
+
+        .nav-links {
+          display: flex;
+          gap: 2rem;
+          align-items: center;
+        }
+
+        .nav-link {
+          color: var(--nav-link-color);
+          text-decoration: none;
+          font-weight: 500;
+          font-size: 1rem;
+          padding: 0.5rem 0;
+          position: relative;
+          transition: color 0.3s ease;
+        }
+
+        .nav-link:hover {
+          color: var(--nav-link-hover);
+        }
+
+        .nav-link.active {
+          color: var(--btn-primary-bg);
+          font-weight: 600;
+        }
+
+        .nav-link.active::after {
+          content: '';
+          position: absolute;
+          bottom: -2px;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: var(--btn-primary-bg);
+          border-radius: 1px;
+        }
+
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .auth-buttons {
+          display: flex;
+          gap: 0.75rem;
+          align-items: center;
+        }
+
+        .btn-login {
+          padding: 0.5rem 1.5rem;
+          border-radius: 6px;
+          text-decoration: none;
+          font-weight: 500;
+          background: transparent;
+          color: var(--text-color);
+          border: 1px solid var(--card-border);
+          transition: all 0.3s ease;
+        }
+
+        .btn-login:hover {
+          background: var(--card-bg);
+          transform: translateY(-1px);
+        }
+
+        .btn-register {
+          padding: 0.5rem 1.5rem;
+          border-radius: 6px;
+          text-decoration: none;
+          font-weight: 500;
+          background: var(--btn-primary-bg);
+          color: white;
+          border: none;
+          transition: all 0.3s ease;
+        }
+
+        .btn-register:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .theme-toggle-container {
+          display: flex;
+          align-items: center;
+          margin-left: 1rem;
+          padding-left: 1rem;
+          border-left: 1px solid var(--card-border);
+        }
+
+        .mobile-menu-btn {
+          display: none;
+          background: none;
+          border: none;
+          color: var(--text-color);
+          font-size: 1.5rem;
+          cursor: pointer;
+          padding: 0.5rem;
+        }
+
+        /* Hero Section - Ajuster pour le header fixe */
         .hero {
           position: relative;
-          padding: 120px 0 80px;
+          padding: 160px 0 80px;
+          margin-top: 80px;
           background: var(--hero-bg);
           overflow: hidden;
         }
 
+        /* ... (le reste du CSS existant reste inchangé) ... */
+
+        /* Hero Section */
         .hero-background {
           position: absolute;
           top: 0;
@@ -860,7 +1093,118 @@ const Dashboard = () => {
           color: white;
         }
 
+        /* Footer */
+        .footer {
+          background: var(--footer-bg);
+          padding: 4rem 0 2rem;
+          color: var(--footer-text);
+        }
+
+        .footer-content {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 3rem;
+          margin-bottom: 3rem;
+        }
+
+        .footer-section h4 {
+          color: var(--text-color);
+          font-size: 1.1rem;
+          font-weight: 600;
+          margin-bottom: 1rem;
+        }
+
+        .footer-logo {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          color: var(--text-color);
+          font-weight: 700;
+          font-size: 1.2rem;
+          margin-bottom: 1rem;
+        }
+
+        .footer-description {
+          font-size: 0.9rem;
+          line-height: 1.5;
+        }
+
+        .footer-links {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+
+        .footer-links li {
+          margin-bottom: 0.5rem;
+        }
+
+        .footer-links a {
+          color: var(--footer-text);
+          text-decoration: none;
+          font-size: 0.9rem;
+          transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+          color: var(--text-color);
+        }
+
+        .footer-contact {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          font-size: 0.9rem;
+        }
+
+        .footer-contact li {
+          margin-bottom: 0.5rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .footer-bottom {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-top: 2rem;
+          border-top: 1px solid var(--card-border);
+          font-size: 0.9rem;
+        }
+
+        .footer-theme-toggle {
+          opacity: 0.7;
+          transition: opacity 0.3s ease;
+        }
+
+        .footer-theme-toggle:hover {
+          opacity: 1;
+        }
+
         /* Responsive */
+        @media (max-width: 1024px) {
+          .nav-links {
+            display: none;
+          }
+
+          .mobile-menu-btn {
+            display: block;
+          }
+
+          .header-content {
+            gap: 1rem;
+          }
+
+          .auth-buttons {
+            display: none;
+          }
+
+          .footer-content {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
         @media (max-width: 968px) {
           .hero-content {
             grid-template-columns: 1fr;
@@ -890,6 +1234,21 @@ const Dashboard = () => {
           .hero-visual {
             height: 300px;
           }
+
+          .footer-content {
+            grid-template-columns: 1fr;
+            text-align: center;
+          }
+
+          .footer-logo {
+            justify-content: center;
+          }
+
+          .footer-bottom {
+            flex-direction: column;
+            gap: 1rem;
+            text-align: center;
+          }
         }
 
         @media (max-width: 480px) {
@@ -916,6 +1275,17 @@ const Dashboard = () => {
           .access-info {
             flex-direction: column;
             align-items: center;
+          }
+
+          .header-content {
+            flex-wrap: wrap;
+          }
+
+          .logo-section {
+            min-width: auto;
+            width: 100%;
+            text-align: center;
+            margin-bottom: 1rem;
           }
         }
       `}</style>
