@@ -325,7 +325,6 @@ const MembrePage = () => {
               <Table hover responsive>
                 <thead className="bg-primary text-white">
                   <tr>
-                    <th>#</th>
                     <th>{t("avatar")}</th>
                     <th>{t("member")}</th>
                     <th>{t("role")}</th>
@@ -337,7 +336,6 @@ const MembrePage = () => {
                 <tbody>
                   {filteredMembres.map((m) => (
                     <tr key={m.id}>
-                      <td>{m.id}</td>
                       <td>
                         {m.avatar ? (
                           <Image src={m.avatar} roundedCircle width={45} height={45} style={{ objectFit: "cover" }} />

@@ -222,7 +222,7 @@ const Dashboard = () => {
       <section className="features-section">
         <div className="container">
           <div className="section-header">
-            <h2>Services ePub CEDII</h2>
+            <h2>Services ePub-CEDII</h2>
             <p>Une plateforme complète pour la gestion et la diffusion d'informations institutionnelles</p>
           </div>
           <div className="features-grid">
@@ -310,8 +310,8 @@ const Dashboard = () => {
             <div className="footer-section">
               <h4>Contact</h4>
               <ul className="footer-contact">
-                <li>📧 contact@cedii.mg</li>
-                <li>📞 +261 34 XX XX XX</li>
+                <li>📧 cedii.fia@gmail.com</li>
+                <li>📞 +261 34 03 931 91</li>
                 <li>📍 Fianarantsoa, Madagascar</li>
               </ul>
             </div>
