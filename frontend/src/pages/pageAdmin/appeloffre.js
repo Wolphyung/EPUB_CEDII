@@ -119,19 +119,19 @@ const AppelOffreAdmin = () => {
       // Si aucun membre n'est trouvé, utiliser les membres par défaut
       if (membresData.length === 0) {
         setMembres([
-          { id: 1, nom_entreprise: "Ministère du Transport", nom: "Admin Transport" },
-          { id: 2, nom_entreprise: "Ministère de l'Éducation", nom: "Admin Education" },
-          { id: 3, nom_entreprise: "Ministère de la Santé", nom: "Admin Santé" },
-          { id: 4, nom_entreprise: "Commune Urbaine d'Antananarivo", nom: "Admin CUA" },
+          { id: 1, nom_entreprise: "Ministère du Transport", nom: "Admin", prenom: "Transport" },
+          { id: 2, nom_entreprise: "Ministère de l'Éducation", nom: "Admin", prenom: "Education" },
+          { id: 3, nom_entreprise: "Ministère de la Santé", nom: "Admin", prenom: "Santé" },
+          { id: 4, nom_entreprise: "Commune Urbaine d'Antananarivo", nom: "Admin", prenom: "CUA" },
         ]);
       }
     } catch (err) {
       // Fallback en dur si API membres HS
       setMembres([
-        { id: 1, nom_entreprise: "Ministère du Transport", nom: "Admin Transport" },
-        { id: 2, nom_entreprise: "Ministère de l'Éducation", nom: "Admin Education" },
-        { id: 3, nom_entreprise: "Ministère de la Santé", nom: "Admin Santé" },
-        { id: 4, nom_entreprise: "Commune Urbaine d'Antananarivo", nom: "Admin CUA" },
+        { id: 1, nom_entreprise: "Ministère du Transport", nom: "Admin", prenom: "Transport" },
+        { id: 2, nom_entreprise: "Ministère de l'Éducation", nom: "Admin", prenom: "Education" },
+        { id: 3, nom_entreprise: "Ministère de la Santé", nom: "Admin", prenom: "Santé" },
+        { id: 4, nom_entreprise: "Commune Urbaine d'Antananarivo", nom: "Admin", prenom: "CUA" },
       ]);
     }
   };
@@ -361,31 +361,33 @@ const AppelOffreAdmin = () => {
 
   // Fonction pour obtenir le nom du membre
   const getMembreName = (membreId) => {
-    if (!membreId) return "Admin";
+    if (!membreId) return "Administrateur";
     
     const membre = membres.find((m) => m.id == membreId);
     if (membre) {
-      // Priorité: nom complet, puis nom de l'entreprise, puis "Admin"
+      // Afficher le nom complet si disponible
       if (membre.nom && membre.prenom) {
-        return `${membre.nom} ${membre.prenom}`;
+        return `${membre.prenom} ${membre.nom}`;
       } else if (membre.nom) {
         return membre.nom;
       } else if (membre.nom_entreprise) {
-        return membre.nom_entreprise;
+        return `Représentant ${membre.nom_entreprise}`;
+      } else if (membre.email) {
+        return membre.email.split('@')[0];
       }
     }
-    return "Admin";
+    return `Membre ${membreId}`;
   };
 
-  // Fonction pour obtenir le nom de l'entreprise du membre
+  // Fonction pour obtenir l'entreprise du membre
   const getMembreEntreprise = (membreId) => {
-    if (!membreId) return "Administration";
+    if (!membreId) return "Système";
     
     const membre = membres.find((m) => m.id == membreId);
     if (membre) {
-      return membre.nom_entreprise || "Administration";
+      return membre.nom_entreprise ;
     }
-    return "Administration";
+  
   };
 
   // Fonction pour déterminer si c'est un admin (pour l'affichage)
@@ -679,15 +681,28 @@ const AppelOffreAdmin = () => {
                     </Card.Text>
 
                     <div className="small text-muted mb-3">
-                      {/* Affichage du membre comme dans Publication Admin */}
-                      <div className="d-flex justify-content-between align-items-center mb-3 p-2 rounded" style={{ background: '#f8f9fa' }}>
-                        <div className="d-flex align-items-center">
-                          <i className="fas fa-user me-2 text-primary"></i>
-                          <span>{getMembreName(offre.membre)}</span>
+                      {/* Section du créateur - Ajoutée ici */}
+                      <div className="mb-3 p-3 border rounded" style={{ background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)' }}>
+                        <div className="d-flex align-items-center mb-2">
+                          <div className="rounded-circle d-flex align-items-center justify-content-center me-3" style={{ width: "36px", height: "36px", background: "linear-gradient(135deg, #667eea, #764ba2)" }}>
+                            <i className="fas fa-user text-white"></i>
+                          </div>
+                          <div>
+                            <div className="fw-semibold text-dark">Créé par :</div>
+                            <div className="d-flex flex-wrap gap-2">
+                              <Badge bg="primary" className="d-flex align-items-center">
+                                <i className="fas fa-user me-1"></i>
+                                {getMembreName(offre.membre)}
+                              </Badge>
+                           
+                            </div>
+                          </div>
                         </div>
                         <div className="d-flex align-items-center">
-                          <i className="fas fa-building me-2 text-primary"></i>
-                          <span className="fw-semibold">{getMembreEntreprise(offre.membre)}</span>
+                          <i className="fas fa-calendar-alt me-2 text-muted"></i>
+                          <span className="text-muted small">
+                            Publié le {formatDate(offre.created_at || offre.date_creation || offre.date_ouverture)}
+                          </span>
                         </div>
                       </div>
                       
@@ -1153,6 +1168,11 @@ const AppelOffreAdmin = () => {
         .card:hover {
           transform: translateY(-5px);
           box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+        }
+        .creator-section {
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          border-radius: 10px;
+          border: 1px solid #e9ecef;
         }
       `}</style>
     </div>
