@@ -157,11 +157,7 @@ const styles = {
     padding: '0.75rem 1.25rem',
     fontSize: '0.95rem',
     background: '#fafbff',
-    transition: 'all 0.2s ease',
-    '&:focus': {
-      borderColor: COLORS.primary,
-      boxShadow: `0 0 0 0.25rem rgba(102, 126, 234, 0.25)`
-    }
+    transition: 'all 0.2s ease'
   },
 
   sendBtn: {
@@ -174,11 +170,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     transition: 'all 0.2s ease',
-    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
-    '&:hover:not(:disabled)': {
-      transform: 'scale(1.05)',
-      boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)'
-    }
+    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
   }
 };
 
@@ -297,7 +289,13 @@ const MessagerieMembre = () => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
-        return JSON.parse(userStr);
+        const user = JSON.parse(userStr);
+        return {
+          id: user.id || user.user_id || 1,
+          name: user.nom_complet || user.name || user.nom || user.email || "Membre CEDII",
+          email: user.email || "membre@cedii.com",
+          type: user.type || "membre"
+        };
       } catch (e) {
         console.error("Erreur parsing user:", e);
       }
@@ -311,6 +309,21 @@ const MessagerieMembre = () => {
   };
 
   const currentUser = getCurrentUser();
+
+  // === INTERCEPTEUR AXIOS POUR L'AUTHENTIFICATION ===
+  useEffect(() => {
+    const interceptor = axios.interceptors.request.use(config => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    });
+
+    return () => {
+      axios.interceptors.request.eject(interceptor);
+    };
+  }, []);
 
   // === STATISTIQUES ===
   const calculateStats = useCallback((convs) => {
@@ -328,12 +341,16 @@ const MessagerieMembre = () => {
       setLoading(true);
       setError(null);
       
+      console.log("Fetching conversations for user ID:", currentUser.id);
+      
       const res = await axios.get(`${API_URL}/messages/member/${currentUser.id}`);
+      
+      console.log("Conversations response:", res.data);
       
       if (res.data && Array.isArray(res.data)) {
         const conversationsData = res.data.map(conv => ({
           id: conv.id || Date.now(),
-          sender: conv.sender || t("support_cedii"),
+          sender: conv.sender || t("support_cedii", "Support CEDII"),
           avatarUrl: conv.avatarUrl || null,
           nonLu: conv.nonLu || 0,
           lastMessage: conv.lastMessage || null,
@@ -353,12 +370,17 @@ const MessagerieMembre = () => {
           setSelectedConv(conversationsData[0]);
         }
       } else {
+        console.log("No conversations found or invalid response format");
         setConversations([]);
         setStats(calculateStats([]));
       }
     } catch (err) {
       console.error("Erreur chargement conversations:", err);
-      setError(t("error_load_conversations"));
+      if (err.response?.status === 401) {
+        setError(t("unauthorized_access", "Accès non autorisé. Veuillez vous reconnecter."));
+      } else {
+        setError(t("error_load_conversations", "Erreur lors du chargement des conversations: " + (err.message || "")));
+      }
       setConversations([]);
       setStats(calculateStats([]));
     } finally {
@@ -417,7 +439,7 @@ const MessagerieMembre = () => {
       }
     } catch (err) {
       console.error("Erreur sélection conversation:", err);
-      setError(t("error_select_conversation"));
+      setError(t("error_select_conversation", "Erreur lors de la sélection de la conversation"));
     }
   };
 
@@ -430,7 +452,7 @@ const MessagerieMembre = () => {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedConv) {
-      setError(t("write_message_error"));
+      setError(t("write_message_error", "Veuillez écrire un message"));
       return;
     }
 
@@ -458,30 +480,55 @@ const MessagerieMembre = () => {
     }));
 
     try {
-      const res = await axios.post(`${API_URL}/messages`, {
-        membre_id: parseInt(currentUser.id),
+      console.log("Sending message to conversation ID:", selectedConv.id);
+      console.log("Current user ID:", currentUser.id);
+      
+      // Structure de données corrigée selon ce que Laravel attend
+      const messageData = {
+        membre_id: currentUser.id,
         sender: currentUser.name,
         email: currentUser.email,
         category: selectedConv.category || "Support",
         content: content,
-        conversation_id: selectedConv.id
-      });
+        conversation_id: selectedConv.id || null,
+        // Ajout des champs qui pourraient être requis par Laravel
+        sujet: selectedConv.sujet || "Nouveau message",
+        is_from_admin: false,
+        read: false
+      };
 
-      setSuccess(t("message_sent_success"));
+      console.log("Sending message data:", messageData);
+
+      const res = await axios.post(`${API_URL}/messages`, messageData);
+
+      console.log("Message sent successfully:", res.data);
+
+      setSuccess(t("message_sent_success", "Message envoyé avec succès"));
       setTimeout(() => setSuccess(null), 3000);
 
       // Recharger les conversations
       await fetchConversations();
 
     } catch (err) {
-      console.error("Erreur envoi message:", err.response || err);
-      setError(t("message_send_error"));
+      console.error("Erreur détaillée envoi message:", err);
       
+      // Afficher les détails de l'erreur de validation
+      if (err.response?.status === 422) {
+        const validationErrors = err.response.data.errors;
+        const errorMessages = Object.values(validationErrors).flat().join(', ');
+        setError(t("validation_error", "Erreur de validation: ") + errorMessages);
+      } else if (err.response?.status === 401) {
+        setError(t("unauthorized_send", "Non autorisé à envoyer des messages"));
+      } else {
+        setError(t("message_send_error", "Erreur lors de l'envoi du message: ") + (err.message || ""));
+      }
+      
+      // Marquer le message comme en erreur
       setSelectedConv(prev => ({
         ...prev,
         messages: prev.messages.map(msg => 
           msg.id === tempMsg.id 
-            ? { ...msg, error: true, content: `${content} (${t("send_failed")})` }
+            ? { ...msg, error: true, content: `${content} (${t("send_failed", "Échec de l'envoi")})` }
             : msg
         )
       }));
@@ -495,15 +542,26 @@ const MessagerieMembre = () => {
     try {
       setError(null);
       
-      const res = await axios.post(`${API_URL}/messages/start-conversation`, {
-        membre_id: parseInt(currentUser.id),
-        subject: t("new_conversation"),
-        content: t("hello_support_message"),
-        category: "Support"
-      });
+      console.log("Starting new conversation for user:", currentUser);
+      
+      const conversationData = {
+        membre_id: currentUser.id,
+        sender: currentUser.name,
+        email: currentUser.email,
+        subject: t("new_conversation", "Nouvelle conversation"),
+        content: t("hello_support_message", "Bonjour, j'aimerais discuter..."),
+        category: "Support",
+        is_from_admin: false
+      };
+
+      console.log("Conversation data:", conversationData);
+
+      const res = await axios.post(`${API_URL}/messages/start-conversation`, conversationData);
+
+      console.log("Conversation started:", res.data);
 
       if (res.data.conversation) {
-        setSuccess(t("conversation_started_success"));
+        setSuccess(t("conversation_started_success", "Conversation démarrée avec succès"));
         await fetchConversations();
         
         // Sélectionner la nouvelle conversation
@@ -516,8 +574,14 @@ const MessagerieMembre = () => {
         }, 500);
       }
     } catch (err) {
-      console.error("Erreur démarrage conversation:", err);
-      setError(t("error_start_conversation"));
+      console.error("Erreur détaillée démarrage conversation:", err);
+      if (err.response?.status === 422) {
+        const validationErrors = err.response.data.errors;
+        const errorMessages = Object.values(validationErrors).flat().join(', ');
+        setError(t("validation_error", "Erreur de validation: ") + errorMessages);
+      } else {
+        setError(t("error_start_conversation", "Erreur lors du démarrage de la conversation: ") + (err.message || ""));
+      }
     }
   };
 
@@ -532,25 +596,25 @@ const MessagerieMembre = () => {
     {
       icon: FaEnvelope,
       value: stats.total,
-      label: t("total_messages"),
+      label: t("total_messages", "Total messages"),
       color: COLORS.primary
     },
     {
       icon: FaComments,
       value: stats.unread,
-      label: t("unread_messages"),
+      label: t("unread_messages", "Messages non lus"),
       color: COLORS.warning
     },
     {
       icon: FaUserFriends,
       value: stats.withSupport,
-      label: t("with_support"),
+      label: t("with_support", "Avec support"),
       color: COLORS.success
     },
     {
       icon: FaUserCircle,
       value: stats.withAdmin,
-      label: t("with_admin"),
+      label: t("with_admin", "Avec admin"),
       color: COLORS.info
     }
   ];
@@ -577,26 +641,32 @@ const MessagerieMembre = () => {
               fontSize: "2rem",
               marginBottom: "1rem"
             }}>
-              {t("messages_admin_title")}
+              {t("messages_admin_title", "Messagerie avec l'administration")}
             </h1>
             <p style={{ color: COLORS.gray, fontSize: "1rem", margin: 0 }}>
-              {t("messages_admin_subtitle")}
+              {t("messages_admin_subtitle", "Communiquez directement avec l'équipe CEDII")}
             </p>
           </div>
-          <Button
-            onClick={startNewConversation}
-            className="shadow-lg rounded-pill px-4 px-lg-5 py-2 py-lg-3 d-flex align-items-center"
-            style={{
-              background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.secondary})`,
-              border: "none",
-              fontWeight: "600",
-              fontSize: "1rem",
-              minWidth: "220px"
-            }}
-          >
-            <FaPlus className="me-2" />
-            {t("new_message_button")}
-          </Button>
+          <div className="d-flex align-items-center gap-3">
+            <div className="text-end">
+              <div style={{ fontSize: "0.9rem", color: COLORS.gray }}>{t("connected_as", "Connecté en tant que")}</div>
+              <div style={{ fontWeight: "600", color: COLORS.primary }}>{currentUser.name}</div>
+            </div>
+            <Button
+              onClick={startNewConversation}
+              className="shadow-lg rounded-pill px-4 px-lg-5 py-2 py-lg-3 d-flex align-items-center"
+              style={{
+                background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.secondary})`,
+                border: "none",
+                fontWeight: "600",
+                fontSize: "1rem",
+                minWidth: "220px"
+              }}
+            >
+              <FaPlus className="me-2" />
+              {t("new_message_button", "Nouveau message")}
+            </Button>
+          </div>
         </div>
 
         {/* Alerts */}
@@ -609,7 +679,7 @@ const MessagerieMembre = () => {
             style={{ borderRadius: "15px" }}
           >
             <i className="fas fa-exclamation-circle me-2"></i>
-            {error}
+            <strong>{t("error", "Erreur")}:</strong> {error}
           </Alert>
         )}
 
@@ -635,6 +705,18 @@ const MessagerieMembre = () => {
           ))}
         </Row>
 
+        {/* Debug Info (à retirer en production) */}
+        {process.env.NODE_ENV === 'development' && (
+          <Card className="mb-4 border-info">
+            <Card.Body className="p-3">
+              <small className="text-muted">
+                <strong>Debug Info:</strong> User ID: {currentUser.id} | Conversations: {conversations.length} | 
+                Token: {localStorage.getItem('token') ? 'Present' : 'Missing'}
+              </small>
+            </Card.Body>
+          </Card>
+        )}
+
         {/* Main Content */}
         <Row className="g-4">
           {/* Conversations List */}
@@ -642,7 +724,7 @@ const MessagerieMembre = () => {
             <Card className="shadow-sm border-0 h-100" style={styles.chatArea}>
               <Card.Header className="border-0" style={styles.chatHeader}>
                 <div className="d-flex align-items-center justify-content-between">
-                  <h5 className="mb-0" style={{ fontWeight: 600 }}>{t("conversations")}</h5>
+                  <h5 className="mb-0" style={{ fontWeight: 600 }}>{t("conversations", "Conversations")}</h5>
                   <Badge pill bg="primary">
                     {filteredConversations.length}
                   </Badge>
@@ -658,7 +740,7 @@ const MessagerieMembre = () => {
                       <FaSearch size={14} style={{ color: COLORS.gray }} />
                     </InputGroup.Text>
                     <Form.Control
-                      placeholder={t("search_conversations")}
+                      placeholder={t("search_conversations", "Rechercher des conversations...")}
                       value={searchTerm}
                       onChange={e => setSearchTerm(e.target.value)}
                       style={{
@@ -677,73 +759,81 @@ const MessagerieMembre = () => {
                 {loading ? (
                   <div className="text-center py-5">
                     <Spinner animation="border" variant="primary" />
-                    <p className="mt-3 text-muted">{t("loading_conversations")}</p>
+                    <p className="mt-3 text-muted">{t("loading_conversations", "Chargement des conversations...")}</p>
                   </div>
                 ) : filteredConversations.length > 0 ? (
                   <ListGroup variant="flush">
-                    {filteredConversations.map(conv => (
-                      <ListGroup.Item 
-                        key={conv.id}
-                        action
-                        onClick={() => handleSelectConv(conv)}
-                        style={styles.convoItem(selectedConv?.id === conv.id, conv.nonLu > 0)}
-                        className="d-flex align-items-center"
-                      >
-                        <Avatar 
-                          src={conv.avatarUrl} 
-                          size={44} 
-                          alt={conv.sender}
-                          isOnline={conv.category === 'Support'}
-                        />
-                        <div className="ms-3 flex-grow-1" style={{ minWidth: 0 }}>
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div style={{ 
-                              fontWeight: conv.nonLu > 0 ? 700 : 600, 
-                              color: conv.nonLu > 0 ? COLORS.primary : COLORS.dark,
-                              fontSize: '0.95rem'
-                            }}>
-                              {conv.sender}
+                    {filteredConversations.map(conv => {
+                      const isActive = selectedConv?.id === conv.id;
+                      const hasUnread = conv.nonLu > 0;
+                      
+                      return (
+                        <ListGroup.Item 
+                          key={conv.id}
+                          action
+                          onClick={() => handleSelectConv(conv)}
+                          style={{
+                            ...styles.convoItem(isActive, hasUnread),
+                            backgroundColor: isActive ? 'rgba(102, 126, 234, 0.08)' : COLORS.white
+                          }}
+                          className="d-flex align-items-center"
+                        >
+                          <Avatar 
+                            src={conv.avatarUrl} 
+                            size={44} 
+                            alt={conv.sender}
+                            isOnline={conv.category === 'Support'}
+                          />
+                          <div className="ms-3 flex-grow-1" style={{ minWidth: 0 }}>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div style={{ 
+                                fontWeight: conv.nonLu > 0 ? 700 : 600, 
+                                color: conv.nonLu > 0 ? COLORS.primary : COLORS.dark,
+                                fontSize: '0.95rem'
+                              }}>
+                                {conv.sender}
+                              </div>
+                              <small style={{ color: COLORS.gray, fontSize: '0.75rem' }}>
+                                {conv.updated_at ? new Date(conv.updated_at).toLocaleDateString() : ''}
+                              </small>
                             </div>
-                            <small style={{ color: COLORS.gray, fontSize: '0.75rem' }}>
-                              {new Date(conv.updated_at).toLocaleDateString()}
-                            </small>
+                            <div style={{ 
+                              fontSize: '0.85rem',
+                              color: conv.nonLu > 0 ? COLORS.dark : COLORS.gray,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              marginTop: '0.25rem'
+                            }}>
+                              {conv.lastMessage?.content || conv.category || t("no_messages", "Aucun message")}
+                            </div>
                           </div>
-                          <div style={{ 
-                            fontSize: '0.85rem',
-                            color: conv.nonLu > 0 ? COLORS.dark : COLORS.gray,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            marginTop: '0.25rem'
-                          }}>
-                            {conv.lastMessage?.content || t("no_messages")}
-                          </div>
-                        </div>
-                        {conv.nonLu > 0 && (
-                          <Badge
-                            pill
-                            bg="primary"
-                            style={{
-                              fontSize: '0.7rem',
-                              fontWeight: 600,
-                              minWidth: '20px',
-                              height: '20px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}
-                          >
-                            {conv.nonLu}
-                          </Badge>
-                        )}
-                      </ListGroup.Item>
-                    ))}
+                          {conv.nonLu > 0 && (
+                            <Badge
+                              pill
+                              bg="primary"
+                              style={{
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                minWidth: '20px',
+                                height: '20px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              {conv.nonLu}
+                            </Badge>
+                          )}
+                        </ListGroup.Item>
+                      );
+                    })}
                   </ListGroup>
                 ) : (
                   <div className="text-center py-5 text-muted">
                     <FaComments size={48} className="mb-3 opacity-50" />
-                    <h6 className="mb-2">{t("no_conversations")}</h6>
-                    <p className="small mb-3">{t("start_first_conversation")}</p>
+                    <h6 className="mb-2">{t("no_conversations", "Aucune conversation")}</h6>
+                    <p className="small mb-3">{t("start_first_conversation", "Commencez par démarrer votre première conversation")}</p>
                     <Button 
                       variant="outline-primary" 
                       size="sm"
@@ -751,7 +841,7 @@ const MessagerieMembre = () => {
                       className="rounded-pill px-4"
                     >
                       <FaPlus className="me-2" />
-                      {t("start_conversation")}
+                      {t("start_conversation", "Démarrer une conversation")}
                     </Button>
                   </div>
                 )}
@@ -776,7 +866,7 @@ const MessagerieMembre = () => {
                         <div className="ms-3">
                           <h5 className="mb-0" style={{ fontWeight: 600 }}>{selectedConv.sender}</h5>
                           <small style={{ color: COLORS.accent, fontWeight: 500 }}>
-                            {selectedConv.category} • {t("online")}
+                            {selectedConv.category} • {t("online", "En ligne")}
                           </small>
                         </div>
                       </div>
@@ -788,7 +878,7 @@ const MessagerieMembre = () => {
                           onClick={() => window.print()}
                         >
                           <i className="fas fa-print me-1"></i>
-                          {t("print")}
+                          {t("print", "Imprimer")}
                         </Button>
                         <Button 
                           variant="outline-secondary" 
@@ -799,12 +889,12 @@ const MessagerieMembre = () => {
                               .map(m => `${m.sender}: ${m.content}`)
                               .join('\n');
                             navigator.clipboard.writeText(convText);
-                            setSuccess(t("copied_to_clipboard"));
+                            setSuccess(t("copied_to_clipboard", "Conversation copiée dans le presse-papier"));
                             setTimeout(() => setSuccess(null), 2000);
                           }}
                         >
                           <i className="fas fa-copy me-1"></i>
-                          {t("copy")}
+                          {t("copy", "Copier")}
                         </Button>
                       </div>
                     </div>
@@ -823,7 +913,10 @@ const MessagerieMembre = () => {
                             flexDirection: 'column',
                             alignItems: isAdmin ? 'flex-end' : 'flex-start'
                           }}>
-                            <div style={styles.bubble(isAdmin)}>
+                            <div style={{
+                              ...styles.bubble(isAdmin),
+                              animation: 'fadeIn 0.3s ease'
+                            }}>
                               <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                                 {msg.content}
                                 {msg.error && (
@@ -832,7 +925,7 @@ const MessagerieMembre = () => {
                                     fontSize: '0.8rem'
                                   }}>
                                     <i className="fas fa-exclamation-triangle me-1"></i>
-                                    {t("message_not_sent")}
+                                    {t("message_not_sent", "Message non envoyé")}
                                   </small>
                                 )}
                               </div>
@@ -851,16 +944,16 @@ const MessagerieMembre = () => {
                     ) : (
                       <div className="text-center py-5 text-muted flex-grow-1 d-flex flex-column justify-content-center align-items-center">
                         <FaComments size={56} className="mb-3 opacity-50" />
-                        <h5 className="mb-2">{t("no_messages_in_conversation")}</h5>
-                        <p className="mb-4">{t("send_first_message")}</p>
+                        <h5 className="mb-2">{t("no_messages_in_conversation", "Aucun message dans cette conversation")}</h5>
+                        <p className="mb-4">{t("send_first_message", "Envoyez le premier message pour commencer la discussion")}</p>
                         <div className="d-flex gap-2">
                           <Button 
                             variant="outline-primary" 
                             className="rounded-pill px-4"
-                            onClick={() => setNewMessage(t("hello_message_example"))}
+                            onClick={() => setNewMessage(t("hello_message_example", "Bonjour, j'aimerais avoir des informations sur..."))}
                           >
                             <FaArrowRight className="me-2" />
-                            {t("suggest_message")}
+                            {t("suggest_message", "Message suggéré")}
                           </Button>
                           <Button 
                             variant="primary" 
@@ -868,7 +961,7 @@ const MessagerieMembre = () => {
                             onClick={() => document.querySelector('input[type="text"]')?.focus()}
                           >
                             <FaPaperPlane className="me-2" />
-                            {t("start_writing")}
+                            {t("start_writing", "Commencer à écrire")}
                           </Button>
                         </div>
                       </div>
@@ -880,10 +973,17 @@ const MessagerieMembre = () => {
                     <Form onSubmit={handleSendMessage}>
                       <InputGroup>
                         <Form.Control
-                          placeholder={t("write_your_message")}
+                          placeholder={t("write_your_message", "Écrivez votre message...")}
                           value={newMessage}
                           onChange={e => setNewMessage(e.target.value)}
-                          style={styles.input}
+                          style={{
+                            ...styles.input,
+                            borderColor: COLORS.border,
+                            ':focus': {
+                              borderColor: COLORS.primary,
+                              boxShadow: `0 0 0 0.25rem rgba(102, 126, 234, 0.25)`
+                            }
+                          }}
                           disabled={sending}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
@@ -895,7 +995,13 @@ const MessagerieMembre = () => {
                         <Button
                           type="submit"
                           disabled={!newMessage.trim() || sending}
-                          style={styles.sendBtn}
+                          style={{
+                            ...styles.sendBtn,
+                            ':hover:not(:disabled)': {
+                              transform: 'scale(1.05)',
+                              boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)'
+                            }
+                          }}
                         >
                           {sending ? (
                             <Spinner animation="border" size="sm" color="white" />
@@ -906,10 +1012,10 @@ const MessagerieMembre = () => {
                       </InputGroup>
                       <div className="d-flex justify-content-between mt-2">
                         <small className="text-muted">
-                          {t("press_enter_to_send")}
+                          {t("press_enter_to_send", "Appuyez sur Entrée pour envoyer")}
                         </small>
                         <small className="text-muted">
-                          {newMessage.length}/1000 {t("characters")}
+                          {newMessage.length}/1000 {t("characters", "caractères")}
                         </small>
                       </div>
                     </Form>
@@ -918,9 +1024,9 @@ const MessagerieMembre = () => {
               ) : (
                 <div className="d-flex flex-column justify-content-center align-items-center text-center h-100 py-5 text-muted">
                   <FaComments size={72} className="mb-4 opacity-50" />
-                  <h4 className="mb-3">{t("no_conversation_selected")}</h4>
+                  <h4 className="mb-3">{t("no_conversation_selected", "Aucune conversation sélectionnée")}</h4>
                   <p className="mb-4" style={{ maxWidth: '400px' }}>
-                    {t("select_conversation_to_start")}
+                    {t("select_conversation_to_start", "Sélectionnez une conversation pour commencer à discuter")}
                   </p>
                   <Button 
                     variant="primary" 
@@ -932,7 +1038,7 @@ const MessagerieMembre = () => {
                     }}
                   >
                     <FaRocket className="me-2" />
-                    {t("start_new_conversation")}
+                    {t("start_new_conversation", "Démarrer une nouvelle conversation")}
                   </Button>
                 </div>
               )}
@@ -956,35 +1062,38 @@ const MessagerieMembre = () => {
         <LanguageSwitcher />
       </footer>
 
-      {/* Custom CSS */}
-      <style jsx>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .list-group-item:hover {
-          background-color: rgba(0,0,0,0.02) !important;
-        }
-        
-        ::-webkit-scrollbar {
-          width: 6px;
-        }
-        
-        ::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 10px;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-          background: ${COLORS.primary};
-          border-radius: 10px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-          background: ${COLORS.secondary};
-        }
-      `}</style>
+      {/* Animation CSS via style tag */}
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          
+          ::-webkit-scrollbar {
+            width: 6px;
+          }
+          
+          ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+          }
+          
+          ::-webkit-scrollbar-thumb {
+            background: ${COLORS.primary};
+            border-radius: 10px;
+          }
+          
+          ::-webkit-scrollbar-thumb:hover {
+            background: ${COLORS.secondary};
+          }
+          
+          .form-control:focus {
+            border-color: ${COLORS.primary} !important;
+            box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25) !important;
+          }
+        `}
+      </style>
     </div>
   );
 };
