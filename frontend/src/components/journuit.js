@@ -52,7 +52,7 @@ export const ThemeProvider = ({ children }) => {
   );
 };
 
-// Composant bouton pour basculer le thème - VERSION FIXED
+// Modifiez votre ThemeToggle dans JourNuit.js
 export const ThemeToggle = () => {
   const { isDarkMode, toggleTheme } = useTheme();
 
@@ -62,31 +62,27 @@ export const ThemeToggle = () => {
       className="theme-toggle"
       aria-label="Basculer le mode sombre/clair"
       style={{
-        position: 'fixed',
-        top: '20px',
-        right: '20px',
-        zIndex: 1000,
-        background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+        background: 'transparent',
         border: 'none',
-        borderRadius: '50%',
-        width: '50px',
-        height: '50px',
-        fontSize: '1.5rem',
+        borderRadius: '8px',
+        width: '44px',
+        height: '44px',
+        fontSize: '1.3rem',
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backdropFilter: 'blur(10px)',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
         transition: 'all 0.3s ease',
+        color: isDarkMode ? '#FFFFFF' : '#5E5E5E',
+        backgroundColor: isDarkMode ? 'rgba(91, 17, 238, 0.2)' : 'rgba(91, 17, 238, 0.08)',
       }}
       onMouseEnter={(e) => {
         e.target.style.transform = 'scale(1.1)';
-        e.target.style.background = isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)';
+        e.target.style.backgroundColor = isDarkMode ? 'rgba(91, 17, 238, 0.3)' : 'rgba(91, 17, 238, 0.15)';
       }}
       onMouseLeave={(e) => {
         e.target.style.transform = 'scale(1)';
-        e.target.style.background = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+        e.target.style.backgroundColor = isDarkMode ? 'rgba(91, 17, 238, 0.2)' : 'rgba(91, 17, 238, 0.08)';
       }}
     >
       {isDarkMode ? '☀️' : '🌙'}
