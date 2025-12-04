@@ -12,7 +12,8 @@ import {
   Alert, 
   Spinner,
   Container,
-  InputGroup
+  InputGroup,
+  ProgressBar
 } from "react-bootstrap";
 import MembreSidebar from "../../components/MembreSidebar";
 import LanguageSwitcher from "../../components/LanguageSwitcher";
@@ -38,7 +39,14 @@ import {
   FaExternalLinkAlt,
   FaFileAlt,
   FaFilePdf,
-  FaRocket
+  FaRocket,
+  FaFileWord,
+  FaFileExcel,
+  FaFileImage,
+  FaFileArchive,
+  FaTimes,
+  FaUpload,
+  FaImage
 } from 'react-icons/fa';
 import axios from "axios";
 
@@ -90,11 +98,7 @@ const styles = {
     border: `1.5px solid ${COLORS.border}`,
     padding: "0.75rem 1rem",
     fontSize: "0.95rem",
-    transition: "all 0.2s ease",
-    '&:focus': {
-      borderColor: COLORS.primary,
-      boxShadow: `0 0 0 0.25rem rgba(102, 126, 234, 0.25)`
-    }
+    transition: "all 0.2s ease"
   },
   
   modalHeader: {
@@ -155,6 +159,8 @@ const StatsCard = ({ icon: Icon, value, label, color }) => (
 );
 
 const FilePreview = ({ filePath, fileName }) => {
+
+  const { t } = useTranslation();
   const getFileUrl = (path) => {
     if (!path) return null;
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
@@ -164,17 +170,21 @@ const FilePreview = ({ filePath, fileName }) => {
   const fileUrl = getFileUrl(filePath);
   const fileExt = fileName?.split('.').pop().toLowerCase() || '';
   
+  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(fileExt);
+  
   const getFileIcon = () => {
     switch (fileExt) {
       case 'pdf': return <FaFilePdf className="text-danger" size={24} />;
       case 'doc':
-      case 'docx': return <FaFileAlt className="text-primary" size={24} />;
+      case 'docx': return <FaFileWord className="text-primary" size={24} />;
       case 'xls':
-      case 'xlsx': return <FaFileAlt className="text-success" size={24} />;
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif': return <FaFileAlt className="text-info" size={24} />;
+      case 'xlsx': return <FaFileExcel className="text-success" size={24} />;
+      case 'ppt':
+      case 'pptx': return <FaFileAlt className="text-warning" size={24} />;
+      case 'zip':
+      case 'rar':
+      case '7z': return <FaFileArchive className="text-secondary" size={24} />;
+      case 'txt': return <FaFileAlt className="text-dark" size={24} />;
       default: return <FaFileAlt className="text-secondary" size={24} />;
     }
   };
@@ -182,7 +192,25 @@ const FilePreview = ({ filePath, fileName }) => {
   return (
     <div className="p-3 border rounded" style={{ background: "#f8f9fa", borderRadius: "12px" }}>
       <div className="d-flex align-items-center mb-2">
-        {getFileIcon()}
+        {isImage ? (
+          <div className="position-relative me-2">
+            <img 
+              src={fileUrl} 
+              alt="Preview" 
+              style={{ 
+                width: "40px", 
+                height: "40px", 
+                objectFit: "cover",
+                borderRadius: "6px",
+                border: "1px solid #dee2e6"
+              }}
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.parentElement.innerHTML = '<div style="width:40px;height:40px;background:#f8f9fa;border-radius:6px;display:flex;align-items:center;justify-content:center;"><FaFileImage className="text-info" size={20} /></div>';
+              }}
+            />
+          </div>
+        ) : getFileIcon()}
         <span className="ms-2 fw-semibold text-truncate" style={{ maxWidth: "200px" }}>
           {fileName || filePath?.split('/').pop() || "Fichier"}
         </span>
@@ -196,7 +224,7 @@ const FilePreview = ({ filePath, fileName }) => {
           target="_blank"
         >
           <FaExternalLinkAlt className="me-1" size={12} />
-          {fileExt === 'pdf' ? 'Voir' : 'Ouvrir'}
+          {isImage ? t("view_image", "Voir") : fileExt === 'pdf' ? t("view", "Voir") : t("open", "Ouvrir")}
         </Button>
         <Button 
           variant="outline-secondary" 
@@ -206,7 +234,7 @@ const FilePreview = ({ filePath, fileName }) => {
           download
         >
           <FaDownload className="me-1" size={12} />
-          Télécharger
+          {t("download", "Télécharger")}
         </Button>
       </div>
     </div>
@@ -230,6 +258,8 @@ const AppelOffreMembre = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [nouvelleOffre, setNouvelleOffre] = useState({
     intitule: "", 
@@ -238,6 +268,7 @@ const AppelOffreMembre = () => {
     date_ouverture: "", 
     membre: "", 
     fichier: null,
+    fichier_preview: null,
     statut: "En attente", 
     type_contrat: "CDI", 
     localisation: "", 
@@ -260,6 +291,14 @@ const AppelOffreMembre = () => {
     };
   }, []);
 
+  // === CONFIGURATION UPLOAD ===
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  const ALLOWED_EXTENSIONS = [
+    'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 
+    'txt', 'zip', 'rar', '7z', 'jpg', 'jpeg', 'png', 
+    'gif', 'bmp', 'webp', 'svg'
+  ];
+
   // === INITIALISATION ===
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user'));
@@ -276,11 +315,13 @@ const AppelOffreMembre = () => {
     setShowModal(false);
     setEditMode(false);
     setCurrentOffre(null);
+    setUploadProgress(0);
+    setIsUploading(false);
   };
 
   const handleShowAdd = () => {
     const user = currentUser || JSON.parse(localStorage.getItem('user'));
-    const membreName = user?.nom_complet || user?.nom || user?.email || t("anonymous_user");
+    const membreName = user?.nom_complet || user?.nom || user?.email || t("anonymous_user", "Utilisateur anonyme");
     
     setEditMode(false);
     setCurrentOffre(null);
@@ -291,6 +332,7 @@ const AppelOffreMembre = () => {
       date_ouverture: new Date().toISOString().split('T')[0],
       membre: membreName,
       fichier: null,
+      fichier_preview: null,
       statut: "En attente",
       type_contrat: "CDI",
       localisation: "",
@@ -302,7 +344,7 @@ const AppelOffreMembre = () => {
 
   const handleShowEdit = (offre) => {
     if (!isUserAuthor(offre)) {
-      showAlert(t("unauthorized_edit"), "warning");
+      showAlert(t("unauthorized_edit", "Vous n'êtes pas autorisé à modifier cette offre"), "warning");
       return;
     }
 
@@ -315,6 +357,7 @@ const AppelOffreMembre = () => {
       date_ouverture: offre.date_ouverture,
       membre: offre.membre,
       fichier: null,
+      fichier_preview: null,
       statut: offre.statut,
       type_contrat: offre.type_contrat || "CDI",
       localisation: offre.localisation || "",
@@ -339,20 +382,74 @@ const AppelOffreMembre = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked, files } = e.target;
+    
+    if (type === "file" && files[0]) {
+      const file = files[0];
+      const fileExt = file.name.split('.').pop().toLowerCase();
+      
+      // Validation de taille
+      if (file.size > MAX_FILE_SIZE) {
+        showAlert(
+          t("file_too_large", "Le fichier est trop volumineux (maximum 10MB)"),
+          "warning"
+        );
+        e.target.value = '';
+        return;
+      }
+      
+      // Validation du type
+      if (!ALLOWED_EXTENSIONS.includes(fileExt)) {
+        showAlert(
+          t("invalid_file_type", "Type de fichier non supporté"),
+          "warning"
+        );
+        e.target.value = '';
+        return;
+      }
+      
+      // Créer une prévisualisation pour les images
+      let filePreview = null;
+      if (file.type.startsWith('image/')) {
+        filePreview = URL.createObjectURL(file);
+      }
+      
+      setNouvelleOffre(prev => ({
+        ...prev,
+        fichier: file,
+        fichier_preview: filePreview
+      }));
+    } else if (type === "checkbox") {
+      setNouvelleOffre(prev => ({
+        ...prev,
+        [name]: checked
+      }));
+    } else {
+      setNouvelleOffre(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  const removeFile = () => {
+    if (nouvelleOffre.fichier_preview) {
+      URL.revokeObjectURL(nouvelleOffre.fichier_preview);
+    }
     setNouvelleOffre(prev => ({
       ...prev,
-      [name]: type === "file" ? files[0] : type === "checkbox" ? checked : value
+      fichier: null,
+      fichier_preview: null
     }));
   };
 
   // === BADGES ===
   const StatusBadge = ({ statut }) => {
     const config = {
-      "Validé": { color: "success", icon: FaCheckCircle, text: t("Validé") },
-      "En attente": { color: "warning", icon: FaClock, text: t("En attente") },
-      "Rejeté": { color: "danger", icon: FaExclamationTriangle, text: t("Rejeté") },
-      "Actif": { color: "primary", icon: FaBriefcase, text: t("Actif") },
-      "Clôturé": { color: "secondary", icon: FaCheckCircle, text: t("Clôturé") }
+      "Validé": { color: "success", icon: FaCheckCircle, text: t("Validé", "Validé") },
+      "En attente": { color: "warning", icon: FaClock, text: t("En attente", "En attente") },
+      "Rejeté": { color: "danger", icon: FaExclamationTriangle, text: t("Rejeté", "Rejeté") },
+      "Actif": { color: "primary", icon: FaBriefcase, text: t("Actif", "Actif") },
+      "Clôturé": { color: "secondary", icon: FaCheckCircle, text: t("Clôturé", "Clôturé") }
     };
     
     const cfg = config[statut] || config["En attente"];
@@ -395,7 +492,7 @@ const AppelOffreMembre = () => {
       return (
         <Badge bg="info" className="ms-1 px-2 py-1" style={{ fontSize: "0.7rem" }}>
           <FaUserTie size={10} className="me-1" />
-          {t("your_offer")}
+          {t("your_offer", "Votre offre")}
         </Badge>
       );
     }
@@ -447,7 +544,7 @@ const AppelOffreMembre = () => {
       setOffres(filteredOffres);
     } catch (err) {
       console.error("Erreur chargement offres:", err);
-      setError(t("error_load_offers"));
+      setError(t("error_load_offers", "Erreur lors du chargement des offres"));
     } finally {
       setLoading(false);
     }
@@ -456,16 +553,26 @@ const AppelOffreMembre = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!localStorage.getItem('token')) {
-      showAlert(t("login_required"), "danger");
+      showAlert(t("login_required", "Vous devez être connecté pour effectuer cette action"), "danger");
       return;
     }
 
     if (!nouvelleOffre.intitule || !nouvelleOffre.date_cloture || !nouvelleOffre.description) {
-      showAlert(t("missing_required_fields"), "warning");
+      showAlert(t("missing_required_fields", "Veuillez remplir tous les champs obligatoires"), "warning");
+      return;
+    }
+
+    // Validation de la date de clôture
+    const today = new Date().setHours(0, 0, 0, 0);
+    const closingDate = new Date(nouvelleOffre.date_cloture).setHours(0, 0, 0, 0);
+    if (closingDate < today) {
+      showAlert(t("invalid_closing_date", "La date de clôture ne peut pas être dans le passé"), "warning");
       return;
     }
 
     setIsSubmitting(true);
+    setIsUploading(!!nouvelleOffre.fichier);
+    setUploadProgress(0);
 
     const formData = new FormData();
     
@@ -494,32 +601,64 @@ const AppelOffreMembre = () => {
 
     if (nouvelleOffre.fichier) {
       formData.append("fichier", nouvelleOffre.fichier);
+      
+      // Afficher un message pour les gros fichiers
+      if (nouvelleOffre.fichier.size > 5 * 1024 * 1024) {
+        showAlert(t("uploading_large_file", "Téléchargement du fichier volumineux en cours..."), "info");
+      }
     }
 
     try {
+      const config = {
+        headers: { 
+          "Content-Type": "multipart/form-data",
+          "Authorization": `Bearer ${localStorage.getItem('token')}`
+        },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(progress);
+          }
+        }
+      };
+
       if (editMode && currentOffre) {
         formData.append("_method", "PUT");
-        await axios.post(`${API_URL}/${currentOffre.id}`, formData, {
-          headers: { "Content-Type": "multipart/form-data" }
-        });
-        showAlert(t("success_edit_offer"), "success");
+        await axios.post(`${API_URL}/${currentOffre.id}`, formData, config);
+        showAlert(t("success_edit_offer", "Offre modifiée avec succès"), "success");
       } else {
-        await axios.post(API_URL, formData, {
-          headers: { "Content-Type": "multipart/form-data" }
-        });
+        await axios.post(API_URL, formData, config);
         
         const message = finalStatut === "En attente" 
-          ? t("offer_created_pending") 
-          : t("success_add_offer");
+          ? t("offer_created_pending", "Offre créée avec succès, en attente de validation") 
+          : t("success_add_offer", "Offre ajoutée avec succès");
         
         showAlert(message, "success");
       }
+      
+      // Nettoyer la prévisualisation
+      if (nouvelleOffre.fichier_preview) {
+        URL.revokeObjectURL(nouvelleOffre.fichier_preview);
+      }
+      
       handleClose();
       fetchOffres();
     } catch (err) {
-      showAlert(`${t("error_operation")}: ${err.response?.data?.message || err.message}`, "danger");
+      console.error("Erreur sauvegarde:", err);
+      
+      if (err.response?.status === 413) {
+        showAlert(t("file_too_large_server", "Le fichier est trop volumineux pour le serveur"), "danger");
+      } else if (err.response?.status === 415) {
+        showAlert(t("unsupported_media_type", "Type de fichier non supporté par le serveur"), "danger");
+      } else if (err.response?.status === 401) {
+        showAlert(t("unauthorized_action", "Action non autorisée"), "danger");
+      } else {
+        showAlert(`${t("error_operation", "Erreur lors de l'opération")}: ${err.response?.data?.message || err.message}`, "danger");
+      }
     } finally {
       setIsSubmitting(false);
+      setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -530,11 +669,15 @@ const AppelOffreMembre = () => {
 
   const executeDelete = async () => {
     try {
-      await axios.delete(`${API_URL}/${deleteId}`);
-      showAlert(t("success_delete_offer"), "success");
+      await axios.delete(`${API_URL}/${deleteId}`, {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      showAlert(t("success_delete_offer", "Offre supprimée avec succès"), "success");
       fetchOffres();
     } catch {
-      showAlert(t("error_delete_offer"), "danger");
+      showAlert(t("error_delete_offer", "Erreur lors de la suppression"), "danger");
     }
     setShowConfirm(false);
     setDeleteId(null);
@@ -546,6 +689,15 @@ const AppelOffreMembre = () => {
       fetchOffres();
     }
   }, [currentUser, fetchOffres]);
+
+  // Nettoyage des URLs de prévisualisation
+  useEffect(() => {
+    return () => {
+      if (nouvelleOffre.fichier_preview) {
+        URL.revokeObjectURL(nouvelleOffre.fichier_preview);
+      }
+    };
+  }, [nouvelleOffre.fichier_preview]);
 
   // === FILTRAGE ===
   const filteredOffres = offres.filter(offre => {
@@ -561,37 +713,37 @@ const AppelOffreMembre = () => {
     {
       icon: FaBriefcase,
       value: offres.length,
-      label: t("total_offers"),
+      label: t("total_offers", "Total des offres"),
       color: COLORS.primary
     },
     {
       icon: FaCheckCircle,
       value: offres.filter(o => o.statut === "Validé").length,
-      label: t("validated_offers"),
+      label: t("validated_offers", "Offres validées"),
       color: COLORS.success
     },
     {
       icon: FaClock,
       value: offres.filter(o => o.statut === "En attente").length,
-      label: t("pending_offers"),
+      label: t("pending_offers", "Offres en attente"),
       color: COLORS.warning
     },
     {
       icon: FaExclamationTriangle,
       value: offres.filter(o => o.est_urgent).length,
-      label: t("urgent_offers"),
+      label: t("urgent_offers", "Offres urgentes"),
       color: COLORS.danger
     },
     {
       icon: FaEye,
       value: offres.reduce((total, o) => total + (o.stats?.total_views || 0), 0),
-      label: t("total_views"),
+      label: t("total_views", "Total des vues"),
       color: COLORS.info
     },
     {
       icon: FaHeart,
       value: offres.reduce((total, o) => total + (o.stats?.total_reactions || 0), 0),
-      label: t("total_reactions"),
+      label: t("total_reactions", "Total des réactions"),
       color: COLORS.secondary
     }
   ];
@@ -602,8 +754,15 @@ const AppelOffreMembre = () => {
       <div className="d-flex justify-content-center align-items-center min-vh-100">
         <Alert variant="danger" className="shadow-lg p-4" style={{ borderRadius: "15px" }}>
           <FaExclamationTriangle className="me-2" />
-          <h4>{t("api_error")}</h4>
+          <h4>{t("api_error", "Erreur API")}</h4>
           <p>{error}</p>
+          <Button 
+            variant="outline-danger" 
+            onClick={fetchOffres}
+            className="mt-3 rounded-pill"
+          >
+            {t("retry", "Réessayer")}
+          </Button>
         </Alert>
       </div>
     );
@@ -631,12 +790,14 @@ const AppelOffreMembre = () => {
               fontSize: "2rem",
               marginBottom: "1rem"
             }}>
-              {currentUser?.type === 'admin' ? t("offer_management_title") : t("my_offers")}
+              {currentUser?.type === 'admin' 
+                ? t("offer_management_title", "Gestion des appels d'offres") 
+                : t("my_offers", "Mes appels d'offres")}
             </h1>
             <p style={{ color: COLORS.gray, fontSize: "1rem", margin: 0 }}>
               {currentUser?.type === 'admin' 
-                ? t("offer_management_subtitle") 
-                : t("manage_your_offers")}
+                ? t("offer_management_subtitle", "Gérez toutes les offres du système") 
+                : t("manage_your_offers", "Gérez vos appels d'offres et postulez")}
             </p>
           </div>
           <Button
@@ -651,7 +812,7 @@ const AppelOffreMembre = () => {
             }}
           >
             <FaPlusCircle className="me-2" />
-            {t("new_offer_button")}
+            {t("new_offer_button", "Nouvel appel d'offres")}
           </Button>
         </div>
 
@@ -689,7 +850,7 @@ const AppelOffreMembre = () => {
                   </InputGroup.Text>
                   <Form.Control
                     type="text"
-                    placeholder={t("search_offers_placeholder")}
+                    placeholder={t("search_offers_placeholder", "Rechercher des offres...")}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     style={{
@@ -713,11 +874,11 @@ const AppelOffreMembre = () => {
                     fontSize: "0.95rem"
                   }}
                 >
-                  <option value="all">{t("all_status")}</option>
-                  <option value="Validé">{t("Validé")}</option>
-                  <option value="En attente">{t("En attente")}</option>
-                  <option value="Rejeté">{t("Rejeté")}</option>
-                  <option value="Clôturé">{t("Clôturé")}</option>
+                  <option value="all">{t("all_status", "Tous les statuts")}</option>
+                  <option value="Validé">{t("Validé", "Validé")}</option>
+                  <option value="En attente">{t("En attente", "En attente")}</option>
+                  <option value="Rejeté">{t("Rejeté", "Rejeté")}</option>
+                  <option value="Clôturé">{t("Clôturé", "Clôturé")}</option>
                 </Form.Select>
               </Col>
             </Row>
@@ -735,9 +896,9 @@ const AppelOffreMembre = () => {
 
         {/* Info pour les membres */}
         {currentUser?.type === 'membre' && offres.some(o => o.statut === "En attente") && (
-          <Alert variant="info" className="mb-4">
+          <Alert variant="info" className="mb-4" style={{ borderRadius: "12px" }}>
             <i className="fas fa-info-circle me-2"></i>
-            <strong>{t("information")}:</strong> {t("pending_offers_info")}
+            <strong>{t("information", "Information")}:</strong> {t("pending_offers_info", "Vos offres sont en attente de validation par l'administrateur.")}
           </Alert>
         )}
 
@@ -745,30 +906,30 @@ const AppelOffreMembre = () => {
         {loading ? (
           <div className="text-center py-5">
             <Spinner animation="border" variant="primary" style={{ width: '3rem', height: '3rem' }} />
-            <p className="mt-3 text-muted">{t("loading_offers")}</p>
+            <p className="mt-3 text-muted">{t("loading_offers", "Chargement des offres...")}</p>
           </div>
         ) : filteredOffres.length === 0 ? (
           <Card className="text-center border-0 shadow-sm p-5" style={{ borderRadius: "20px", minHeight: "300px" }}>
             <div className="d-flex flex-column justify-content-center align-items-center h-100">
               <FaBriefcase size={80} className="text-muted mb-4" />
-              <h3 className="text-dark mb-3">{t("no_offers_found")}</h3>
+              <h3 className="text-dark mb-3">{t("no_offers_found", "Aucune offre trouvée")}</h3>
               <p className="text-muted mb-4">
                 {searchTerm || statusFilter !== "all" 
-                  ? t("no_offers_match")
+                  ? t("no_offers_match", "Aucune offre ne correspond à vos critères") 
                   : currentUser?.type === 'admin' 
-                    ? t("no_offers_system")
-                    : t("start_first_offer")}
+                    ? t("no_offers_system", "Aucune offre dans le système") 
+                    : t("start_first_offer", "Commencez par créer votre première offre")}
               </p>
               <Button 
                 onClick={handleShowAdd}
-                className="rounded-pill px-4 py-2"
+                className="rounded-pill px-4 py-2 shadow-sm"
                 style={{
                   background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                   border: "none"
                 }}
               >
                 <FaPlusCircle className="me-2" />
-                {t("create_offer")}
+                {t("create_offer", "Créer une offre")}
               </Button>
             </div>
           </Card>
@@ -812,7 +973,7 @@ const AppelOffreMembre = () => {
                             {isUrgent && (
                               <Badge bg="danger" className="ms-2">
                                 <FaExclamationTriangle size={12} className="me-1" />
-                                {t("urgent")}
+                                {t("urgent", "Urgent")}
                               </Badge>
                             )}
                           </Card.Title>
@@ -828,15 +989,15 @@ const AppelOffreMembre = () => {
                       <div className="mb-3">
                         <div className="d-flex align-items-center mb-2">
                           <FaUserTie className="text-primary me-2" size={14} />
-                          <span className="fw-semibold">{t("member")}: {offre.membre || "NC"}</span>
+                          <span className="fw-semibold">{t("member", "Membre")}: {offre.membre || "NC"}</span>
                         </div>
                         <div className="d-flex align-items-center mb-2">
                           <FaMapMarkerAlt className="text-danger me-2" size={14} />
-                          <span>{offre.localisation || t("not_specified")}</span>
+                          <span>{offre.localisation || t("not_specified", "Non spécifié")}</span>
                         </div>
                         <div className="d-flex align-items-center mb-2">
                           <FaMoneyBillWave className="text-success me-2" size={14} />
-                          <span className="fw-semibold">{offre.salaire_remuneration || t("negotiable")}</span>
+                          <span className="fw-semibold">{offre.salaire_remuneration || t("negotiable", "Négociable")}</span>
                         </div>
                       </div>
 
@@ -859,13 +1020,13 @@ const AppelOffreMembre = () => {
                         <div>
                           <small className="text-muted">
                             <FaCalendarAlt className="me-1" size={12} />
-                            {t("opening")}: {new Date(offre.date_ouverture).toLocaleDateString()}
+                            {t("opening", "Ouverture")}: {new Date(offre.date_ouverture).toLocaleDateString()}
                           </small>
                         </div>
                         <div>
                           <small className="fw-semibold" style={{ color: isUrgent ? "#ff6b6b" : COLORS.gray }}>
                             <FaCalendarAlt className="me-1" size={12} />
-                            {t("closing")}: {new Date(offre.date_cloture).toLocaleDateString()}
+                            {t("closing", "Clôture")}: {new Date(offre.date_cloture).toLocaleDateString()}
                           </small>
                         </div>
                       </div>
@@ -878,7 +1039,7 @@ const AppelOffreMembre = () => {
                               <div className="d-flex align-items-center text-muted">
                                 <FaEye className="me-1" size={14} />
                                 <small className="fw-semibold">{offre.stats.total_views || 0}</small>
-                                <span className="ms-1">{t("views")}</span>
+                                <span className="ms-1">{t("views", "vues")}</span>
                               </div>
                               
                               {offre.stats.total_reactions > 0 && (
@@ -901,7 +1062,7 @@ const AppelOffreMembre = () => {
                             
                             {offre.stats.total_reactions > 0 && (
                               <small className="text-muted fw-semibold">
-                                {offre.stats.total_reactions} {t("reaction" + (offre.stats.total_reactions > 1 ? "s" : ""))}
+                                {offre.stats.total_reactions} {t("reaction" + (offre.stats.total_reactions > 1 ? "s" : ""), "réaction(s)")}
                               </small>
                             )}
                           </div>
@@ -910,9 +1071,9 @@ const AppelOffreMembre = () => {
 
                       {/* Message pour offres en attente */}
                       {offre.statut === "En attente" && (
-                        <Alert variant="warning" className="py-2 mb-3">
+                        <Alert variant="warning" className="py-2 mb-3" style={{ borderRadius: "8px" }}>
                           <FaClock className="me-2" />
-                          <small>{t("pending_validation")}</small>
+                          <small>{t("pending_validation", "En attente de validation par l'administrateur")}</small>
                         </Alert>
                       )}
 
@@ -930,14 +1091,14 @@ const AppelOffreMembre = () => {
                                     className="rounded-pill px-3 d-flex align-items-center"
                                   >
                                     <FaEdit className="me-1" size={12} />
-                                    {t("edit")}
+                                    {t("edit", "Modifier")}
                                   </Button>
                                 )}
                               </>
                             ) : (
                               <Badge bg="secondary" className="px-3 py-2">
                                 <FaEye className="me-1" />
-                                {t("read_only")}
+                                {t("read_only", "Lecture seule")}
                               </Badge>
                             )}
                           </div>
@@ -950,7 +1111,7 @@ const AppelOffreMembre = () => {
                                 className="rounded-pill px-3 d-flex align-items-center"
                               >
                                 <FaTrash className="me-1" size={12} />
-                                {t("delete")}
+                                {t("delete", "Supprimer")}
                               </Button>
                             )}
                           </div>
@@ -969,17 +1130,35 @@ const AppelOffreMembre = () => {
           <Modal.Header closeButton style={styles.modalHeader}>
             <Modal.Title className="fw-bold d-flex align-items-center">
               {editMode ? <FaEdit className="me-2" /> : <FaPlusCircle className="me-2" />}
-              {editMode ? t("edit_offer_modal") : t("add_offer_modal")}
+              {editMode 
+                ? t("edit_offer_modal", "Modifier l'appel d'offres") 
+                : t("add_offer_modal", "Nouvel appel d'offres")}
             </Modal.Title>
           </Modal.Header>
 
           <Modal.Body className="p-4 p-md-5">
             {/* Info pour nouvelles offres */}
             {!editMode && currentUser?.type !== 'admin' && (
-              <Alert variant="info" className="mb-4">
+              <Alert variant="info" className="mb-4" style={{ borderRadius: "10px" }}>
                 <i className="fas fa-info-circle me-2"></i>
-                {t("offer_pending_info")}
+                {t("offer_pending_info", "Votre offre sera soumise pour validation par l'administrateur.")}
               </Alert>
+            )}
+
+            {/* Barre de progression pour l'upload */}
+            {isUploading && (
+              <div className="mb-4">
+                <div className="d-flex justify-content-between mb-2">
+                  <small className="fw-semibold">{t("uploading_file", "Téléchargement du fichier")}</small>
+                  <small className="fw-bold">{uploadProgress}%</small>
+                </div>
+                <ProgressBar 
+                  now={uploadProgress} 
+                  variant="success" 
+                  animated 
+                  style={{ height: "8px", borderRadius: "4px" }}
+                />
+              </div>
             )}
 
             <Form onSubmit={handleSave}>
@@ -988,7 +1167,7 @@ const AppelOffreMembre = () => {
                   <Form.Group>
                     <Form.Label className="fw-semibold mb-2">
                       <FaBriefcase className="me-2" style={{ color: COLORS.primary }} />
-                      {t("offer_title")} *
+                      {t("offer_title", "Titre de l'offre")} *
                     </Form.Label>
                     <Form.Control
                       type="text"
@@ -996,8 +1175,8 @@ const AppelOffreMembre = () => {
                       value={nouvelleOffre.intitule}
                       onChange={handleChange}
                       required
-                      style={styles.input}
-                      placeholder={t("offer_title_placeholder")}
+                      style={{ ...styles.input, borderColor: nouvelleOffre.intitule ? '#28a745' : styles.input.border }}
+                      placeholder={t("offer_title_placeholder", "Ex: Développeur Full Stack")}
                     />
                   </Form.Group>
                 </Col>
@@ -1006,7 +1185,7 @@ const AppelOffreMembre = () => {
                   <Form.Group>
                     <Form.Label className="fw-semibold mb-2">
                       <FaTag className="me-2" style={{ color: COLORS.success }} />
-                      {t("contract_type")}
+                      {t("contract_type", "Type de contrat")}
                     </Form.Label>
                     <Form.Select
                       name="type_contrat"
@@ -1027,7 +1206,7 @@ const AppelOffreMembre = () => {
                   <Form.Group>
                     <Form.Label className="fw-semibold mb-2">
                       <FaUserTie className="me-2" style={{ color: COLORS.info }} />
-                      {t("issuing_member")}
+                      {t("issuing_member", "Membre émetteur")}
                     </Form.Label>
                     <Form.Control
                       type="text"
@@ -1035,7 +1214,7 @@ const AppelOffreMembre = () => {
                       value={nouvelleOffre.membre}
                       onChange={handleChange}
                       style={styles.input}
-                      placeholder={t("issuing_member_placeholder")}
+                      placeholder={t("issuing_member_placeholder", "Nom du membre")}
                       readOnly={currentUser?.type === 'membre'}
                     />
                   </Form.Group>
@@ -1045,7 +1224,7 @@ const AppelOffreMembre = () => {
                   <Form.Group>
                     <Form.Label className="fw-semibold mb-2">
                       <FaMapMarkerAlt className="me-2" style={{ color: COLORS.danger }} />
-                      {t("location")}
+                      {t("location", "Localisation")}
                     </Form.Label>
                     <Form.Control
                       type="text"
@@ -1053,7 +1232,7 @@ const AppelOffreMembre = () => {
                       value={nouvelleOffre.localisation}
                       onChange={handleChange}
                       style={styles.input}
-                      placeholder={t("select_location")}
+                      placeholder={t("select_location", "Ex: Paris, France")}
                     />
                   </Form.Group>
                 </Col>
@@ -1064,7 +1243,7 @@ const AppelOffreMembre = () => {
                   <Form.Group>
                     <Form.Label className="fw-semibold mb-2">
                       <FaMoneyBillWave className="me-2" style={{ color: COLORS.success }} />
-                      {t("salary")}
+                      {t("salary", "Salaire/Rémunération")}
                     </Form.Label>
                     <Form.Control
                       type="text"
@@ -1072,7 +1251,7 @@ const AppelOffreMembre = () => {
                       value={nouvelleOffre.salaire_remuneration}
                       onChange={handleChange}
                       style={styles.input}
-                      placeholder={t("salary_placeholder")}
+                      placeholder={t("salary_placeholder", "Ex: 45K€ - 55K€ annuels")}
                     />
                   </Form.Group>
                 </Col>
@@ -1081,30 +1260,81 @@ const AppelOffreMembre = () => {
                   <Form.Group>
                     <Form.Label className="fw-semibold mb-2">
                       <FaFileUpload className="me-2" style={{ color: COLORS.warning }} />
-                      {t("file_label")}
+                      {t("file_label", "Fichier joint")}
                     </Form.Label>
                     <Form.Control
                       type="file"
                       name="fichier"
                       onChange={handleChange}
                       style={styles.input}
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg"
                     />
-                    {editMode && currentOffre?.fichier && !nouvelleOffre.fichier && (
-                      <Form.Text className="text-muted">
-                        {t("current_file")}: {currentOffre.fichier.split('/').pop()}
-                      </Form.Text>
-                    )}
+                    <Form.Text className="text-muted">
+                      {t("supported_formats", "Formats acceptés")}: PDF, Word, Excel, Images (JPG, PNG, GIF), ZIP (max 10MB)
+                    </Form.Text>
                   </Form.Group>
                 </Col>
               </Row>
+
+              {/* Prévisualisation du fichier sélectionné */}
+              {nouvelleOffre.fichier && (
+                <Alert variant="light" className="mt-3 p-3" style={{ borderRadius: "10px", border: "1px dashed #dee2e6" }}>
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div className="d-flex align-items-center">
+                      {nouvelleOffre.fichier.type.startsWith('image/') && nouvelleOffre.fichier_preview ? (
+                        <img 
+                          src={nouvelleOffre.fichier_preview} 
+                          alt="Preview" 
+                          style={{ 
+                            width: "50px", 
+                            height: "50px", 
+                            objectFit: "cover",
+                            borderRadius: "6px",
+                            marginRight: "10px"
+                          }}
+                        />
+                      ) : (
+                        <FaFileAlt className="me-3" size={24} style={{ color: COLORS.primary }} />
+                      )}
+                      <div>
+                        <div className="fw-semibold">{nouvelleOffre.fichier.name}</div>
+                        <small className="text-muted">
+                          {(nouvelleOffre.fichier.size / 1024 / 1024).toFixed(2)} MB • {nouvelleOffre.fichier.type}
+                        </small>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="outline-danger" 
+                      size="sm" 
+                      onClick={removeFile}
+                      className="rounded-circle"
+                      style={{ width: "32px", height: "32px", padding: 0 }}
+                    >
+                      <FaTimes size={14} />
+                    </Button>
+                  </div>
+                </Alert>
+              )}
+
+              {/* Fichier actuel (en mode édition) */}
+              {editMode && currentOffre?.fichier && !nouvelleOffre.fichier && (
+                <Alert variant="info" className="mt-3 p-3" style={{ borderRadius: "10px" }}>
+                  <div className="d-flex align-items-center">
+                    <FaFileAlt className="me-3" size={24} />
+                    <div>
+                      <div className="fw-semibold">{t("current_file", "Fichier actuel")}:</div>
+                      <small>{currentOffre.fichier.split('/').pop()}</small>
+                    </div>
+                  </div>
+                </Alert>
+              )}
 
               <Row className="g-4 mt-2">
                 <Col md={6}>
                   <Form.Group>
                     <Form.Label className="fw-semibold mb-2">
                       <FaCalendarAlt className="me-2" style={{ color: COLORS.info }} />
-                      {t("opening_date")}
+                      {t("opening_date", "Date d'ouverture")}
                     </Form.Label>
                     <Form.Control
                       type="date"
@@ -1112,6 +1342,7 @@ const AppelOffreMembre = () => {
                       value={nouvelleOffre.date_ouverture}
                       onChange={handleChange}
                       style={styles.input}
+                      min={new Date().toISOString().split('T')[0]}
                     />
                   </Form.Group>
                 </Col>
@@ -1120,7 +1351,7 @@ const AppelOffreMembre = () => {
                   <Form.Group>
                     <Form.Label className="fw-semibold mb-2">
                       <FaCalendarAlt className="me-2" style={{ color: COLORS.danger }} />
-                      {t("closing_date")} *
+                      {t("closing_date", "Date de clôture")} *
                     </Form.Label>
                     <Form.Control
                       type="date"
@@ -1128,7 +1359,14 @@ const AppelOffreMembre = () => {
                       value={nouvelleOffre.date_cloture}
                       onChange={handleChange}
                       required
-                      style={styles.input}
+                      style={{ 
+                        ...styles.input, 
+                        borderColor: nouvelleOffre.date_cloture && 
+                          new Date(nouvelleOffre.date_cloture) >= new Date(nouvelleOffre.date_ouverture || new Date()) 
+                          ? '#28a745' 
+                          : styles.input.border 
+                      }}
+                      min={nouvelleOffre.date_ouverture || new Date().toISOString().split('T')[0]}
                     />
                   </Form.Group>
                 </Col>
@@ -1137,7 +1375,7 @@ const AppelOffreMembre = () => {
               <Form.Group className="mt-3">
                 <Form.Label className="fw-semibold mb-2">
                   <FaBriefcase className="me-2" style={{ color: COLORS.info }} />
-                  {t("description")} *
+                  {t("description", "Description")} *
                 </Form.Label>
                 <Form.Control
                   as="textarea"
@@ -1146,12 +1384,16 @@ const AppelOffreMembre = () => {
                   value={nouvelleOffre.description}
                   onChange={handleChange}
                   required
-                  style={{ ...styles.input, resize: "none" }}
-                  placeholder={t("description_placeholder")}
+                  style={{ 
+                    ...styles.input, 
+                    resize: "none",
+                    borderColor: nouvelleOffre.description ? '#28a745' : styles.input.border 
+                  }}
+                  placeholder={t("description_placeholder", "Décrivez en détail l'appel d'offres...")}
                   maxLength={2000}
                 />
                 <Form.Text className="text-muted d-block text-end mt-2">
-                  {nouvelleOffre.description.length}/2000 {t("characters")}
+                  {nouvelleOffre.description.length}/2000 {t("characters", "caractères")}
                 </Form.Text>
               </Form.Group>
 
@@ -1159,15 +1401,35 @@ const AppelOffreMembre = () => {
                 <Form.Check
                   type="checkbox"
                   name="est_urgent"
-                  label={t("mark_as_urgent")}
+                  label={<span className="fw-semibold">{t("mark_as_urgent", "Marquer comme urgent")}</span>}
                   checked={nouvelleOffre.est_urgent}
                   onChange={handleChange}
-                  className="fw-semibold"
                 />
                 <Form.Text className="text-muted">
-                  {t("urgent_note")}
+                  {t("urgent_note", "Les offres urgentes seront mises en avant et marquées d'un badge spécial.")}
                 </Form.Text>
               </Form.Group>
+
+              {/* Statut (admin seulement) */}
+              {currentUser?.type === 'admin' && (
+                <Form.Group className="mt-3">
+                  <Form.Label className="fw-semibold mb-2">
+                    <FaCheckCircle className="me-2" style={{ color: COLORS.success }} />
+                    {t("status", "Statut")}
+                  </Form.Label>
+                  <Form.Select
+                    name="statut"
+                    value={nouvelleOffre.statut}
+                    onChange={handleChange}
+                    style={styles.input}
+                  >
+                    <option value="En attente">{t("En attente", "En attente")}</option>
+                    <option value="Validé">{t("Validé", "Validé")}</option>
+                    <option value="Rejeté">{t("Rejeté", "Rejeté")}</option>
+                    <option value="Clôturé">{t("Clôturé", "Clôturé")}</option>
+                  </Form.Select>
+                </Form.Group>
+              )}
             </Form>
           </Modal.Body>
 
@@ -1179,8 +1441,8 @@ const AppelOffreMembre = () => {
               disabled={isSubmitting}
               style={{ minWidth: '120px' }}
             >
-              <i className="fas fa-times me-2"></i>
-              {t("cancel_button")}
+              <FaTimes className="me-2" />
+              {t("cancel_button", "Annuler")}
             </Button>
             <Button
               type="submit"
@@ -1198,12 +1460,16 @@ const AppelOffreMembre = () => {
               {isSubmitting ? (
                 <>
                   <Spinner animation="border" size="sm" className="me-2" />
-                  {editMode ? t("saving") : t("creating")}
+                  {editMode 
+                    ? t("saving", "Sauvegarde...") 
+                    : t("creating", "Création...")}
                 </>
               ) : (
                 <>
                   {editMode ? <FaEdit className="me-2" /> : <FaRocket className="me-2" />}
-                  {editMode ? t("save_button") : t("create_offer_button")}
+                  {editMode 
+                    ? t("save_button", "Enregistrer") 
+                    : t("create_offer_button", "Créer l'offre")}
                 </>
               )}
             </Button>
@@ -1215,19 +1481,34 @@ const AppelOffreMembre = () => {
           <Modal.Header closeButton className="border-0">
             <Modal.Title className="fw-bold text-danger">
               <FaExclamationTriangle className="me-2" />
-              {t("confirm")}
+              {t("confirm", "Confirmation")}
             </Modal.Title>
           </Modal.Header>
           <Modal.Body className="text-center py-4">
-            <p className="mb-0">{t("delete_confirmation")}</p>
+            <FaExclamationTriangle size={48} className="text-danger mb-3" />
+            <p className="mb-0">{t("delete_confirmation", "Êtes-vous sûr de vouloir supprimer cette offre ? Cette action est irréversible.")}</p>
           </Modal.Body>
           <Modal.Footer className="border-0 justify-content-center">
-            <Button variant="secondary" onClick={() => setShowConfirm(false)} className="px-4 rounded-pill">
-              {t("cancel_button")}
+            <Button 
+              variant="outline-secondary" 
+              onClick={() => setShowConfirm(false)} 
+              className="px-4 rounded-pill"
+              disabled={isSubmitting}
+            >
+              {t("cancel_button", "Annuler")}
             </Button>
-            <Button variant="danger" onClick={executeDelete} className="px-4 rounded-pill">
-              <FaTrash className="me-1" />
-              {t("delete")}
+            <Button 
+              variant="danger" 
+              onClick={executeDelete} 
+              className="px-4 rounded-pill"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <Spinner animation="border" size="sm" className="me-2" />
+              ) : (
+                <FaTrash className="me-1" />
+              )}
+              {t("delete", "Supprimer")}
             </Button>
           </Modal.Footer>
         </Modal>
@@ -1260,6 +1541,23 @@ const AppelOffreMembre = () => {
         .form-select:focus {
           border-color: #667eea !important;
           box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25) !important;
+        }
+        
+        .card:hover {
+          transform: translateY(-8px);
+          box-shadow: 0 12px 30px rgba(0,0,0,0.15) !important;
+        }
+        
+        .progress-bar {
+          transition: width 0.3s ease;
+        }
+        
+        .file-preview-img {
+          transition: transform 0.3s ease;
+        }
+        
+        .file-preview-img:hover {
+          transform: scale(1.1);
         }
       `}</style>
     </div>
