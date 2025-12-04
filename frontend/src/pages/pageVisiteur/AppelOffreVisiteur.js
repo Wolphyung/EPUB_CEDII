@@ -37,6 +37,37 @@ const AppelOffreVisiteur = () => {
     return visitorId;
   };
 
+  // Fonction pour sauvegarder les vues localement
+  const saveViewedOffresToLocalStorage = (offreIds) => {
+    const visitorId = getVisitorId();
+    const key = `viewed_offres_${visitorId}`;
+    const viewedOffres = JSON.parse(localStorage.getItem(key) || '[]');
+    
+    // Ajouter les nouvelles offres vues
+    offreIds.forEach(offreId => {
+      if (!viewedOffres.includes(offreId)) {
+        viewedOffres.push(offreId);
+      }
+    });
+    
+    // Sauvegarder dans localStorage
+    localStorage.setItem(key, JSON.stringify(viewedOffres));
+    return viewedOffres;
+  };
+
+  // Fonction pour récupérer les offres vues
+  const getViewedOffresFromLocalStorage = () => {
+    const visitorId = getVisitorId();
+    const key = `viewed_offres_${visitorId}`;
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  };
+
+  // Fonction pour vérifier si une offre a été vue
+  const isOffreViewed = (offreId) => {
+    const viewedOffres = getViewedOffresFromLocalStorage();
+    return viewedOffres.includes(offreId);
+  };
+
   useEffect(() => {
     const fetchAppelsOffre = async () => {
       try {
@@ -50,6 +81,7 @@ const AppelOffreVisiteur = () => {
         console.log("Données reçues:", res.data);
         
         let offres = [];
+        const viewedOffres = getViewedOffresFromLocalStorage();
         
         if (res.data.success && res.data.data) {
           offres = res.data.data.map(item => ({
@@ -72,7 +104,8 @@ const AppelOffreVisiteur = () => {
             total_reactions: item.stats?.reactions_by_type?.love || 0,
             userReacted: item.stats?.user_reaction === 'love',
             vues: item.stats?.total_views || 0,
-            already_viewed: item.stats?.has_viewed || false
+            // Vérifier d'abord localStorage, puis les données de l'API
+            already_viewed: viewedOffres.includes(item.appel_offre.id) || item.stats?.has_viewed || false
           }));
         } else if (Array.isArray(res.data)) {
           offres = res.data.map(offre => ({
@@ -93,7 +126,8 @@ const AppelOffreVisiteur = () => {
             total_reactions: 0,
             userReacted: false,
             vues: 0,
-            already_viewed: false
+            // Vérifier dans localStorage
+            already_viewed: viewedOffres.includes(offre.id) || false
           }));
         }
         
@@ -142,6 +176,9 @@ const AppelOffreVisiteur = () => {
       });
       
       if (response.data.success) {
+        // Vérifier si l'offre a été vue dans localStorage
+        const viewedInLocalStorage = isOffreViewed(offreId);
+        
         setAppelsOffre(prev => prev.map(offre => 
           offre.id === offreId 
             ? { 
@@ -150,7 +187,8 @@ const AppelOffreVisiteur = () => {
                 total_reactions: response.data.stats?.reactions_by_type?.love || 0,
                 userReacted: response.data.stats?.user_reaction === 'love',
                 vues: response.data.stats?.total_views || 0,
-                already_viewed: response.data.stats?.has_viewed || false
+                // Priorité: localStorage > API
+                already_viewed: viewedInLocalStorage || response.data.stats?.has_viewed || false
               }
             : offre
         ));
@@ -160,7 +198,7 @@ const AppelOffreVisiteur = () => {
     }
   };
 
-  // Fonction pour gérer les réactions "J'adore" - CORRIGÉE
+  // Fonction pour gérer les réactions "J'adore"
   const handleReaction = async (offreId) => {
     if (!offreId || offreId === 'undefined') {
       console.error('ID d\'appel d\'offre invalide pour réaction:', offreId);
@@ -175,7 +213,7 @@ const AppelOffreVisiteur = () => {
         `http://127.0.0.1:8000/api/appeloffres/${offreId}/react`,
         { 
           type: 'love',
-          visitor_id: visitorId  // Ajouté dans le corps de la requête
+          visitor_id: visitorId
         },
         {
           headers: {
@@ -210,8 +248,6 @@ const AppelOffreVisiteur = () => {
             userReacted: data.stats?.user_reaction === 'love'
           }));
         }
-        
-       
       } else {
         console.error("Réponse API non réussie:", data);
         alert(data.message || "Erreur lors de l'ajout de la réaction");
@@ -223,7 +259,7 @@ const AppelOffreVisiteur = () => {
     }
   };
 
-  // Fonction pour enregistrer une vue - CORRIGÉE AUSSI
+  // Fonction pour enregistrer une vue
   const handleView = async (offreId) => {
     if (!offreId || offreId === 'undefined') {
       console.error('ID d\'appel d\'offre invalide pour vue:', offreId);
@@ -232,10 +268,15 @@ const AppelOffreVisiteur = () => {
 
     try {
       const visitorId = getVisitorId();
+      
+      // Sauvegarder localement d'abord
+      saveViewedOffresToLocalStorage([offreId]);
+      
+      // Ensuite, envoyer à l'API
       const response = await axios.post(
         `http://127.0.0.1:8000/api/appeloffres/${offreId}/view`,
         {
-          visitor_id: visitorId  // Ajouté dans le corps
+          visitor_id: visitorId
         },
         {
           headers: {
@@ -255,7 +296,7 @@ const AppelOffreVisiteur = () => {
                 ...offre, 
                 stats: data.stats,
                 vues: data.stats?.total_views || 0,
-                already_viewed: data.stats?.has_viewed || false
+                already_viewed: true // Toujours true car sauvegardé localement
               }
             : offre
         ));
@@ -266,46 +307,83 @@ const AppelOffreVisiteur = () => {
             ...prev,
             stats: data.stats,
             vues: data.stats?.total_views || 0,
-            already_viewed: data.stats?.has_viewed || false
+            already_viewed: true
           }));
         }
-        return data.stats?.has_viewed || false;
+        return true;
       }
     } catch (error) {
-      console.error('Erreur vue:', error);
+      console.error('Erreur vue API:', error);
+      // Même en cas d'erreur API, marquer comme vu localement
+      setAppelsOffre(prev => prev.map(offre => 
+        offre.id === offreId 
+          ? { 
+              ...offre, 
+              already_viewed: true
+            }
+          : offre
+      ));
+      return true;
     }
     return false;
   };
 
   const handleShowDetails = async (offre) => {
     try {
-      const alreadyViewed = await handleView(offre.id);
+      console.log("Ouverture des détails pour l'appel d'offre:", offre.id, offre.intitule);
       
-      const visitorId = getVisitorId();
-      const res = await axios.get(`http://127.0.0.1:8000/api/appeloffres/${offre.id}`, {
-        headers: {
-          'X-Visitor-ID': visitorId
-        }
-      });
+      // Enregistrer la vue (locale + API)
+      await handleView(offre.id);
       
-      if (res.data.success) {
-        setSelectedOffre({
-          ...res.data.data,
-          already_viewed: alreadyViewed || true,
-          userReacted: offre.userReacted || false,
-          stats: offre.stats,
-          category: offre.category,
-          fichier_url: offre.fichier_url,
-          type_fichier: offre.type_fichier,
-          nom_fichier_original: offre.nom_fichier_original
+      // Récupérer les détails complets
+      try {
+        const visitorId = getVisitorId();
+        const res = await axios.get(`http://127.0.0.1:8000/api/appeloffres/${offre.id}`, {
+          headers: {
+            'X-Visitor-ID': visitorId
+          },
+          timeout: 5000
         });
-        setShowModal(true);
+        
+        console.log("Réponse API détails:", res.data);
+        
+        if (res.data.success) {
+          setSelectedOffre({
+            ...res.data.data,
+            // Conserver les données de stats et l'état "vu"
+            stats: offre.stats || res.data.data.stats,
+            already_viewed: true, // Forcer à true car on vient de le voir
+            userReacted: offre.userReacted || false,
+            category: offre.category || res.data.data.type || "Général",
+            fichier_url: offre.fichier_url || res.data.data.fichier_url,
+            type_fichier: offre.type_fichier || getFileType(res.data.data.fichier),
+            nom_fichier_original: offre.nom_fichier_original || (res.data.data.fichier ? res.data.data.fichier.split('/').pop() : null)
+          });
+        } else {
+          // Si l'API ne retourne pas success, utiliser les données locales
+          setSelectedOffre({
+            ...offre,
+            already_viewed: true // Forcer à true
+          });
+        }
+      } catch (apiError) {
+        console.error("Erreur API détails:", apiError);
+        // En cas d'erreur API, utiliser les données locales
+        setSelectedOffre({
+          ...offre,
+          already_viewed: true // Forcer à true
+        });
       }
+      
+      // Afficher le modal
+      setShowModal(true);
+      
     } catch (error) {
-      console.error("Erreur chargement détails:", error);
+      console.error("Erreur générale chargement détails:", error);
+      // Utiliser les données locales en cas d'erreur
       setSelectedOffre({
         ...offre,
-        already_viewed: offre.already_viewed || false
+        already_viewed: true // Forcer à true
       });
       setShowModal(true);
     }
@@ -412,12 +490,6 @@ const AppelOffreVisiteur = () => {
   const itemsPerPage = 4;
   const totalPages = Math.max(1, Math.ceil(filteredAppels.length / itemsPerPage));
   
-  // Obtenir les offres pour la page actuelle
-  const currentOffres = filteredAppels.slice(
-    currentPage * itemsPerPage,
-    (currentPage + 1) * itemsPerPage
-  );
-
   // Fonction pour naviguer avec animation
   const navigateWithAnimation = (direction) => {
     if (isTransitioning) return;
@@ -878,7 +950,7 @@ const AppelOffreVisiteur = () => {
                                   <div className="mt-auto pt-2 border-top">
                                     <div className="d-flex justify-content-between align-items-center">
                                       <div className="d-flex align-items-center gap-2">
-                                        {/* Bouton "J'adore" - JUSTE UN CŒUR avec compteur */}
+                                        {/* Bouton "J'adore" */}
                                         <button 
                                           className="btn p-1"
                                           onClick={() => handleReaction(ao.id)}
@@ -916,7 +988,7 @@ const AppelOffreVisiteur = () => {
                                           </span>
                                         </button>
 
-                                        {/* Vues - Style simplifié */}
+                                        {/* Vues */}
                                         <div className="d-flex align-items-center ms-2" style={{
                                           padding: '2px 8px',
                                           borderRadius: '6px',
@@ -931,7 +1003,7 @@ const AppelOffreVisiteur = () => {
                                         </div>
                                       </div>
 
-                                      {/* Bouton détails */}
+                                      {/* Bouton détails - MODIFIÉ POUR RESTER VERT */}
                                       <button 
                                         className="btn btn-sm"
                                         onClick={() => handleShowDetails(ao)}
@@ -946,7 +1018,7 @@ const AppelOffreVisiteur = () => {
                                         }}
                                       >
                                         <i className={`fas ${ao.already_viewed ? 'fa-check' : 'fa-eye'} me-1`}></i>
-                                        Détails
+                                        {ao.already_viewed ? 'Déjà vu' : 'Détails'}
                                       </button>
                                     </div>
                                   </div>
@@ -988,54 +1060,7 @@ const AppelOffreVisiteur = () => {
             <div className="row mt-4">
               <div className="col-12">
                 <div className="d-flex justify-content-center gap-4 flex-wrap">
-                  <div className="d-flex align-items-center gap-2">
-                    <div style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      backgroundColor: `${colors.primary}30`,
-                      transition: 'all 0.3s ease'
-                    }}></div>
-                    <small style={{color: colors.neutral}}>Page disponible</small>
-                  </div>
-                  <div className="d-flex align-items-center gap-2">
-                    <div style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      backgroundColor: colors.primary,
-                      transition: 'all 0.3s ease',
-                      animation: 'pulse 2s infinite'
-                    }}></div>
-                    <small style={{color: colors.neutral}}>Page active</small>
-                  </div>
-                  <div className="d-flex align-items-center gap-2">
-                    <div className="d-flex align-items-center justify-content-center" style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      backgroundColor: colors.darkGray,
-                      fontSize: '8px',
-                      transition: 'all 0.3s ease'
-                    }}>
-                      <i className="fas fa-heart text-white"></i>
-                    </div>
-                    <small style={{color: colors.neutral}}>J'adore (activé)</small>
-                  </div>
-                  <div className="d-flex align-items-center gap-2">
-                    <div className="d-flex align-items-center justify-content-center" style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      border: `1px solid ${colors.secondary}`,
-                      color: colors.secondary,
-                      fontSize: '8px',
-                      transition: 'all 0.3s ease'
-                    }}>
-                      <i className="fas fa-eye"></i>
-                    </div>
-                    <small style={{color: colors.neutral}}>Consulté</small>
-                  </div>
+                  
                 </div>
               </div>
             </div>

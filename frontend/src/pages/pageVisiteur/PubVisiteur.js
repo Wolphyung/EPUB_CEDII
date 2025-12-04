@@ -762,55 +762,7 @@ const PubVisiteur = () => {
             <div className="row mt-4">
               <div className="col-12">
                 <div className="d-flex justify-content-center gap-4 flex-wrap">
-                  <div className="d-flex align-items-center gap-2">
-                    <div style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      backgroundColor: `${colors.primary}30`,
-                      transition: 'all 0.3s ease'
-                    }}></div>
-                    <small style={{color: colors.neutral}}>Page disponible</small>
-                  </div>
-                  <div className="d-flex align-items-center gap-2">
-                    <div style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      backgroundColor: colors.primary,
-                      transition: 'all 0.3s ease',
-                      animation: 'pulse 2s infinite'
-                    }}></div>
-                    <small style={{color: colors.neutral}}>Page active</small>
-                  </div>
-                  <div className="d-flex align-items-center gap-2">
-                    <div className="d-flex align-items-center justify-content-center" style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      border: `1px solid ${colors.danger}`,
-                      color: colors.danger,
-                      fontSize: '8px',
-                      transition: 'all 0.3s ease'
-                    }}>
-                      <i className="fas fa-heart"></i>
-                    </div>
-                    <small style={{color: colors.neutral}}>Aimé</small>
-                  </div>
-                  <div className="d-flex align-items-center gap-2">
-                    <div className="d-flex align-items-center justify-content-center" style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      border: `1px solid ${colors.secondary}`,
-                      color: colors.secondary,
-                      fontSize: '8px',
-                      transition: 'all 0.3s ease'
-                    }}>
-                      <i className="fas fa-eye"></i>
-                    </div>
-                    <small style={{color: colors.neutral}}>Consulté</small>
-                  </div>
+                 
                 </div>
               </div>
             </div>

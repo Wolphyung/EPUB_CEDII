@@ -129,13 +129,10 @@ const AdminSidebar = () => {
                 <div className="position-relative">
                   <div 
                     className="rounded-circle bg-primary d-inline-flex align-items-center justify-content-center mb-2"
-                    style={{ 
-                      width: "50px", 
-                      height: "50px",
-                      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important"
-                    }}
                   >
-                    <i className="fas fa-user-shield text-white fs-5"></i>
+                    <span className="logo-text">
+                      <img src="/images/logo.jpg" alt="Logo" className="logo-img" />
+                    </span>
                   </div>
                   <h4 
                     className="mb-0 fw-bold"

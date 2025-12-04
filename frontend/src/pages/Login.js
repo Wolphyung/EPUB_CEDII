@@ -139,9 +139,10 @@ const Login = () => {
               {/* En-tête */}
               <div className="card-header">
                 <div className="logo-section">
-                  <div className="logo-icon">
-                    <i className="fas fa-exchange-alt"></i>
-                  </div>
+                  
+                    <span className="logo-text">
+                      <img src="/images/logo.jpg" alt="Logo" className="logo-img" />
+                    </span>
                   <div className="logo-text">
                     <h1>CEDII</h1>
                     <p>Centre d'Échange et d'Information</p>
@@ -232,10 +233,6 @@ const Login = () => {
                     <Link to="/forgot-password" className="option-link">
                       <i className="fas fa-key"></i>
                       Mot de passe oublié ?
-                    </Link>
-                    <Link to="/pubvisiteur" className="option-link visitor">
-                      <i className="fas fa-globe"></i>
-                      Accès visiteur
                     </Link>
                   </div>
 
