@@ -50,7 +50,7 @@ const AdminDashboard = () => {
 
         const evenementsEnAttente = events.filter(ev => ev.statut === "En attente").length;
         const publicationsEnAttente = publications.filter(pub => pub.statut === "En attente").length;
-        const appelsOffreActifs = appelsOffre.filter(offre => offre.statut === "Actif").length;
+        const appelsOffreActifs = appelsOffre.filter(offre => offre.statut === "Validé").length;
 
         setStats({
           evenements: events.length,
@@ -224,7 +224,9 @@ const AdminDashboard = () => {
                 <div className="flex-grow-1">
                   <div className="d-flex align-items-center mb-1">
                     <span className="fw-semibold text-dark small" style={{ lineHeight: "1.3" }}>
-                      {item.titre || item.nom || t("sans_titre")}
+                      {/* CORRECTION ICI : Utiliser intitule pour les appels d'offre */}
+                      {type === 'appeloffre' ? item.intitule || t("sans_titre") : 
+                       item.titre || item.nom || t("sans_titre")}
                     </span>
                   </div>
                   <div className="d-flex align-items-center gap-3">
@@ -235,8 +237,8 @@ const AdminDashboard = () => {
                       {type === 'publications' && (
                         <><FaBullhorn className="me-1" />{item.type}</>
                       )}
-                      {type === 'appeloffres' && (
-                        <><FaFileAlt className="me-1" />{item.categorie || t("general")}</>
+                      {type === 'appeloffre' && (
+                        <><FaFileAlt className="me-1" />{item.type || item.categorie || t("general")}</>
                       )}
                     </small>
                     <Badge 
@@ -259,7 +261,7 @@ const AdminDashboard = () => {
               <div className="text-muted mb-2">
                 {type === 'evenements' && <FaCalendarAlt size={24} />}
                 {type === 'publications' && <FaBullhorn size={24} />}
-                {type === 'appeloffres' && <FaFileAlt size={24} />}
+                {type === 'appeloffre' && <FaFileAlt size={24} />}
               </div>
               <p className="text-muted small mb-0">{t(emptyMessage)}</p>
             </div>
