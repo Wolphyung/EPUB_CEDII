@@ -19,24 +19,70 @@ const ProfilVisiteur = () => {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success"); // "success" or "error"
 
+  // Récupérer le token du localStorage
+  const getAuthToken = () => {
+    const token = localStorage.getItem("token");
+    return token ? `Bearer ${token}` : null;
+  };
+
+  // Configurer les headers d'authentification
+  const getAuthConfig = () => {
+    const token = getAuthToken();
+    return token ? {
+      headers: {
+        Authorization: token,
+      },
+      withCredentials: true,
+    } : { withCredentials: true };
+  };
+
+  // Vérifier si l'utilisateur est connecté
+  const isAuthenticated = () => {
+    const token = localStorage.getItem("token");
+    const userData = localStorage.getItem("user");
+    return !!(token && userData);
+  };
+
   // Récupérer le profil au chargement
   useEffect(() => {
+    if (!isAuthenticated()) {
+      showMessage("Veuillez vous connecter pour accéder à votre profil", "error");
+      setLoading(false);
+      return;
+    }
+
+    const config = getAuthConfig();
+    
     axios
-      .get("http://localhost:8000/api/profile", { withCredentials: true })
+      .get("http://localhost:8000/api/profile", config)
       .then((res) => {
-        setUser(res.data);
-        setFormData({
-          name: res.data.name,
-          email: res.data.email,
-        });
+        if (res.data && res.data.name) {
+          setUser(res.data);
+          setFormData({
+            name: res.data.name,
+            email: res.data.email,
+          });
+        } else {
+          showMessage("Données utilisateur invalides reçues du serveur", "error");
+        }
         setLoading(false);
       })
       .catch((err) => {
-        console.error(err);
-        showMessage(
-          err.response?.data?.message || "Impossible de récupérer le profil",
-          "error"
-        );
+        console.error("Erreur lors du chargement du profil:", err);
+        
+        // Si l'erreur est 401, rediriger vers la page de connexion
+        if (err.response?.status === 401) {
+          showMessage("Session expirée. Veuillez vous reconnecter", "error");
+          // Optionnel: rediriger automatiquement après un délai
+          setTimeout(() => {
+            window.location.href = "/login";
+          }, 2000);
+        } else {
+          showMessage(
+            err.response?.data?.message || "Impossible de récupérer le profil",
+            "error"
+          );
+        }
         setLoading(false);
       });
   }, []);
@@ -50,31 +96,53 @@ const ProfilVisiteur = () => {
   // Mettre à jour le profil
   const handleProfileUpdate = (e) => {
     e.preventDefault();
+    
+    if (!isAuthenticated()) {
+      showMessage("Veuillez vous connecter pour modifier votre profil", "error");
+      return;
+    }
+
+    const config = getAuthConfig();
+    
     axios
-      .put("http://localhost:8000/api/profile", formData, {
-        withCredentials: true,
-      })
+      .put("http://localhost:8000/api/profile", formData, config)
       .then((res) => {
-        setUser(res.data.user);
-        showMessage(res.data.message);
-        setEditMode(false);
+        if (res.data && res.data.user) {
+          setUser(res.data.user);
+          showMessage(res.data.message);
+          setEditMode(false);
+          // Mettre à jour le localStorage si nécessaire
+          localStorage.setItem("user", JSON.stringify(res.data.user));
+        } else {
+          showMessage("Réponse invalide du serveur", "error");
+        }
       })
       .catch((err) => {
-        console.error(err);
-        showMessage(
-          err.response?.data?.message || "Erreur lors de la mise à jour",
-          "error"
-        );
+        console.error("Erreur lors de la mise à jour:", err);
+        if (err.response?.status === 401) {
+          showMessage("Session expirée. Veuillez vous reconnecter", "error");
+        } else {
+          showMessage(
+            err.response?.data?.message || "Erreur lors de la mise à jour",
+            "error"
+          );
+        }
       });
   };
 
   // Changer le mot de passe
   const handleChangePassword = (e) => {
     e.preventDefault();
+    
+    if (!isAuthenticated()) {
+      showMessage("Veuillez vous connecter pour changer votre mot de passe", "error");
+      return;
+    }
+
+    const config = getAuthConfig();
+    
     axios
-      .put("http://localhost:8000/api/profile/password", passwordData, {
-        withCredentials: true,
-      })
+      .put("http://localhost:8000/api/profile/password", passwordData, config)
       .then((res) => {
         showMessage(res.data.message);
         setPasswordData({
@@ -84,12 +152,35 @@ const ProfilVisiteur = () => {
         });
       })
       .catch((err) => {
-        console.error(err);
-        showMessage(
-          err.response?.data?.message || "Erreur lors du changement de mot de passe",
-          "error"
-        );
+        console.error("Erreur lors du changement de mot de passe:", err);
+        if (err.response?.status === 401) {
+          showMessage("Session expirée. Veuillez vous reconnecter", "error");
+        } else {
+          showMessage(
+            err.response?.data?.message || "Erreur lors du changement de mot de passe",
+            "error"
+          );
+        }
       });
+  };
+
+  // Récupérer les données utilisateur du localStorage
+  const getUserFromLocalStorage = () => {
+    try {
+      const userData = localStorage.getItem("user");
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        setFormData({
+          name: parsedUser.name || "",
+          email: parsedUser.email || "",
+        });
+        return true;
+      }
+    } catch (error) {
+      console.error("Erreur lors de la récupération des données du localStorage:", error);
+    }
+    return false;
   };
 
   if (loading) {
@@ -108,11 +199,55 @@ const ProfilVisiteur = () => {
     );
   }
 
+  // Si user est toujours null après le chargement
+  if (!user) {
+    return (
+      <div className="bg-light min-vh-100 pt-5">
+        <Navbar />
+        <div className="container py-5">
+          <div className="row justify-content-center">
+            <div className="col-lg-8">
+              <div className="card shadow-sm border-0">
+                <div className="card-body text-center py-5">
+                  <i className="fas fa-exclamation-triangle text-warning fa-4x mb-4"></i>
+                  <h3 className="text-dark mb-3">Profil non disponible</h3>
+                  <p className="text-muted mb-4">
+                    {message || "Vous devez être connecté pour accéder à votre profil."}
+                  </p>
+                  <div className="d-flex gap-2 justify-content-center">
+                    <button 
+                      className="btn btn-primary"
+                      onClick={() => window.location.href = "/login"}
+                    >
+                      <i className="fas fa-sign-in-alt me-2"></i>
+                      Se connecter
+                    </button>
+                    <button 
+                      className="btn btn-outline-secondary"
+                      onClick={() => {
+                        if (getUserFromLocalStorage()) {
+                          setLoading(false);
+                        }
+                      }}
+                    >
+                      <i className="fas fa-redo me-2"></i>
+                      Rafraîchir
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-light min-vh-100">
       <Navbar />
       
-      {/* Hero Section - Même style */}
+      {/* Hero Section */}
       <div className="bg-primary text-white py-5 position-relative overflow-hidden">
         <div className="position-absolute top-0 start-0 w-100 h-100 bg-dark opacity-25"></div>
         <div className="container position-relative">
@@ -180,9 +315,11 @@ const ProfilVisiteur = () => {
                               <i className="fas fa-user text-primary fs-3"></i>
                             </div>
                             <div>
-                              <h4 className="text-dark mb-1">{user.name}</h4>
-                              <p className="text-muted mb-0">{user.email}</p>
-                              <small className="text-muted">Membre depuis {new Date(user.created_at).toLocaleDateString('fr-FR')}</small>
+                              <h4 className="text-dark mb-1">{user.name || "Non spécifié"}</h4>
+                              <p className="text-muted mb-0">{user.email || "Non spécifié"}</p>
+                              <small className="text-muted">
+                                {user.created_at ? `Membre depuis ${new Date(user.created_at).toLocaleDateString('fr-FR')}` : "Membre"}
+                              </small>
                             </div>
                           </div>
 
@@ -190,13 +327,13 @@ const ProfilVisiteur = () => {
                             <div className="col-md-6">
                               <label className="form-label fw-semibold text-muted">Nom complet</label>
                               <div className="form-control bg-light border-0">
-                                {user.name}
+                                {user.name || "Non spécifié"}
                               </div>
                             </div>
                             <div className="col-md-6">
                               <label className="form-label fw-semibold text-muted">Adresse email</label>
                               <div className="form-control bg-light border-0">
-                                {user.email}
+                                {user.email || "Non spécifié"}
                               </div>
                             </div>
                           </div>
@@ -208,6 +345,17 @@ const ProfilVisiteur = () => {
                             >
                               <i className="fas fa-edit me-2"></i>
                               Modifier le profil
+                            </button>
+                            <button
+                              onClick={() => {
+                                localStorage.removeItem("token");
+                                localStorage.removeItem("user");
+                                window.location.href = "/login";
+                              }}
+                              className="btn btn-outline-danger"
+                            >
+                              <i className="fas fa-sign-out-alt me-2"></i>
+                              Se déconnecter
                             </button>
                           </div>
                         </div>
