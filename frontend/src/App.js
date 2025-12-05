@@ -5,15 +5,15 @@ import PublicationsList from "./pages/Publications/PublicationsList";
 import MembresList from "./pages/MembresList";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import DashAdmin from "./pages/pageAdmin/dashAdmin"
-import PubAdmin from "./pages/pageAdmin/publicstions"
-import AppeloffreAdmin from "./pages/pageAdmin/appeloffre"
-import MembreAdmin from "./pages/pageAdmin/membre"
-import ParametreAdmin from "./pages/pageAdmin/parametre"
-import MessageAdmin from "./pages/pageAdmin/message"
-import NotificationgeAdmin from "./pages/pageAdmin/notification"
-import AdminEv from "./pages/pageAdmin/Evenement"
-import AbonnementAdmin from "./pages/pageAdmin/abonnement"
+import DashAdmin from "./pages/pageAdmin/dashAdmin";
+import PubAdmin from "./pages/pageAdmin/publicstions";
+import AppeloffreAdmin from "./pages/pageAdmin/appeloffre";
+import MembreAdmin from "./pages/pageAdmin/membre";
+import ParametreAdmin from "./pages/pageAdmin/parametre";
+import MessageAdmin from "./pages/pageAdmin/message";
+import NotificationgeAdmin from "./pages/pageAdmin/notification";
+import AdminEv from "./pages/pageAdmin/Evenement";
+import AbonnementAdmin from "./pages/pageAdmin/abonnement";
 
 import EventVisiteur from './pages/pageVisiteur/EventVisiteur';
 import PubVisiteur from './pages/pageVisiteur/PubVisiteur';
@@ -21,14 +21,16 @@ import AppelOffreVisiteur from './pages/pageVisiteur/AppelOffreVisiteur';
 import MessageVisiteur from './pages/pageVisiteur/MessageVisiteur';
 import ProfilVisiteur from './pages/pageVisiteur/ProfilVisiteur';
 
-import DashMembre from "./pages/pageMembre/dashMembre"
-import PubMembre from "./pages/pageMembre/pubmembre"
-import AppeloffreMembre from "./pages/pageMembre/appeloffre"
-import EvenementMembre from "./pages/pageMembre/evenement"
-import MessageMembre from "./pages/pageMembre/message"
-import ProfilMembre from "./pages/pageMembre/profil"
-import ParametreMembre from "./pages/pageMembre/parametre"
-import NoticficationMembre from "./pages/pageMembre/notification"
+
+import Abonnementmembre from "./pages/pageMembre/abonnementmembre";
+import DashMembre from "./pages/pageMembre/dashMembre";
+import PubMembre from "./pages/pageMembre/pubmembre";
+import AppeloffreMembre from "./pages/pageMembre/appeloffre";
+import EvenementMembre from "./pages/pageMembre/evenement";
+import MessageMembre from "./pages/pageMembre/message";
+import ProfilMembre from "./pages/pageMembre/profil";
+import ParametreMembre from "./pages/pageMembre/parametre";
+import NoticficationMembre from "./pages/pageMembre/notification";
 
 function App() {
   return (
@@ -69,6 +71,7 @@ function App() {
             <Route path="/profilMembre" element={<ProfilMembre />} />
             <Route path="/parametreMembre" element={<ParametreMembre />} />
             <Route path="/notificationMembre" element={<NoticficationMembre />} />
+            <Route path="/abonnementmembre" element={<Abonnementmembre/>} />
       </Routes>
     </BrowserRouter>
   );
