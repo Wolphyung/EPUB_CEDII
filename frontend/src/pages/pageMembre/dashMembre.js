@@ -11,7 +11,9 @@ import {
   Container,
   Alert,
   ProgressBar,
-  Modal
+  Modal,
+  OverlayTrigger,
+  Tooltip
 } from "react-bootstrap";
 import { 
   FaBullhorn, 
@@ -22,7 +24,11 @@ import {
   FaFileAlt,
   FaExclamationCircle,
   FaCheckCircle,
-  FaUser
+  FaUser,
+  FaCreditCard,
+  FaClock,
+  FaExclamationTriangle,
+  FaTimesCircle
 } from "react-icons/fa";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -59,6 +65,11 @@ const DashMembre = () => {
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [showProfileAlert, setShowProfileAlert] = useState(false);
   const [incompleteFields, setIncompleteFields] = useState([]);
+  
+  // === NOUVEAU ÉTATS POUR L'ABONNEMENT ===
+  const [abonnementInfo, setAbonnementInfo] = useState(null);
+  const [abonnementLoading, setAbonnementLoading] = useState(true);
+  const [showRenewModal, setShowRenewModal] = useState(false);
 
   const mockData = {
     publications: [
@@ -99,16 +110,14 @@ const DashMembre = () => {
     ];
     
     let completedCount = 0;
-    let totalFields = requiredFields.length + (optionalFields.length * 0.5); // Les champs optionnels comptent moins
+    let totalFields = requiredFields.length + (optionalFields.length * 0.5);
     
-    // Vérifier les champs requis
     requiredFields.forEach(field => {
       if (profile[field] && profile[field].toString().trim() !== '') {
         completedCount += 1;
       }
     });
     
-    // Vérifier les champs optionnels (comptent pour 0.5 chacun)
     optionalFields.forEach(field => {
       if (profile[field] && profile[field].toString().trim() !== '') {
         completedCount += 0.5;
@@ -117,12 +126,89 @@ const DashMembre = () => {
     
     const percentage = Math.min(Math.round((completedCount / totalFields) * 100), 100);
     
-    // Identifier les champs manquants
     const missingFields = requiredFields.filter(field => 
       !profile[field] || profile[field].toString().trim() === ''
     );
     
     return { percentage, missingFields };
+  };
+
+  // === CHARGER LES DONNÉES DE L'ABONNEMENT ===
+  const fetchAbonnementInfo = async () => {
+    try {
+      setAbonnementLoading(true);
+      const token = localStorage.getItem("token");
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      
+      if (!token || !userData.id) {
+        console.warn("Aucun utilisateur connecté trouvé");
+        return;
+      }
+
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      // Récupérer les informations d'abonnement
+      const abonnementRes = await axios.get(
+        `http://127.0.0.1:8000/api/abonnements/check/${userData.id}`,
+        { headers }
+      ).catch(error => {
+        console.error("Erreur lors de la récupération de l'abonnement:", error);
+        return { data: { success: false } };
+      });
+      
+      if (abonnementRes.data && abonnementRes.data.success) {
+        const data = abonnementRes.data.data;
+        
+        if (data) {
+          // Calculer les jours restants
+          const dateFin = new Date(data.date_fin);
+          const now = new Date();
+          const joursRestants = Math.ceil((dateFin - now) / (1000 * 60 * 60 * 24));
+          const isExpired = dateFin < now || data.statut !== 'actif';
+          
+          setAbonnementInfo({
+            ...data,
+            jours_restants: joursRestants,
+            is_expired: isExpired,
+            expire_bientot: !isExpired && joursRestants <= 7
+          });
+        } else {
+          // Aucun abonnement trouvé
+          setAbonnementInfo({
+            has_abonnement: false,
+            message: "Aucun abonnement actif"
+          });
+        }
+      } else {
+        // Données simulées pour le développement
+        const mockAbonnement = {
+          id: 1,
+          type_abonnement: "mensuel",
+          date_debut: "2024-01-01",
+          date_fin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 jours plus tard
+          statut: "actif",
+          montant: 9.99,
+          methode_paiement: "Carte",
+          created_at: "2024-01-01T00:00:00"
+        };
+        
+        const dateFin = new Date(mockAbonnement.date_fin);
+        const now = new Date();
+        const joursRestants = Math.ceil((dateFin - now) / (1000 * 60 * 60 * 24));
+        
+        setAbonnementInfo({
+          ...mockAbonnement,
+          jours_restants: joursRestants,
+          is_expired: false,
+          expire_bientot: joursRestants <= 7,
+          message: "Données de démonstration"
+        });
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement de l'abonnement:", error);
+    } finally {
+      setAbonnementLoading(false);
+    }
   };
 
   // === CHARGER LES DONNÉES DU PROFIL ===
@@ -142,27 +228,22 @@ const DashMembre = () => {
       const profileRes = await axios.get(
         `http://127.0.0.1:8000/api/membres/${userData.id}/profile`,
         { headers }
-      );
+      ).catch(() => ({ data: { success: false } }));
       
       if (profileRes.data && profileRes.data.success) {
         const profile = profileRes.data.data;
         
-        // NE PAS stocker le prénom dans le localStorage
         const userWithoutPrenom = { ...profile };
         delete userWithoutPrenom.prenom;
         
         setUserProfile(userWithoutPrenom);
         
-        // Calculer le pourcentage de complétion
         const { percentage, missingFields } = calculateProfileCompletion(profile);
         setProfileCompletion(percentage);
         setIncompleteFields(missingFields);
         
-        // Afficher l'alerte si le profil est incomplet (moins de 80%)
         if (percentage < 80) {
           setShowProfileAlert(true);
-          
-          // Fermer automatiquement après 30 secondes
           setTimeout(() => {
             setShowProfileAlert(false);
           }, 30000);
@@ -194,8 +275,11 @@ const DashMembre = () => {
         const token = localStorage.getItem("token");
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        // Charger le profil utilisateur d'abord
-        await fetchUserProfile();
+        // Charger le profil utilisateur et l'abonnement en parallèle
+        await Promise.all([
+          fetchUserProfile(),
+          fetchAbonnementInfo()
+        ]);
 
         const [pubRes, evtRes, msgRes] = await Promise.all([
           axios.get("http://127.0.0.1:8000/api/publications", { headers })
@@ -290,7 +374,269 @@ const DashMembre = () => {
     };
 
     fetchData();
+    
+    // Rafraîchir les informations d'abonnement toutes les minutes
+    const interval = setInterval(fetchAbonnementInfo, 60000);
+    
+    return () => clearInterval(interval);
   }, [t]);
+
+  // === COMPOSANT CARTE ABONNEMENT ===
+  const AbonnementCard = () => {
+    if (abonnementLoading) {
+      return (
+        <Card className="shadow-sm border-0 h-100" style={{ borderRadius: "18px", background: C.cardBg }}>
+          <Card.Body className="p-4">
+            <div className="text-center py-4">
+              <Spinner animation="border" variant="primary" />
+              <p className="mt-2 text-muted">Chargement de l'abonnement...</p>
+            </div>
+          </Card.Body>
+        </Card>
+      );
+    }
+
+    if (!abonnementInfo) {
+      return (
+        <Card className="shadow-sm border-0 h-100" style={{ borderRadius: "18px", background: C.cardBg }}>
+          <Card.Body className="p-4">
+            <div className="text-center py-4">
+              <FaCreditCard size={40} className="text-muted mb-3" />
+              <h5 className="fw-bold">Aucune information d'abonnement</h5>
+              <p className="text-muted">Impossible de charger les informations d'abonnement</p>
+            </div>
+          </Card.Body>
+        </Card>
+      );
+    }
+
+    const getAbonnementStatus = () => {
+      if (!abonnementInfo.id) {
+        return {
+          variant: "secondary",
+          icon: FaTimesCircle,
+          title: "Sans abonnement",
+          message: "Vous n'avez pas d'abonnement actif",
+          color: "#6c757d"
+        };
+      }
+
+      if (abonnementInfo.is_expired) {
+        return {
+          variant: "danger",
+          icon: FaExclamationCircle,
+          title: "Abonnement expiré",
+          message: "Votre abonnement a expiré",
+          color: "#dc3545"
+        };
+      }
+
+      if (abonnementInfo.expire_bientot) {
+        return {
+          variant: "warning",
+          icon: FaExclamationTriangle,
+          title: "Expire bientôt",
+          message: `Expire dans ${abonnementInfo.jours_restants} jours`,
+          color: "#ffc107"
+        };
+      }
+
+      return {
+        variant: "success",
+        icon: FaCheckCircle,
+        title: "Abonnement actif",
+        message: `Valide pour ${abonnementInfo.jours_restants} jours`,
+        color: "#28a745"
+      };
+    };
+
+    const status = getAbonnementStatus();
+    const IconComponent = status.icon;
+    const dateFin = abonnementInfo.date_fin ? new Date(abonnementInfo.date_fin) : null;
+
+    const formatDate = (date) => {
+      return date ? date.toLocaleDateString("fr-FR", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric"
+      }) : "N/A";
+    };
+
+    const getTypeLabel = (type) => {
+      switch(type) {
+        case "mensuel": return "Mensuel";
+        case "trimestriel": return "Trimestriel";
+        case "annuel": return "Annuel";
+        default: return type;
+      }
+    };
+
+    return (
+      <Card className="shadow-sm border-0 h-100" style={{ borderRadius: "18px", background: C.cardBg }}>
+        <Card.Body className="p-4 d-flex flex-column">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h5 className="fw-bold mb-0">
+              <FaCreditCard className="me-2" />
+              État de l'abonnement
+            </h5>
+            <Badge bg={status.variant} className="px-3 py-2">
+              <IconComponent className="me-1" /> {status.title}
+            </Badge>
+          </div>
+
+          {abonnementInfo.id ? (
+            <>
+              <div className="mb-4">
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-muted">Type:</span>
+                  <span className="fw-bold">{getTypeLabel(abonnementInfo.type_abonnement)}</span>
+                </div>
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-muted">Montant:</span>
+                  <span className="fw-bold">{abonnementInfo.montant} €</span>
+                </div>
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-muted">Méthode:</span>
+                  <span className="fw-bold">{abonnementInfo.methode_paiement}</span>
+                </div>
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-muted">Date début:</span>
+                  <span className="fw-bold">
+                    {abonnementInfo.date_debut ? new Date(abonnementInfo.date_debut).toLocaleDateString("fr-FR") : "N/A"}
+                  </span>
+                </div>
+                <div className="d-flex justify-content-between">
+                  <span className="text-muted">Date fin:</span>
+                  <span className="fw-bold">{formatDate(dateFin)}</span>
+                </div>
+              </div>
+
+              {status.variant === "danger" || status.variant === "warning" ? (
+                <Alert variant={status.variant} className="mt-2">
+                  <div className="d-flex align-items-center">
+                    <IconComponent className="me-2" />
+                    <div>
+                      <strong>{status.title}</strong>
+                      <p className="mb-0 small">{status.message}</p>
+                    </div>
+                  </div>
+                </Alert>
+              ) : (
+                <Alert variant="success" className="mt-2">
+                  <div className="d-flex align-items-center">
+                    <FaCheckCircle className="me-2" />
+                    <div>
+                      <strong>Abonnement valide</strong>
+                      <p className="mb-0 small">{status.message}</p>
+                    </div>
+                  </div>
+                </Alert>
+              )}
+
+              <div className="mt-auto">
+                <ProgressBar 
+                  now={abonnementInfo.jours_restants} 
+                  max={abonnementInfo.type_abonnement === "mensuel" ? 30 : 
+                       abonnementInfo.type_abonnement === "trimestriel" ? 90 : 365}
+                  variant={status.variant}
+                  className="mb-3"
+                  style={{ height: "8px", borderRadius: "4px" }}
+                />
+                
+                <Button 
+                  variant={status.variant === "danger" ? "danger" : "primary"}
+                  className="w-100"
+                  onClick={() => navigate("/renouveler-abonnement")}
+                >
+                  <FaCreditCard className="me-2" />
+                  {status.variant === "danger" ? "Renouveler maintenant" : 
+                   status.variant === "warning" ? "Renouveler l'abonnement" : 
+                   "Voir les détails"}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-center py-4">
+                <FaCreditCard size={48} className="text-muted mb-3" />
+                <h6 className="fw-bold">Aucun abonnement actif</h6>
+                <p className="text-muted small">
+                  Vous n'avez pas d'abonnement en cours. Souscrivez à un abonnement pour accéder à toutes les fonctionnalités.
+                </p>
+              </div>
+              
+              <Button 
+                variant="success" 
+                className="w-100 mt-auto"
+                onClick={() => navigate("/souscrire-abonnement")}
+              >
+                <FaCreditCard className="me-2" />
+                Souscrire un abonnement
+              </Button>
+            </>
+          )}
+        </Card.Body>
+      </Card>
+    );
+  };
+
+  // === MODAL DE RENOUVELLEMENT ===
+  const RenewModal = () => {
+    return (
+      <Modal show={showRenewModal} onHide={() => setShowRenewModal(false)} centered>
+        <Modal.Header closeButton className="bg-success text-white">
+          <Modal.Title>
+            <FaCreditCard className="me-2" />
+            Renouveler l'abonnement
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>Votre abonnement {abonnementInfo?.type_abonnement} expire le {
+            abonnementInfo?.date_fin ? new Date(abonnementInfo.date_fin).toLocaleDateString("fr-FR") : "bientôt"
+          }.</p>
+          
+          <div className="mb-3">
+            <h6>Choisissez une nouvelle formule :</h6>
+            <div className="list-group">
+              <button className="list-group-item list-group-item-action">
+                <div className="d-flex w-100 justify-content-between">
+                  <h6 className="mb-1">Mensuel</h6>
+                  <span className="fw-bold">9.99€</span>
+                </div>
+                <small className="text-muted">Renouvellement automatique chaque mois</small>
+              </button>
+              <button className="list-group-item list-group-item-action">
+                <div className="d-flex w-100 justify-content-between">
+                  <h6 className="mb-1">Trimestriel</h6>
+                  <span className="fw-bold">24.99€</span>
+                </div>
+                <small className="text-muted">Économisez 15%</small>
+              </button>
+              <button className="list-group-item list-group-item-action">
+                <div className="d-flex w-100 justify-content-between">
+                  <h6 className="mb-1">Annuel</h6>
+                  <span className="fw-bold">89.99€</span>
+                </div>
+                <small className="text-muted">Économisez 25% - Meilleur rapport</small>
+              </button>
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowRenewModal(false)}>
+            Annuler
+          </Button>
+          <Button variant="success" onClick={() => {
+            setShowRenewModal(false);
+            navigate("/paiement-abonnement");
+          }}>
+            <FaCreditCard className="me-2" />
+            Procéder au paiement
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    );
+  };
 
   // === COMPOSANT PROGRESS NOTIFICATION ===
   const ProfileCompletionAlert = () => {
@@ -378,7 +724,7 @@ const DashMembre = () => {
     );
   };
 
-  // === SIMPLE CHART (inchangé) ===
+  // === SIMPLE CHART ===
   const SimpleChart = ({ data }) => {
     const maxValue = Math.max(...data.map(d => d.value), 1);
     
@@ -468,60 +814,69 @@ const DashMembre = () => {
         {/* === NOTIFICATION DE COMPLÉTION DU PROFIL === */}
         <ProfileCompletionAlert />
 
-        {/* === CARTES STATISTIQUES === */}
+        {/* === CARTES STATISTIQUES + ABONNEMENT === */}
         <Row className="g-4 mb-5">
-          {[
-            { icon: FaBullhorn, value: stats.publications, label: t("publications_total"), color: C.primary },
-            { icon: FaCalendarAlt, value: stats.evenements, label: t("events_total"), color: C.secondary },
-            { icon: FaEnvelope, value: stats.messages, label: t("messages"), color: C.accent },
-            { icon: FaUsers, value: stats.notifications, label: t("alerts"), color: C.neon }
-          ].map((stat, i) => (
-            <Col xl={3} lg={6} key={i}>
-              <Card 
-                className="shadow-sm border-0"
-                style={{ 
-                  borderRadius: "18px", 
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  background: C.cardBg
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-8px)";
-                  e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.15)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.1)";
-                }}
-              >
-                <Card.Body className="p-4">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <stat.icon size={32} style={{ color: stat.color }} />
-                    </div>
-                    <div className="text-end">
-                      <h2 style={{ 
-                        fontWeight: "bold", 
-                        color: "#2c3e50", 
-                        fontSize: "2rem",
-                        margin: 0
-                      }}>
-                        {loading ? <Spinner animation="border" size="sm" /> : stat.value}
-                      </h2>
-                      <p style={{ 
-                        fontWeight: "600", 
-                        color: C.gray, 
-                        margin: 0,
-                        fontSize: "0.9rem"
-                      }}>
-                        {stat.label}
-                      </p>
-                    </div>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-          ))}
+          <Col xl={9}>
+            <Row className="g-4">
+              {[
+                { icon: FaBullhorn, value: stats.publications, label: t("publications_total"), color: C.primary },
+                { icon: FaCalendarAlt, value: stats.evenements, label: t("events_total"), color: C.secondary },
+                { icon: FaEnvelope, value: stats.messages, label: t("messages"), color: C.accent },
+                { icon: FaUsers, value: stats.notifications, label: t("alerts"), color: C.neon }
+              ].map((stat, i) => (
+                <Col xl={3} lg={6} key={i}>
+                  <Card 
+                    className="shadow-sm border-0"
+                    style={{ 
+                      borderRadius: "18px", 
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
+                      background: C.cardBg
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-8px)";
+                      e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.15)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.1)";
+                    }}
+                  >
+                    <Card.Body className="p-4">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <div>
+                          <stat.icon size={32} style={{ color: stat.color }} />
+                        </div>
+                        <div className="text-end">
+                          <h2 style={{ 
+                            fontWeight: "bold", 
+                            color: "#2c3e50", 
+                            fontSize: "2rem",
+                            margin: 0
+                          }}>
+                            {loading ? <Spinner animation="border" size="sm" /> : stat.value}
+                          </h2>
+                          <p style={{ 
+                            fontWeight: "600", 
+                            color: C.gray, 
+                            margin: 0,
+                            fontSize: "0.9rem"
+                          }}>
+                            {stat.label}
+                          </p>
+                        </div>
+                      </div>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+          </Col>
+          
+          {/* === CARTE ABONNEMENT === */}
+          <Col xl={3}>
+            <AbonnementCard />
+          </Col>
         </Row>
 
         {/* === GRAPHIQUE + ACCÈS RAPIDE === */}
@@ -544,7 +899,7 @@ const DashMembre = () => {
           </Col>
 
           <Col lg={4}>
-            <Card className="shadow-sm border-0 h-100" style={{ borderRadius: "18page", background: C.cardBg }}>
+            <Card className="shadow-sm border-0 h-100" style={{ borderRadius: "18px", background: C.cardBg }}>
               <Card.Body className="p-4">
                 <h4 style={{ fontWeight: "700", marginBottom: "1.5rem", color: "#2c3e50" }}>
                   {t('quick_access')}
@@ -553,7 +908,9 @@ const DashMembre = () => {
                   { label: t("menu_publication"), color: C.primary, icon: FaBullhorn, route: "/pubMembre" },
                   { label: t("menu_event"), color: C.secondary, icon: FaCalendarAlt, route: "/evenementMembre" },
                   { label: t("menu_call_for_tender"), color: C.neon, icon: FaFileAlt, route: "/appeloffreMembre" },
-                  { label: t("menu_messages"), color: C.accent, icon: FaEnvelope, route: "/messageMembre" }
+                  { label: t("menu_messages"), color: C.accent, icon: FaEnvelope, route: "/messageMembre" },
+                  // Ajout d'un accès rapide à la gestion d'abonnement
+                  { label: "Gérer l'abonnement", color: "#28a745", icon: FaCreditCard, route: "/gestion-abonnement" }
                 ].map((portal, i) => (
                   <Button 
                     key={i}
@@ -660,13 +1017,16 @@ const DashMembre = () => {
         </Card>
       </div>
 
-      {/* === FOOTER MINIMALISTE AVEC SELECTEUR DE LANGUE EN BAS À DROITE === */}
+      {/* === MODAL DE RENOUVELLEMENT === */}
+      <RenewModal />
+
+      {/* === FOOTER MINIMALISTE AVEC SELECTEUR DE LANGUE === */}
       <footer style={{ 
         position: "fixed",
         bottom: "20px",
         right: "20px",
         zIndex: 1000,
-        background: "rgba(0, 0, 0, 0)", // Transparent
+        background: "rgba(0, 0, 0, 0)",
         padding: "10px",
         borderRadius: "10px",
         backdropFilter: "blur(5px)",

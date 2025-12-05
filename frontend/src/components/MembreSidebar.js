@@ -60,6 +60,7 @@ const MembreSidebar = ({ onCollapse }) => {
     { path: "/evenementMembre", icon: "fas fa-calendar-star", label: "Événements", description: "Agenda et réunions" },
     { path: "/appeloffreMembre", icon: "fas fa-briefcase", label: "Opportunités", description: "Offres et appels" },
     { path: "/profilMembre", icon: "fas fa-user-cog", label: "Profil", description: "Paramètres personnels" },
+     { path: "/abonnementmembre", icon: "fas fa-user-cog", label: "Abonnememnt", description: "Paramètres personnels" },
     { path: "/messageMembre", icon: "fas fa-comment-dots", label: "Messages", description: "Communications" },
     { path: "/notificationMembre", icon: "fas fa-bell", label: "Notifications", description: "Alertes et mises à jour" },
   ];
