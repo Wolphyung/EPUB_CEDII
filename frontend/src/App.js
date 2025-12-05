@@ -13,6 +13,7 @@ import ParametreAdmin from "./pages/pageAdmin/parametre"
 import MessageAdmin from "./pages/pageAdmin/message"
 import NotificationgeAdmin from "./pages/pageAdmin/notification"
 import AdminEv from "./pages/pageAdmin/Evenement"
+import AbonnementAdmin from "./pages/pageAdmin/abonnement"
 
 import EventVisiteur from './pages/pageVisiteur/EventVisiteur';
 import PubVisiteur from './pages/pageVisiteur/PubVisiteur';
@@ -57,6 +58,7 @@ function App() {
          <Route path="/membreAdmin" element={<MembreAdmin />} />
          <Route path="/parametreAdmin" element={<ParametreAdmin />} />
          <Route path="/messageAdmin" element={<MessageAdmin />} />
+          <Route path="/abonnementAdmin" element={<AbonnementAdmin />} />
          <Route path="/notificationAdmin" element={<NotificationgeAdmin />} />
 
          <Route path="/dashMembre" element={<DashMembre />} />

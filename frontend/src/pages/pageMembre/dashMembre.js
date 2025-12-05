@@ -8,7 +8,10 @@ import {
   ListGroup, 
   Spinner, 
   Badge,
-  Container
+  Container,
+  Alert,
+  ProgressBar,
+  Modal
 } from "react-bootstrap";
 import { 
   FaBullhorn, 
@@ -16,7 +19,10 @@ import {
   FaEnvelope, 
   FaUsers, 
   FaRocket, 
-  FaFileAlt 
+  FaFileAlt,
+  FaExclamationCircle,
+  FaCheckCircle,
+  FaUser
 } from "react-icons/fa";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -47,6 +53,12 @@ const DashMembre = () => {
   const [monthlyData, setMonthlyData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // === NOUVEAU ÉTATS POUR LE PROFIL ===
+  const [userProfile, setUserProfile] = useState(null);
+  const [profileCompletion, setProfileCompletion] = useState(0);
+  const [showProfileAlert, setShowProfileAlert] = useState(false);
+  const [incompleteFields, setIncompleteFields] = useState([]);
 
   const mockData = {
     publications: [
@@ -63,12 +75,127 @@ const DashMembre = () => {
     ]
   };
 
+  // === FONCTION POUR CALCULER LE POURCENTAGE DE COMPLÉTION ===
+  const calculateProfileCompletion = (profile) => {
+    if (!profile) return 0;
+    
+    const requiredFields = [
+      'nom',
+      'email',
+      'telephone',
+      'adresse',
+      'ville',
+      'pays',
+      'profession',
+      'bio'
+    ];
+    
+    const optionalFields = [
+      'date_naissance',
+      'site_web',
+      'linkedin',
+      'twitter',
+      'avatar'
+    ];
+    
+    let completedCount = 0;
+    let totalFields = requiredFields.length + (optionalFields.length * 0.5); // Les champs optionnels comptent moins
+    
+    // Vérifier les champs requis
+    requiredFields.forEach(field => {
+      if (profile[field] && profile[field].toString().trim() !== '') {
+        completedCount += 1;
+      }
+    });
+    
+    // Vérifier les champs optionnels (comptent pour 0.5 chacun)
+    optionalFields.forEach(field => {
+      if (profile[field] && profile[field].toString().trim() !== '') {
+        completedCount += 0.5;
+      }
+    });
+    
+    const percentage = Math.min(Math.round((completedCount / totalFields) * 100), 100);
+    
+    // Identifier les champs manquants
+    const missingFields = requiredFields.filter(field => 
+      !profile[field] || profile[field].toString().trim() === ''
+    );
+    
+    return { percentage, missingFields };
+  };
+
+  // === CHARGER LES DONNÉES DU PROFIL ===
+  const fetchUserProfile = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      
+      if (!token || !userData.id) {
+        console.warn("Aucun utilisateur connecté trouvé");
+        return;
+      }
+
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      // Récupérer le profil complet
+      const profileRes = await axios.get(
+        `http://127.0.0.1:8000/api/membres/${userData.id}/profile`,
+        { headers }
+      );
+      
+      if (profileRes.data && profileRes.data.success) {
+        const profile = profileRes.data.data;
+        
+        // NE PAS stocker le prénom dans le localStorage
+        const userWithoutPrenom = { ...profile };
+        delete userWithoutPrenom.prenom;
+        
+        setUserProfile(userWithoutPrenom);
+        
+        // Calculer le pourcentage de complétion
+        const { percentage, missingFields } = calculateProfileCompletion(profile);
+        setProfileCompletion(percentage);
+        setIncompleteFields(missingFields);
+        
+        // Afficher l'alerte si le profil est incomplet (moins de 80%)
+        if (percentage < 80) {
+          setShowProfileAlert(true);
+          
+          // Fermer automatiquement après 30 secondes
+          setTimeout(() => {
+            setShowProfileAlert(false);
+          }, 30000);
+        }
+        
+        // Mettre à jour les statistiques du profil
+        const statsRes = await axios.get(
+          `http://127.0.0.1:8000/api/membres/${userData.id}/stats`,
+          { headers }
+        ).catch(() => ({ data: { success: false } }));
+        
+        if (statsRes.data.success) {
+          setStats(prev => ({
+            ...prev,
+            publications: statsRes.data.data.publications_count || 0,
+            evenements: statsRes.data.data.evenements_count || 0,
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement du profil:", error);
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem("token");
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        // Charger le profil utilisateur d'abord
+        await fetchUserProfile();
 
         const [pubRes, evtRes, msgRes] = await Promise.all([
           axios.get("http://127.0.0.1:8000/api/publications", { headers })
@@ -107,12 +234,13 @@ const DashMembre = () => {
           messages = mockData.messages.map(m => ({ ...m, type: "message", date: new Date(m.created_at) }));
         }
 
-        setStats({
+        setStats(prev => ({
+          ...prev,
           publications: publications.length,
           evenements: evenements.length,
           messages: messages.length,
-          notifications: 5,
-        });
+          notifications: incompleteFields.length > 0 ? incompleteFields.length : 5,
+        }));
 
         const all = [...publications, ...evenements, ...messages]
           .sort((a, b) => b.date - a.date)
@@ -141,7 +269,7 @@ const DashMembre = () => {
           publications: publications.length,
           evenements: evenements.length,
           messages: messages.length,
-          notifications: 3,
+          notifications: incompleteFields.length > 0 ? incompleteFields.length : 3,
         });
 
         setRecentData([
@@ -164,6 +292,93 @@ const DashMembre = () => {
     fetchData();
   }, [t]);
 
+  // === COMPOSANT PROGRESS NOTIFICATION ===
+  const ProfileCompletionAlert = () => {
+    if (!showProfileAlert || profileCompletion >= 100) return null;
+
+    const getProgressColor = () => {
+      if (profileCompletion < 30) return "danger";
+      if (profileCompletion < 60) return "warning";
+      if (profileCompletion < 80) return "info";
+      return "success";
+    };
+
+    const getIcon = () => {
+      if (profileCompletion < 30) return <FaExclamationCircle className="me-2" />;
+      if (profileCompletion < 80) return <FaExclamationCircle className="me-2" />;
+      return <FaCheckCircle className="me-2" />;
+    };
+
+    return (
+      <Alert 
+        variant={getProgressColor()} 
+        onClose={() => setShowProfileAlert(false)} 
+        dismissible
+        className="shadow-lg border-0 mb-4"
+        style={{ 
+          borderRadius: "15px",
+          borderLeft: `5px solid ${getProgressColor() === "danger" ? "#dc3545" : 
+                        getProgressColor() === "warning" ? "#ffc107" : 
+                        getProgressColor() === "info" ? "#17a2b8" : "#28a745"}`
+        }}
+      >
+        <div className="d-flex align-items-center mb-2">
+          {getIcon()}
+          <h5 className="mb-0 fw-bold">
+            {t('profile_completion')}: {profileCompletion}%
+          </h5>
+        </div>
+        
+        <ProgressBar 
+          now={profileCompletion} 
+          variant={getProgressColor()}
+          className="mb-3"
+          style={{ height: "10px", borderRadius: "5px" }}
+          animated={profileCompletion < 100}
+        />
+        
+        <p className="mb-2">
+          {profileCompletion < 50 
+            ? t('profile_low_completion')
+            : profileCompletion < 80
+            ? t('profile_medium_completion')
+            : t('profile_high_completion')
+          }
+        </p>
+        
+        {incompleteFields.length > 0 && (
+          <div className="mt-2">
+            <small className="fw-bold d-block mb-1">{t('missing_fields')}:</small>
+            <div className="d-flex flex-wrap gap-2">
+              {incompleteFields.map((field, index) => (
+                <Badge 
+                  key={index} 
+                  bg="secondary"
+                  className="px-3 py-1"
+                  style={{ borderRadius: "15px", fontSize: "0.8rem" }}
+                >
+                  {t(field)}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        <Button 
+          variant="outline-primary" 
+          size="sm" 
+          className="mt-3"
+          onClick={() => navigate("/profilMembre")}
+          style={{ borderRadius: "20px", padding: "5px 20px" }}
+        >
+          <FaUser className="me-2" />
+          {t('complete_profile')}
+        </Button>
+      </Alert>
+    );
+  };
+
+  // === SIMPLE CHART (inchangé) ===
   const SimpleChart = ({ data }) => {
     const maxValue = Math.max(...data.map(d => d.value), 1);
     
@@ -250,6 +465,9 @@ const DashMembre = () => {
           {t('member_dashboard_title')}
         </h1>
 
+        {/* === NOTIFICATION DE COMPLÉTION DU PROFIL === */}
+        <ProfileCompletionAlert />
+
         {/* === CARTES STATISTIQUES === */}
         <Row className="g-4 mb-5">
           {[
@@ -326,7 +544,7 @@ const DashMembre = () => {
           </Col>
 
           <Col lg={4}>
-            <Card className="shadow-sm border-0 h-100" style={{ borderRadius: "18px", background: C.cardBg }}>
+            <Card className="shadow-sm border-0 h-100" style={{ borderRadius: "18page", background: C.cardBg }}>
               <Card.Body className="p-4">
                 <h4 style={{ fontWeight: "700", marginBottom: "1.5rem", color: "#2c3e50" }}>
                   {t('quick_access')}

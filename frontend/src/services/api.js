@@ -1,3 +1,4 @@
+// services/api.js
 import axios from "axios";
 
 const API_URL = "http://127.0.0.1:8000/api";
@@ -103,3 +104,36 @@ export const updateMembre = (id, data) => apiClient.post(`/membres/${id}?_method
   headers: { "Content-Type": "multipart/form-data" },
 });
 export const deleteMembre = (id) => apiClient.delete(`/membres/${id}`);
+
+// --- Abonnements ---
+export const fetchAbonnements = () => {
+  return apiClient.get('/abonnements');
+};
+
+export const fetchAbonnementById = (id) => {
+  return apiClient.get(`/abonnements/${id}`);
+};
+
+export const addAbonnement = (data) => {
+  return apiClient.post('/abonnements', data);
+};
+
+export const updateAbonnement = (id, data) => {
+  return apiClient.post(`/abonnements/${id}?_method=PUT`, data);
+};
+
+export const deleteAbonnement = (id) => {
+  return apiClient.delete(`/abonnements/${id}`);
+};
+
+export const getAbonnementStats = () => {
+  return apiClient.get('/abonnements/stats');
+};
+
+export const checkMembreAbonnement = (membreId) => {
+  return apiClient.get(`/abonnements/check/${membreId}`);
+};
+
+
+// Export par défaut pour une utilisation directe
+export default apiClient;

@@ -13,6 +13,8 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Api\AbonnementController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -118,6 +120,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/status', [EvenementController::class, 'updateStatus']);
         Route::post('/{id}/update', [EvenementController::class, 'updateEvent']);
     });
+// ====================abonnement=============================
+    Route::prefix('abonnements')->group(function () {
+    Route::get('/', [AbonnementController::class, 'index']);
+    Route::get('/stats', [AbonnementController::class, 'stats']);
+    Route::get('/membre/{membreId}', [AbonnementController::class, 'byMembre']);
+    Route::get('/check/{membreId}', [AbonnementController::class, 'checkMembreAbonnement']);
+    Route::post('/', [AbonnementController::class, 'store']);
+    Route::put('/{id}', [AbonnementController::class, 'update']);
+    Route::delete('/{id}', [AbonnementController::class, 'destroy']);
+});
 
     // ==================== APPELS D'OFFRES ====================
     Route::prefix('appeloffres')->group(function () {

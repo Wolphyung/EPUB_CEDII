@@ -39,6 +39,19 @@ class Membre extends Authenticatable
         'date_naissance' => 'date',
         'email_verified_at' => 'datetime',
     ];
+    // Ajoutez cette relation
+    public function abonnements()
+    {
+        return $this->hasMany(Abonnement::class);
+    }
+
+    public function abonnementActif()
+    {
+        return $this->hasOne(Abonnement::class)
+                    ->where('statut', 'actif')
+                    ->where('date_fin', '>=', now())
+                    ->latest();
+    }
 
     // Accesseur pour l'avatar - retourne l'URL complète
     public function getAvatarAttribute($value)

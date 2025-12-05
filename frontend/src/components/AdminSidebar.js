@@ -65,6 +65,7 @@ const AdminSidebar = () => {
     { path: "/adminEv", icon: "fas fa-calendar-alt", labelKey: "menu_event" },
     { path: "/appeloffreAdmin", icon: "fas fa-file-contract", labelKey: "menu_call_for_tender" },
     { path: "/membreAdmin", icon: "fas fa-users", labelKey: "menu_member" },
+    { path: "/abonnementAdmin", icon: "fas fa-users", labelKey: "Abonnement" },
     { path: "/messageAdmin", icon: "fas fa-comments", labelKey: "menu_messages" },
     { path: "/notificationAdmin", icon: "fas fa-bell", labelKey: "menu_notifications" },
     { path: "/parametreAdmin", icon: "fas fa-cogs", labelKey: "menu_settings" },
