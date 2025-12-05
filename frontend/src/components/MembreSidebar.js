@@ -430,7 +430,7 @@ const MembreSidebar = ({ onCollapse }) => {
                   <span>Sécurisé • v2.1.0</span>
                 </div>
                 <div className="mt-1" style={{ fontSize: "0.75rem", opacity: 0.6 }}>
-                  © 2024 CEDII • Tous droits réservés
+                  © 2025 CEDII • Tous droits réservés
                 </div>
               </div>
             </div>
