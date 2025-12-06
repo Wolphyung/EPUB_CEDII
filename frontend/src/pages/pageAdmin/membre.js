@@ -39,17 +39,17 @@ const MembrePage = () => {
   const [showAlert, setShowAlert] = useState({ show: false, type: "", message: "" });
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
-  const [filterStatut, setFilterStatut] = useState("Tous");
-  const [filterType, setFilterType] = useState("Tous");
-  const [filterAbonnement, setFilterAbonnement] = useState("Tous");
+  const [filterStatut, setFilterStatut] = useState(t("all_status") || "Tous");
+  const [filterType, setFilterType] = useState(t("all_types") || "Tous");
+  const [filterAbonnement, setFilterAbonnement] = useState(t("all") || "Tous");
   const [activeView, setActiveView] = useState("membres");
 
   const [currentMembre, setCurrentMembre] = useState({
     id: null,
     nom: "",
     prenom: "-",
-    type: "membre",
-    statut: "actif",
+    type: t("member_label") || "membre",
+    statut: t("Actif") || "actif",
     avatar: null,
     email: "",
     password: "",
@@ -71,7 +71,7 @@ const MembrePage = () => {
     email: "",
     password: "",
     email_verified_at: null,
-    statut: "actif",
+    statut: t("Actif") || "actif",
   });
 
   const [currentAbonnement, setCurrentAbonnement] = useState({
@@ -80,7 +80,7 @@ const MembrePage = () => {
     type_abonnement: "mensuel",
     date_debut: new Date().toISOString().split("T")[0],
     date_fin: "",
-    statut: "actif",
+    statut: t("Actif") || "actif",
     montant: "9.99",
     methode_paiement: "Carte",
     notes: "",
@@ -97,8 +97,8 @@ const MembrePage = () => {
     try {
       await Promise.all([loadMembres(), loadVisiteurs()]);
     } catch (error) {
-      console.error("Erreur lors du chargement des données:", error);
-      showNotification("error", "Erreur lors du chargement des données");
+      console.error(`${t("error")}:`, error);
+      showNotification("error", t("error_load_data"));
     } finally {
       setLoading(false);
     }
@@ -113,8 +113,8 @@ const MembrePage = () => {
         ...m,
         nom: m.nom || "",
         prenom: m.prenom || "-",
-        type: (m.type || "membre").toString().toLowerCase(),
-        statut: (m.statut || "actif").toString().toLowerCase(),
+        type: (m.type || t("member_label") || "membre").toString().toLowerCase(),
+        statut: (m.statut || t("Actif") || "actif").toString().toLowerCase(),
         avatar: m.avatar || null,
         email: m.email || "",
       }));
@@ -122,8 +122,8 @@ const MembrePage = () => {
       setMembres(membresNormalises);
       await loadAbonnementsMembres(membresNormalises);
     } catch (err) {
-      console.error("Erreur chargement membres:", err);
-      showNotification("error", "Erreur lors du chargement des membres");
+      console.error(`${t("error_load_members")}:`, err);
+      showNotification("error", t("error_load_members"));
     }
   };
 
@@ -137,16 +137,16 @@ const MembrePage = () => {
         name: v.name || "",
         email: v.email || "",
         type: "visiteur",
-        statut: (v.statut || "actif").toString().toLowerCase(),
-        avatar: null, // Pas d'avatar pour les visiteurs
+        statut: (v.statut || t("Actif") || "actif").toString().toLowerCase(),
+        avatar: null,
         created_at: v.created_at,
         updated_at: v.updated_at,
       }));
       
       setVisiteurs(visiteursNormalises);
     } catch (err) {
-      console.error("Erreur chargement visiteurs:", err);
-      showNotification("error", "Erreur lors du chargement des visiteurs");
+      console.error(`${t("error")}:`, err);
+      showNotification("error", t("error_load_visitors"));
     }
   };
 
@@ -163,14 +163,14 @@ const MembrePage = () => {
               abonnement_info: abonnementInfo,
               has_abonnement: res.data?.has_abonnement || false,
               abonnement_valide: abonnementInfo ? 
-                new Date(abonnementInfo.date_fin) > new Date() && abonnementInfo.statut === 'actif' 
+                new Date(abonnementInfo.date_fin) > new Date() && abonnementInfo.statut === t("Actif") 
                 : false,
               jours_restants: abonnementInfo ? 
                 Math.ceil((new Date(abonnementInfo.date_fin) - new Date()) / (1000 * 60 * 60 * 24))
                 : 0,
             };
           } catch (error) {
-            console.error(`Erreur chargement abonnement membre ${membre.id}:`, error);
+            console.error(`${t("error")} ${membre.id}:`, error);
             return {
               ...membre,
               abonnement_info: null,
@@ -184,7 +184,7 @@ const MembrePage = () => {
       
       setMembresAvecAbonnement(membresAvecInfo);
     } catch (error) {
-      console.error("Erreur chargement abonnements:", error);
+      console.error(t("error_load_subscriptions"), error);
       setMembresAvecAbonnement(membresList.map(m => ({
         ...m,
         abonnement_info: null,
@@ -205,8 +205,8 @@ const MembrePage = () => {
       id: null,
       nom: "",
       prenom: "-",
-      type: "membre",
-      statut: "actif",
+      type: t("member_label") || "membre",
+      statut: t("Actif") || "actif",
       avatar: null,
       email: "",
       password: "",
@@ -241,7 +241,7 @@ const MembrePage = () => {
       email: "",
       password: "",
       email_verified_at: null,
-      statut: "actif",
+      statut: t("Actif") || "actif",
     });
     setShowModal(true);
   };
@@ -261,7 +261,7 @@ const MembrePage = () => {
       type_abonnement: "mensuel",
       date_debut: new Date().toISOString().split("T")[0],
       date_fin: "",
-      statut: "actif",
+      statut: t("Actif") || "actif",
       montant: "9.99",
       methode_paiement: "Carte",
       notes: "",
@@ -277,13 +277,13 @@ const MembrePage = () => {
       const file = files[0];
       const maxSize = 2 * 1024 * 1024;
       if (file.size > maxSize) {
-        setAvatarError("L'avatar ne doit pas dépasser 2 Mo");
+        setAvatarError(t("avatar_size_error"));
         e.target.value = "";
         return;
       }
       const validTypes = ["image/jpeg", "image/png", "image/jpg", "image/gif"];
       if (!validTypes.includes(file.type)) {
-        setAvatarError("Format d'image non valide (JPEG, PNG, GIF uniquement)");
+        setAvatarError(t("avatar_format_error"));
         e.target.value = "";
         return;
       }
@@ -340,15 +340,15 @@ const MembrePage = () => {
 
   const handleSaveMembre = async () => {
     if (!currentMembre.nom?.trim()) {
-      showNotification("error", "Le nom est requis");
+      showNotification("error", t("name_required"));
       return;
     }
     if (!currentMembre.email?.trim()) {
-      showNotification("error", "L'email est requis");
+      showNotification("error", t("email_required"));
       return;
     }
     if (!currentMembre.id && !currentMembre.password) {
-      showNotification("error", "Le mot de passe est requis pour un nouveau membre");
+      showNotification("error", t("password_required"));
       return;
     }
     if (avatarError) {
@@ -375,7 +375,6 @@ const MembrePage = () => {
       if (currentMembre.twitter) formData.append("twitter", currentMembre.twitter);
       if (currentMembre.bio) formData.append("bio", currentMembre.bio);
       
-      // Envoi de l'avatar seulement si c'est un nouveau fichier
       if (currentMembre.avatar && typeof currentMembre.avatar !== "string") {
         formData.append("avatar", currentMembre.avatar);
       }
@@ -383,87 +382,75 @@ const MembrePage = () => {
       let response;
       if (currentMembre.id) {
         response = await updateMembre(currentMembre.id, formData);
-        showNotification("success", "Membre modifié avec succès");
+        showNotification("success", t("member_updated_success"));
       } else {
         response = await addMembre(formData);
-        showNotification("success", "Membre créé avec succès");
+        showNotification("success", t("member_created_success"));
       }
       
-      console.log("Response:", response.data);
       loadMembres();
       setShowModal(false);
     } catch (err) {
-      console.error("Erreur lors de la sauvegarde du membre:", err);
+      console.error(`${t("error")}:`, err);
       const errors = err.response?.data?.errors;
       if (errors) {
         const msg = Object.values(errors).flat().join(", ");
         showNotification("error", msg);
       } else {
-        showNotification("error", err.response?.data?.message || err.message || "Erreur serveur");
+        showNotification("error", err.response?.data?.message || err.message || t("server_error"));
       }
     }
   };
 
   const handleSaveVisiteur = async () => {
     if (!currentVisiteur.name?.trim()) {
-        showNotification("error", "Le nom est requis");
+        showNotification("error", t("name_required"));
         return;
     }
     if (!currentVisiteur.email?.trim()) {
-        showNotification("error", "L'email est requis");
+        showNotification("error", t("email_required"));
         return;
     }
     if (!currentVisiteur.id && !currentVisiteur.password) {
-        showNotification("error", "Le mot de passe est requis pour un nouveau visiteur");
+        showNotification("error", t("password_required"));
         return;
     }
 
     try {
-        // Créer un objet JSON (pas FormData)
         const userData = {
         name: currentVisiteur.name.trim(),
         email: currentVisiteur.email.trim(),
         statut: currentVisiteur.statut,
         };
         
-        // Ajouter le mot de passe seulement si fourni
         if (currentVisiteur.password) {
         userData.password = currentVisiteur.password;
         }
 
-        // Gérer email_verified_at correctement
         if (currentVisiteur.email_verified_at) {
         userData.email_verified_at = currentVisiteur.email_verified_at;
         } else {
-        // Pour un nouvel utilisateur sans vérification
         userData.email_verified_at = null;
         }
-
-        console.log("Données envoyées pour visiteur:", userData);
 
         let response;
         if (currentVisiteur.id) {
         response = await updateVisiteur(currentVisiteur.id, userData);
-        showNotification("success", "Visiteur modifié avec succès");
+        showNotification("success", t("visitor_updated_success"));
         } else {
         response = await addVisiteur(userData);
-        showNotification("success", "Visiteur créé avec succès");
+        showNotification("success", t("visitor_created_success"));
         }
         
-        console.log("Response visiteur:", response.data);
         loadVisiteurs();
         setShowModal(false);
     } catch (err) {
-        console.error("Erreur complète:", err);
-        console.error("Response data:", err.response?.data);
-        console.error("Response status:", err.response?.status);
-        
         const errors = err.response?.data?.errors;
         if (errors) {
         const msg = Object.values(errors).flat().join(", ");
         showNotification("error", msg);
         } else {
-        showNotification("error", err.response?.data?.message || err.message || "Erreur serveur");
+        showNotification("error", err.response?.data?.message || err.message || t("server_error"));
         }
     }
     };
@@ -471,7 +458,7 @@ const MembrePage = () => {
   const handleSaveAbonnement = async () => {
     try {
       if (!currentAbonnement.membre_id) {
-        showNotification("error", "Veuillez sélectionner un membre");
+        showNotification("error", t("select_member_required"));
         return;
       }
 
@@ -483,46 +470,45 @@ const MembrePage = () => {
         montant: currentAbonnement.montant,
         methode_paiement: currentAbonnement.methode_paiement,
         statut: currentAbonnement.statut,
-        notes: currentAbonnement.notes || `Abonnement créé depuis l'admin pour ${currentAbonnement.membre_nom}`
+        notes: currentAbonnement.notes || `${t("subscription_created_for")} ${currentAbonnement.membre_nom}`
       };
 
       const response = await addAbonnement(abonnementData);
-      console.log("Response abonnement:", response.data);
-      showNotification("success", "Abonnement créé avec succès");
+      showNotification("success", t("subscription_created_success"));
       loadMembres();
       setShowAbonnementModal(false);
     } catch (error) {
-      console.error("Erreur lors de la création de l'abonnement:", error);
+      console.error(`${t("error")}:`, error);
       const errors = error.response?.data?.errors;
       if (errors) {
         Object.values(errors).flat().forEach(err => showNotification("error", err));
       } else {
-        showNotification("error", error.response?.data?.message || error.message || "Erreur serveur");
+        showNotification("error", error.response?.data?.message || error.message || t("server_error"));
       }
     }
   };
 
   const handleDeleteMembre = async (id) => {
-    if (!window.confirm("Confirmer la suppression de ce membre ?")) return;
+    if (!window.confirm(t("delete_member_confirmation"))) return;
     try {
       await deleteMembre(id);
-      showNotification("success", "Membre supprimé avec succès");
+      showNotification("success", t("member_deleted_success"));
       loadMembres();
     } catch (err) {
-      console.error("Erreur lors de la suppression du membre:", err);
-      showNotification("error", err.response?.data?.message || err.message || "Erreur lors de la suppression");
+      console.error(`${t("error")}:`, err);
+      showNotification("error", err.response?.data?.message || err.message || t("delete_error"));
     }
   };
 
   const handleDeleteVisiteur = async (id) => {
-    if (!window.confirm("Confirmer la suppression de ce visiteur ?")) return;
+    if (!window.confirm(t("delete_visitor_confirmation"))) return;
     try {
       await deleteVisiteur(id);
-      showNotification("success", "Visiteur supprimé avec succès");
+      showNotification("success", t("visitor_deleted_success"));
       loadVisiteurs();
     } catch (err) {
-      console.error("Erreur lors de la suppression du visiteur:", err);
-      showNotification("error", err.response?.data?.message || err.message || "Erreur lors de la suppression");
+      console.error(`${t("error")}:`, err);
+      showNotification("error", err.response?.data?.message || err.message || t("delete_error"));
     }
   };
 
@@ -530,7 +516,7 @@ const MembrePage = () => {
     if (!membre.has_abonnement || !membre.abonnement_info) {
       return (
         <Badge bg="secondary" className="px-3 py-2">
-          <i className="fas fa-times-circle me-2"></i> Sans abonnement
+          <i className="fas fa-times-circle me-2"></i> {t("no_subscription")}
         </Badge>
       );
     }
@@ -540,10 +526,10 @@ const MembrePage = () => {
     const isExpired = dateFin < now;
     const joursRestants = Math.ceil((dateFin - now) / (1000 * 60 * 60 * 24));
 
-    if (isExpired || membre.abonnement_info.statut !== 'actif') {
+    if (isExpired || membre.abonnement_info.statut !== t("Actif")) {
       return (
         <Badge bg="danger" className="px-3 py-2">
-          <i className="fas fa-clock me-2"></i> Expiré
+          <i className="fas fa-clock me-2"></i> {t("expired")}
         </Badge>
       );
     }
@@ -551,21 +537,21 @@ const MembrePage = () => {
     if (joursRestants <= 7) {
       return (
         <Badge bg="warning" className="px-3 py-2">
-          <i className="fas fa-exclamation-triangle me-2"></i> Expire dans {joursRestants} j
+          <i className="fas fa-exclamation-triangle me-2"></i> {t("expires_in")} {joursRestants} {t("days")}
         </Badge>
       );
     }
 
     return (
       <Badge bg="success" className="px-3 py-2">
-        <i className="fas fa-check-circle me-2"></i> Valide ({joursRestants} j)
+        <i className="fas fa-check-circle me-2"></i> {t("valid")} ({joursRestants} {t("days")})
       </Badge>
     );
   };
 
   const getAbonnementDetails = (membre) => {
     if (!membre.has_abonnement || !membre.abonnement_info) {
-      return <small className="text-muted">Aucun abonnement</small>;
+      return <small className="text-muted">{t("no_subscription")}</small>;
     }
 
     const dateFin = new Date(membre.abonnement_info.date_fin);
@@ -574,7 +560,7 @@ const MembrePage = () => {
     return (
       <div>
         <small className="text-muted">
-          {membre.abonnement_info.type_abonnement} - Jusqu'au {formattedDate}
+          {membre.abonnement_info.type_abonnement} - {t("until")} {formattedDate}
         </small>
       </div>
     );
@@ -582,11 +568,11 @@ const MembrePage = () => {
 
   const getStatusBadge = (statut) => {
     const map = {
-      actif: { label: "Actif", variant: "success", icon: "fa-check-circle" },
-      inactif: { label: "Inactif", variant: "warning", icon: "fa-clock" },
-      suspendu: { label: "Suspendu", variant: "danger", icon: "fa-ban" },
+      actif: { label: t("Actif"), variant: "success", icon: "fa-check-circle" },
+      inactif: { label: t("Inactif"), variant: "warning", icon: "fa-clock" },
+      suspendu: { label: t("Suspendu"), variant: "danger", icon: "fa-ban" },
     };
-    const s = map[statut] || { label: "Inconnu", variant: "secondary", icon: "fa-question" };
+    const s = map[statut] || { label: t("unknown"), variant: "secondary", icon: "fa-question" };
     return (
       <Badge bg={s.variant} className="px-3 py-2">
         <i className={`fas ${s.icon} me-2`}></i> {s.label}
@@ -596,10 +582,10 @@ const MembrePage = () => {
 
   const getTypeBadge = (type) => {
     const map = {
-      admin: { label: "Admin", variant: "primary", icon: "fa-crown" },
-      membre: { label: "Membre", variant: "info", icon: "fa-user" },
-      moderateur: { label: "Modérateur", variant: "secondary", icon: "fa-user-shield" },
-      visiteur: { label: "Visiteur", variant: "secondary", icon: "fa-user-circle" },
+      admin: { label: t("admin_label"), variant: "primary", icon: "fa-crown" },
+      membre: { label: t("member_label"), variant: "info", icon: "fa-user" },
+      moderateur: { label: t("moderator_label"), variant: "secondary", icon: "fa-user-shield" },
+      visiteur: { label: t("visitor_label"), variant: "secondary", icon: "fa-user-circle" },
     };
     const tBadge = map[type] || { label: type, variant: "dark", icon: "fa-user" };
     return (
@@ -620,15 +606,15 @@ const MembrePage = () => {
            (membre.type || "").toLowerCase().includes(search));
 
         const matchesStatut =
-          filterStatut === "Tous" || membre.statut === filterStatut.toLowerCase();
+          filterStatut === t("all_status") || filterStatut === "Tous" || membre.statut === filterStatut.toLowerCase();
         
         const matchesType =
-          filterType === "Tous" || membre.type === filterType.toLowerCase();
+          filterType === t("all_types") || filterType === "Tous" || membre.type === filterType.toLowerCase();
 
-        const matchesAbonnement = filterAbonnement === "Tous" || 
-          (filterAbonnement === "Avec abonnement" && membre.has_abonnement && membre.abonnement_valide) ||
-          (filterAbonnement === "Sans abonnement" && !membre.has_abonnement) ||
-          (filterAbonnement === "Expire" && membre.has_abonnement && !membre.abonnement_valide);
+        const matchesAbonnement = filterAbonnement === t("all") || filterAbonnement === "Tous" || 
+          (filterAbonnement === t("with_subscription") && membre.has_abonnement && membre.abonnement_valide) ||
+          (filterAbonnement === t("without_subscription") && !membre.has_abonnement) ||
+          (filterAbonnement === t("expired") && membre.has_abonnement && !membre.abonnement_valide);
 
         return matchesSearch && matchesStatut && matchesType && matchesAbonnement;
       })
@@ -640,19 +626,19 @@ const MembrePage = () => {
            (visiteur.email || "").toLowerCase().includes(search));
 
         const matchesStatut =
-          filterStatut === "Tous" || visiteur.statut === filterStatut.toLowerCase();
+          filterStatut === t("all_status") || filterStatut === "Tous" || visiteur.statut === filterStatut.toLowerCase();
         
         const matchesType =
-          filterType === "Tous" || visiteur.type === filterType.toLowerCase();
+          filterType === t("all_types") || filterType === "Tous" || visiteur.type === filterType.toLowerCase();
 
         return matchesSearch && matchesStatut && matchesType;
       });
 
   const clearFilters = () => {
     setSearchTerm("");
-    setFilterStatut("Tous");
-    setFilterType("Tous");
-    setFilterAbonnement("Tous");
+    setFilterStatut(t("all_status") || "Tous");
+    setFilterType(t("all_types") || "Tous");
+    setFilterAbonnement(t("all") || "Tous");
   };
 
   const removeAvatar = () => {
@@ -662,16 +648,16 @@ const MembrePage = () => {
 
   const statsMembres = {
     total: membres.length,
-    actifs: membres.filter(m => m.statut === "actif").length,
+    actifs: membres.filter(m => m.statut === t("Actif") || m.statut === "actif").length,
     avec_abonnement: membresAvecAbonnement.filter(m => m.has_abonnement && m.abonnement_valide).length,
-    sans_abonnement: membresAvecAbonnement.filter(m => !m.has_abonnement).length,
+    sans_abonnement: membresAvecAbonnement.filter(m => !membres.has_abonnement).length,
   };
 
   const statsVisiteurs = {
     total: visiteurs.length,
-    actifs: visiteurs.filter(v => v.statut === "actif").length,
-    inactifs: visiteurs.filter(v => v.statut === "inactif").length,
-    suspendus: visiteurs.filter(v => v.statut === "suspendu").length,
+    actifs: visiteurs.filter(v => v.statut === t("Actif") || v.statut === "actif").length,
+    inactifs: visiteurs.filter(v => v.statut === t("Inactif") || v.statut === "inactif").length,
+    suspendus: visiteurs.filter(v => v.statut === t("Suspendu") || v.statut === "suspendu").length,
     verifies: visiteurs.filter(v => v.email_verified_at).length,
     non_verifies: visiteurs.filter(v => !v.email_verified_at).length,
   };
@@ -689,7 +675,7 @@ const MembrePage = () => {
             onClose={() => setShowAlert({ ...showAlert, show: false })}
             dismissible
           >
-            <strong>{showAlert.type === "success" ? "Succès" : "Erreur"}</strong>
+            <strong>{showAlert.type === "success" ? t("success") : t("error")}</strong>
             <p className="mb-0">{showAlert.message}</p>
           </Alert>
         )}
@@ -697,13 +683,13 @@ const MembrePage = () => {
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div>
             <h2 className="fw-bold mb-2 text-gradient">
-              {activeView === "membres" ? "Gestion des Membres" : "Gestion des Visiteurs"}
+              {activeView === "membres" ? t("member_management_title") : t("visitor_management_title")}
             </h2>
             <p className="text-muted">
               <i className="fas fa-users me-2"></i> 
               {activeView === "membres" 
-                ? "Visualisez et gérez tous les membres avec abonnement" 
-                : "Visualisez et gérez tous les visiteurs inscrits"}
+                ? t("member_management_subtitle")
+                : t("visitor_management_subtitle")}
             </p>
           </div>
           <div className="d-flex align-items-center">
@@ -713,7 +699,7 @@ const MembrePage = () => {
               className="shadow me-3"
             >
               <i className={`fas ${activeView === "membres" ? "fa-user-circle" : "fa-users"} me-2`}></i>
-              {activeView === "membres" ? "Voir les visiteurs" : "Voir les membres"}
+              {activeView === "membres" ? t("view_visitors") : t("view_members")}
             </Button>
             
             <Button 
@@ -722,12 +708,12 @@ const MembrePage = () => {
               className="shadow me-2"
             >
               <i className="fas fa-user-plus me-2"></i> 
-              {activeView === "membres" ? "Nouveau membre" : "Nouveau visiteur"}
+              {activeView === "membres" ? t("new_member_button") : t("new_visitor_button")}
             </Button>
             
             {activeView === "membres" && (
-              <Button variant="success" onClick={() => openAbonnementModal({ id: "", nom: "Sélectionner un membre", prenom: "" })} className="shadow">
-                <i className="fas fa-credit-card me-2"></i> Nouvel abonnement
+              <Button variant="success" onClick={() => openAbonnementModal({ id: "", nom: t("select_member"), prenom: "" })} className="shadow">
+                <i className="fas fa-credit-card me-2"></i> {t("new_subscription")}
               </Button>
             )}
           </div>
@@ -743,7 +729,7 @@ const MembrePage = () => {
                       <i className="fas fa-users text-white fs-4"></i>
                     </div>
                     <h4 className="mb-0">{statsMembres.total}</h4>
-                    <small className="text-muted">Total membres</small>
+                    <small className="text-muted">{t("total_members")}</small>
                   </Card.Body>
                 </Card>
               </Col>
@@ -754,7 +740,7 @@ const MembrePage = () => {
                       <i className="fas fa-user-check text-white fs-4"></i>
                     </div>
                     <h4 className="mb-0">{statsMembres.actifs}</h4>
-                    <small className="text-muted">Membres actifs</small>
+                    <small className="text-muted">{t("active_members")}</small>
                   </Card.Body>
                 </Card>
               </Col>
@@ -765,7 +751,7 @@ const MembrePage = () => {
                       <i className="fas fa-credit-card text-white fs-4"></i>
                     </div>
                     <h4 className="mb-0">{statsMembres.avec_abonnement}</h4>
-                    <small className="text-muted">Avec abonnement</small>
+                    <small className="text-muted">{t("with_subscription")}</small>
                   </Card.Body>
                 </Card>
               </Col>
@@ -776,7 +762,7 @@ const MembrePage = () => {
                       <i className="fas fa-credit-card text-white fs-4"></i>
                     </div>
                     <h4 className="mb-0">{statsMembres.sans_abonnement}</h4>
-                    <small className="text-muted">Sans abonnement</small>
+                    <small className="text-muted">{t("without_subscription")}</small>
                   </Card.Body>
                 </Card>
               </Col>
@@ -790,7 +776,7 @@ const MembrePage = () => {
                       <i className="fas fa-user-circle text-white fs-4"></i>
                     </div>
                     <h4 className="mb-0">{statsVisiteurs.total}</h4>
-                    <small className="text-muted">Total visiteurs</small>
+                    <small className="text-muted">{t("total_visitors")}</small>
                   </Card.Body>
                 </Card>
               </Col>
@@ -801,7 +787,7 @@ const MembrePage = () => {
                       <i className="fas fa-user-check text-white fs-4"></i>
                     </div>
                     <h4 className="mb-0">{statsVisiteurs.actifs}</h4>
-                    <small className="text-muted">Visiteurs actifs</small>
+                    <small className="text-muted">{t("active_visitors")}</small>
                   </Card.Body>
                 </Card>
               </Col>
@@ -812,7 +798,7 @@ const MembrePage = () => {
                       <i className="fas fa-clock text-white fs-4"></i>
                     </div>
                     <h4 className="mb-0">{statsVisiteurs.inactifs}</h4>
-                    <small className="text-muted">Visiteurs inactifs</small>
+                    <small className="text-muted">{t("inactive_visitors")}</small>
                   </Card.Body>
                 </Card>
               </Col>
@@ -823,7 +809,7 @@ const MembrePage = () => {
                       <i className="fas fa-ban text-white fs-4"></i>
                     </div>
                     <h4 className="mb-0">{statsVisiteurs.suspendus}</h4>
-                    <small className="text-muted">Visiteurs suspendus</small>
+                    <small className="text-muted">{t("suspended_visitors")}</small>
                   </Card.Body>
                 </Card>
               </Col>
@@ -837,50 +823,50 @@ const MembrePage = () => {
               <Col md={activeView === "membres" ? 3 : 4}>
                 <Form.Control
                   type="text"
-                  placeholder={activeView === "membres" ? "Rechercher un membre..." : "Rechercher un visiteur..."}
+                  placeholder={activeView === "membres" ? t("search_member_placeholder") : t("search_visitor_placeholder")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </Col>
               <Col md={activeView === "membres" ? 2 : 3}>
                 <Form.Select value={filterStatut} onChange={(e) => setFilterStatut(e.target.value)}>
-                  <option value="Tous">Tous les statuts</option>
-                  <option value="actif">Actif</option>
-                  <option value="inactif">Inactif</option>
-                  <option value="suspendu">Suspendu</option>
+                  <option value={t("all_status")}>{t("all_status")}</option>
+                  <option value={t("Actif") || "actif"}>{t("Actif")}</option>
+                  <option value={t("Inactif") || "inactif"}>{t("Inactif")}</option>
+                  <option value={t("Suspendu") || "suspendu"}>{t("Suspendu")}</option>
                 </Form.Select>
               </Col>
               <Col md={activeView === "membres" ? 2 : 3}>
                 {activeView === "membres" ? (
                   <Form.Select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-                    <option value="Tous">Tous les rôles</option>
-                    <option value="admin">Admin</option>
-                    <option value="membre">Membre</option>
-                    <option value="moderateur">Modérateur</option>
+                    <option value={t("all_roles")}>{t("all_roles")}</option>
+                    <option value={t("admin_label") || "admin"}>{t("admin_label")}</option>
+                    <option value={t("member_label") || "membre"}>{t("member_label")}</option>
+                    <option value={t("moderator_label") || "moderateur"}>{t("moderator_label")}</option>
                   </Form.Select>
                 ) : (
                   <Form.Select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-                    <option value="Tous">Tous les types</option>
-                    <option value="visiteur">Visiteur</option>
+                    <option value={t("all_types")}>{t("all_types")}</option>
+                    <option value={t("visitor_label") || "visiteur"}>{t("visitor_label")}</option>
                   </Form.Select>
                 )}
               </Col>
               {activeView === "membres" && (
                 <Col md={2}>
                   <Form.Select value={filterAbonnement} onChange={(e) => setFilterAbonnement(e.target.value)}>
-                    <option value="Tous">Tous abonnements</option>
-                    <option value="Avec abonnement">Avec abonnement</option>
-                    <option value="Sans abonnement">Sans abonnement</option>
-                    <option value="Expire">Abonnement expiré</option>
+                    <option value={t("all")}>{t("all_subscriptions")}</option>
+                    <option value={t("with_subscription")}>{t("with_subscription")}</option>
+                    <option value={t("without_subscription")}>{t("without_subscription")}</option>
+                    <option value={t("expired")}>{t("expired_subscription")}</option>
                   </Form.Select>
                 </Col>
               )}
               <Col md={activeView === "membres" ? 3 : 2}>
                 <Button variant="outline-secondary" onClick={clearFilters} className="me-2">
-                  Réinitialiser
+                  {t("reset_filters")}
                 </Button>
                 <Button variant="info" onClick={loadAllData}>
-                  <i className="fas fa-sync-alt me-1"></i> Actualiser
+                  <i className="fas fa-sync-alt me-1"></i> {t("refresh")}
                 </Button>
               </Col>
             </Row>
@@ -892,20 +878,20 @@ const MembrePage = () => {
             {loading ? (
               <div className="text-center py-5">
                 <div className="spinner-border text-primary" style={{ width: "3rem", height: "3rem" }}></div>
-                <p className="mt-2">Chargement...</p>
+                <p className="mt-2">{t("loading")}...</p>
               </div>
             ) : (
               <Table hover responsive>
                 <thead className={activeView === "membres" ? "bg-primary text-white" : "bg-info text-white"}>
                   <tr>
-                    <th>Avatar</th>
-                    <th>{activeView === "membres" ? "Membre" : "Visiteur"}</th>
-                    <th>Rôle</th>
-                    <th>Email</th>
-                    <th>Statut</th>
-                    {activeView === "membres" && <th>État abonnement</th>}
-                    <th>Inscrit le</th>
-                    <th>Actions</th>
+                    <th>{t("avatar")}</th>
+                    <th>{activeView === "membres" ? t("member") : t("visitor")}</th>
+                    <th>{t("role")}</th>
+                    <th>{t("email")}</th>
+                    <th>{t("status")}</th>
+                    {activeView === "membres" && <th>{t("subscription_status")}</th>}
+                    <th>{t("registered_on")}</th>
+                    <th>{t("actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -981,12 +967,12 @@ const MembrePage = () => {
                                   : openEditVisiteurModal(item)
                               }>
                                 <i className="fas fa-edit me-2"></i>
-                                Modifier
+                                {t("edit")}
                               </Dropdown.Item>
                               {activeView === "membres" && item.type !== "visiteur" && (
                                 <Dropdown.Item onClick={() => openAbonnementModal(item)}>
                                   <i className="fas fa-credit-card me-2"></i>
-                                  {item.has_abonnement ? "Renouveler abonnement" : "Ajouter abonnement"}
+                                  {item.has_abonnement ? t("renew_subscription") : t("add_subscription")}
                                 </Dropdown.Item>
                               )}
                               <Dropdown.Divider />
@@ -996,7 +982,7 @@ const MembrePage = () => {
                                   : handleDeleteVisiteur(item.id)
                               } className="text-danger">
                                 <i className="fas fa-trash me-2"></i>
-                                Supprimer
+                                {t("delete")}
                               </Dropdown.Item>
                             </Dropdown.Menu>
                           </Dropdown>
@@ -1008,7 +994,7 @@ const MembrePage = () => {
                       <td colSpan={activeView === "membres" ? "8" : "7"} className="text-center py-4">
                         <i className={`fas ${activeView === "membres" ? "fa-users" : "fa-user-circle"} fs-1 text-muted mb-3 d-block`}></i>
                         <h5 className="text-muted">
-                          {activeView === "membres" ? "Aucun membre trouvé" : "Aucun visiteur trouvé"}
+                          {activeView === "membres" ? t("no_members_found") : t("no_visitors_found")}
                         </h5>
                       </td>
                     </tr>
@@ -1023,8 +1009,8 @@ const MembrePage = () => {
           <Modal.Header closeButton className={activeView === "membres" ? "bg-primary text-white" : "bg-info text-white"}>
             <Modal.Title>
               {activeView === "membres" 
-                ? (currentMembre.id ? "Modifier un membre" : "Ajouter un membre")
-                : (currentVisiteur.id ? "Modifier un visiteur" : "Ajouter un visiteur")
+                ? (currentMembre.id ? t("edit_member_modal") : t("add_member_modal"))
+                : (currentVisiteur.id ? t("edit_visitor_modal") : t("add_visitor_modal"))
               }
             </Modal.Title>
           </Modal.Header>
@@ -1032,96 +1018,177 @@ const MembrePage = () => {
             {activeView === "membres" ? (
               <Form>
                 <Row>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Nom *</Form.Label><Form.Control type="text" name="nom" value={currentMembre.nom || ""} onChange={handleMembreChange} required /></Form.Group></Col>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Prénom</Form.Label><Form.Control type="text" name="prenom" value={currentMembre.prenom || ""} onChange={handleMembreChange} /></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("full_name")} *</Form.Label><Form.Control type="text" name="nom" value={currentMembre.nom || ""} onChange={handleMembreChange} required placeholder={t("full_name_placeholder")} /></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("first_name")}</Form.Label><Form.Control type="text" name="prenom" value={currentMembre.prenom || ""} onChange={handleMembreChange} /></Form.Group></Col>
                 </Row>
                 <Row>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Rôle *</Form.Label><Form.Select name="type" value={currentMembre.type} onChange={handleMembreChange}><option value="membre">Membre</option><option value="admin">Admin</option><option value="moderateur">Modérateur</option></Form.Select></Form.Group></Col>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Statut *</Form.Label><Form.Select name="statut" value={currentMembre.statut} onChange={handleMembreChange}><option value="actif">Actif</option><option value="inactif">Inactif</option><option value="suspendu">Suspendu</option></Form.Select></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("role")} *</Form.Label><Form.Select name="type" value={currentMembre.type} onChange={handleMembreChange}><option value={t("member_label") || "membre"}>{t("member_label")}</option><option value={t("admin_label") || "admin"}>{t("admin_label")}</option><option value={t("moderator_label") || "moderateur"}>{t("moderator_label")}</option></Form.Select></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("status")} *</Form.Label><Form.Select name="statut" value={currentMembre.statut} onChange={handleMembreChange}><option value={t("Actif") || "actif"}>{t("Actif")}</option><option value={t("Inactif") || "inactif"}>{t("Inactif")}</option><option value={t("Suspendu") || "suspendu"}>{t("Suspendu")}</option></Form.Select></Form.Group></Col>
                 </Row>
                 <Row>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Email *</Form.Label><Form.Control type="email" name="email" value={currentMembre.email || ""} onChange={handleMembreChange} required /></Form.Group></Col>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Mot de passe {currentMembre.id ? "(laisser vide pour ne pas changer)" : "*"}</Form.Label><Form.Control type="password" name="password" value={currentMembre.password || ""} onChange={handleMembreChange} required={!currentMembre.id} /></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("email")} *</Form.Label><Form.Control type="email" name="email" value={currentMembre.email || ""} onChange={handleMembreChange} required placeholder={t("email_placeholder")} /></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("password")} {currentMembre.id ? `(${t("password_leave_blank")})` : "*"}</Form.Label><Form.Control type="password" name="password" value={currentMembre.password || ""} onChange={handleMembreChange} required={!currentMembre.id} placeholder={t("password_placeholder")} /></Form.Group></Col>
                 </Row>
                 <Row>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Téléphone</Form.Label><Form.Control type="text" name="telephone" value={currentMembre.telephone || ""} onChange={handleMembreChange} /></Form.Group></Col>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Date de naissance</Form.Label><Form.Control type="date" name="date_naissance" value={currentMembre.date_naissance || ""} onChange={handleMembreChange} /></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("phone")}</Form.Label><Form.Control type="text" name="telephone" value={currentMembre.telephone || ""} onChange={handleMembreChange} /></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("birth_date")}</Form.Label><Form.Control type="date" name="date_naissance" value={currentMembre.date_naissance || ""} onChange={handleMembreChange} /></Form.Group></Col>
                 </Row>
-                <Form.Group className="mb-3"><Form.Label>Adresse</Form.Label><Form.Control type="text" name="adresse" value={currentMembre.adresse || ""} onChange={handleMembreChange} /></Form.Group>
+                <Form.Group className="mb-3"><Form.Label>{t("address")}</Form.Label><Form.Control type="text" name="adresse" value={currentMembre.adresse || ""} onChange={handleMembreChange} /></Form.Group>
                 <Row>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Ville</Form.Label><Form.Control type="text" name="ville" value={currentMembre.ville || ""} onChange={handleMembreChange} /></Form.Group></Col>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Pays</Form.Label><Form.Control type="text" name="pays" value={currentMembre.pays || ""} onChange={handleMembreChange} /></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("city")}</Form.Label><Form.Control type="text" name="ville" value={currentMembre.ville || ""} onChange={handleMembreChange} /></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("country")}</Form.Label><Form.Control type="text" name="pays" value={currentMembre.pays || ""} onChange={handleMembreChange} /></Form.Group></Col>
                 </Row>
                 <Row>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Profession</Form.Label><Form.Control type="text" name="profession" value={currentMembre.profession || ""} onChange={handleMembreChange} /></Form.Group></Col>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Avatar (max 2 Mo)</Form.Label><Form.Control type="file" name="avatar" accept="image/*" onChange={handleMembreChange} />
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("profession")}</Form.Label><Form.Control type="text" name="profession" value={currentMembre.profession || ""} onChange={handleMembreChange} /></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("avatar")} ({t("max_2mo")})</Form.Label><Form.Control type="file" name="avatar" accept="image/*" onChange={handleMembreChange} />
                     {avatarError && <small className="text-danger">{avatarError}</small>}
                     {currentMembre.avatar && (
                       <div className="mt-3 text-center position-relative d-inline-block">
                         <Image src={typeof currentMembre.avatar === "string" ? currentMembre.avatar : URL.createObjectURL(currentMembre.avatar)} roundedCircle width={100} height={100} className="border" />
-                        <Button variant="danger" size="sm" className="position-absolute top-0 end-0 rounded-circle" onClick={removeAvatar}>×</Button>
+                        <Button variant="danger" size="sm" className="position-absolute top-0 end-0 rounded-circle" onClick={removeAvatar}>{t("remove_avatar")}</Button>
                       </div>
                     )}
                   </Form.Group></Col>
                 </Row>
                 <Row>
-                  <Col md={4}><Form.Group className="mb-3"><Form.Label>Site web</Form.Label><Form.Control type="url" name="site_web" value={currentMembre.site_web || ""} onChange={handleMembreChange} /></Form.Group></Col>
+                  <Col md={4}><Form.Group className="mb-3"><Form.Label>{t("website")}</Form.Label><Form.Control type="url" name="site_web" value={currentMembre.site_web || ""} onChange={handleMembreChange} /></Form.Group></Col>
                   <Col md={4}><Form.Group className="mb-3"><Form.Label>LinkedIn</Form.Label><Form.Control type="url" name="linkedin" value={currentMembre.linkedin || ""} onChange={handleMembreChange} /></Form.Group></Col>
                   <Col md={4}><Form.Group className="mb-3"><Form.Label>Twitter</Form.Label><Form.Control type="url" name="twitter" value={currentMembre.twitter || ""} onChange={handleMembreChange} /></Form.Group></Col>
                 </Row>
-                <Form.Group className="mb-3"><Form.Label>Bio</Form.Label><Form.Control as="textarea" rows={3} name="bio" value={currentMembre.bio || ""} onChange={handleMembreChange} /></Form.Group>
+                <Form.Group className="mb-3"><Form.Label>{t("bio")}</Form.Label><Form.Control as="textarea" rows={3} name="bio" value={currentMembre.bio || ""} onChange={handleMembreChange} placeholder={t("bio_placeholder")} /></Form.Group>
               </Form>
             ) : (
               <Form>
                 <Row>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Nom complet *</Form.Label><Form.Control type="text" name="name" value={currentVisiteur.name || ""} onChange={handleVisiteurChange} required /></Form.Group></Col>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Email *</Form.Label><Form.Control type="email" name="email" value={currentVisiteur.email || ""} onChange={handleVisiteurChange} required /></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("full_name")} *</Form.Label><Form.Control type="text" name="name" value={currentVisiteur.name || ""} onChange={handleVisiteurChange} required placeholder={t("full_name_placeholder")} /></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("email")} *</Form.Label><Form.Control type="email" name="email" value={currentVisiteur.email || ""} onChange={handleVisiteurChange} required placeholder={t("email_placeholder")} /></Form.Group></Col>
                 </Row>
                 <Row>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Statut *</Form.Label><Form.Select name="statut" value={currentVisiteur.statut} onChange={handleVisiteurChange}><option value="actif">Actif</option><option value="inactif">Inactif</option><option value="suspendu">Suspendu</option></Form.Select></Form.Group></Col>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Mot de passe {currentVisiteur.id ? "(laisser vide pour ne pas changer)" : "*"}</Form.Label><Form.Control type="password" name="password" value={currentVisiteur.password || ""} onChange={handleVisiteurChange} required={!currentVisiteur.id} /></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("status")} *</Form.Label><Form.Select name="statut" value={currentVisiteur.statut} onChange={handleVisiteurChange}><option value={t("Actif") || "actif"}>{t("Actif")}</option><option value={t("Inactif") || "inactif"}>{t("Inactif")}</option><option value={t("Suspendu") || "suspendu"}>{t("Suspendu")}</option></Form.Select></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("password")} {currentVisiteur.id ? `(${t("password_leave_blank")})` : "*"}</Form.Label><Form.Control type="password" name="password" value={currentVisiteur.password || ""} onChange={handleVisiteurChange} required={!currentVisiteur.id} placeholder={t("password_placeholder")} /></Form.Group></Col>
                 </Row>
                 <Row>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>Email vérifié</Form.Label><Form.Select name="email_verified_at" value={currentVisiteur.email_verified_at ? "1" : "0"} onChange={(e) => setCurrentVisiteur({...currentVisiteur, email_verified_at: e.target.value === "1" ? new Date().toISOString() : null})}><option value="0">Non vérifié</option><option value="1">Vérifié</option></Form.Select></Form.Group></Col>
+                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("email_verified")}</Form.Label><Form.Select name="email_verified_at" value={currentVisiteur.email_verified_at ? "1" : "0"} onChange={(e) => setCurrentVisiteur({...currentVisiteur, email_verified_at: e.target.value === "1" ? new Date().toISOString() : null})}><option value="0">{t("not_verified")}</option><option value="1">{t("verified")}</option></Form.Select></Form.Group></Col>
                 </Row>
               </Form>
             )}
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>Annuler</Button>
+            <Button variant="secondary" onClick={() => setShowModal(false)}>{t("cancel")}</Button>
             <Button variant={activeView === "membres" ? "primary" : "info"} onClick={activeView === "membres" ? handleSaveMembre : handleSaveVisiteur}>
-              {activeView === "membres" ? (currentMembre.id ? "Enregistrer" : "Créer") : (currentVisiteur.id ? "Enregistrer" : "Créer")}
+              {activeView === "membres" 
+                ? (currentMembre.id ? t("save") : t("create_button")) 
+                : (currentVisiteur.id ? t("save") : t("create_button"))}
             </Button>
           </Modal.Footer>
         </Modal>
 
         <Modal show={showAbonnementModal} onHide={() => setShowAbonnementModal(false)} size="lg" centered>
           <Modal.Header closeButton className="bg-success text-white">
-            <Modal.Title><i className="fas fa-credit-card me-2"></i>{currentAbonnement.membre_id ? `Abonnement pour ${currentAbonnement.membre_nom}` : "Nouvel abonnement"}</Modal.Title>
+            <Modal.Title><i className="fas fa-credit-card me-2"></i>{currentAbonnement.membre_id ? `${t("subscription_for")} ${currentAbonnement.membre_nom}` : t("new_subscription")}</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <Form>
-              <Row><Col md={6}><Form.Group className="mb-3"><Form.Label>Membre *</Form.Label><Form.Select name="membre_id" value={currentAbonnement.membre_id} onChange={(e) => {
-                const selectedMembre = membres.find(m => m.id == e.target.value);
-                setCurrentAbonnement(prev => ({...prev, membre_id: e.target.value, membre_nom: selectedMembre ? `${selectedMembre.nom || ""} ${selectedMembre.prenom || ""}`.trim() : ""}));
-              }} required><option value="">Sélectionner un membre</option>{membres.map((membre) => (<option key={membre.id} value={membre.id}>{membre.nom || ""} {membre.prenom || ""} ({membre.email})</option>))}</Form.Select></Form.Group></Col>
-                <Col md={6}><Form.Group className="mb-3"><Form.Label>Type d'abonnement *</Form.Label><Form.Select name="type_abonnement" value={currentAbonnement.type_abonnement} onChange={handleAbonnementChange} required><option value="mensuel">Mensuel - 9.99€</option><option value="trimestriel">Trimestriel - 24.99€</option><option value="annuel">Annuel - 89.99€</option></Form.Select></Form.Group></Col>
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>{t("member")} *</Form.Label>
+                    <Form.Select 
+                      name="membre_id" 
+                      value={currentAbonnement.membre_id} 
+                      onChange={(e) => {
+                        const selectedMembre = membres.find(m => m.id == e.target.value);
+                        setCurrentAbonnement(prev => ({
+                          ...prev, 
+                          membre_id: e.target.value, 
+                          membre_nom: selectedMembre ? `${selectedMembre.nom || ""} ${selectedMembre.prenom || ""}`.trim() : ""
+                        }));
+                      }} 
+                      required
+                    >
+                      <option value="">{t("select_member")}</option>
+                      {membres.map((membre) => (
+                        <option key={membre.id} value={membre.id}>
+                          {membre.nom || ""} {membre.prenom || ""} ({membre.email})
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>{t("subscription_type")} *</Form.Label>
+                    <Form.Select name="type_abonnement" value={currentAbonnement.type_abonnement} onChange={handleAbonnementChange} required>
+                      <option value="mensuel">{t("monthly")} - 9.99€</option>
+                      <option value="trimestriel">{t("quarterly")} - 24.99€</option>
+                      <option value="annuel">{t("annual")} - 89.99€</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
               </Row>
-              <Row><Col md={6}><Form.Group className="mb-3"><Form.Label>Date de début *</Form.Label><Form.Control type="date" name="date_debut" value={currentAbonnement.date_debut} onChange={handleAbonnementChange} required /></Form.Group></Col>
-                <Col md={6}><Form.Group className="mb-3"><Form.Label>Date de fin *</Form.Label><Form.Control type="date" name="date_fin" value={currentAbonnement.date_fin} onChange={handleAbonnementChange} required readOnly /></Form.Group></Col>
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>{t("start_date")} *</Form.Label>
+                    <Form.Control type="date" name="date_debut" value={currentAbonnement.date_debut} onChange={handleAbonnementChange} required />
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>{t("end_date")} *</Form.Label>
+                    <Form.Control type="date" name="date_fin" value={currentAbonnement.date_fin} onChange={handleAbonnementChange} required readOnly />
+                  </Form.Group>
+                </Col>
               </Row>
-              <Row><Col md={6}><Form.Group className="mb-3"><Form.Label>Montant *</Form.Label><Form.Control type="number" step="0.01" name="montant" value={currentAbonnement.montant} onChange={handleAbonnementChange} required /></Form.Group></Col>
-                <Col md={6}><Form.Group className="mb-3"><Form.Label>Méthode de paiement</Form.Label><Form.Select name="methode_paiement" value={currentAbonnement.methode_paiement} onChange={handleAbonnementChange}><option value="Carte">Carte bancaire</option><option value="PayPal">PayPal</option><option value="Virement">Virement bancaire</option><option value="Espèces">Espèces</option><option value="Chèque">Chèque</option></Form.Select></Form.Group></Col>
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>{t("amount")} *</Form.Label>
+                    <Form.Control type="number" step="0.01" name="montant" value={currentAbonnement.montant} onChange={handleAbonnementChange} required />
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>{t("payment_method")}</Form.Label>
+                    <Form.Select name="methode_paiement" value={currentAbonnement.methode_paiement} onChange={handleAbonnementChange}>
+                      <option value="Carte">{t("credit_card")}</option>
+                      <option value="PayPal">PayPal</option>
+                      <option value="Virement">{t("bank_transfer")}</option>
+                      <option value="Espèces">{t("cash")}</option>
+                      <option value="Chèque">{t("check")}</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
               </Row>
-              <Row><Col md={6}><Form.Group className="mb-3"><Form.Label>Statut *</Form.Label><Form.Select name="statut" value={currentAbonnement.statut} onChange={handleAbonnementChange} required><option value="actif">Actif</option><option value="expiré">Expiré</option><option value="annulé">Annulé</option></Form.Select></Form.Group></Col>
-                <Col md={6}><Form.Group className="mb-3"><Form.Label>ID Transaction</Form.Label><Form.Control type="text" name="transaction_id" value={currentAbonnement.transaction_id || ""} onChange={handleAbonnementChange} placeholder="TRX-123456" /></Form.Group></Col>
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>{t("status")} *</Form.Label>
+                    <Form.Select name="statut" value={currentAbonnement.statut} onChange={handleAbonnementChange} required>
+                      <option value={t("Actif") || "actif"}>{t("Actif")}</option>
+                      <option value={t("Expired") || "expiré"}>{t("Expired")}</option>
+                      <option value={t("Cancelled") || "annulé"}>{t("Cancelled")}</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>{t("transaction_id")}</Form.Label>
+                    <Form.Control type="text" name="transaction_id" value={currentAbonnement.transaction_id || ""} onChange={handleAbonnementChange} placeholder="TRX-123456" />
+                  </Form.Group>
+                </Col>
               </Row>
-              <Form.Group className="mb-3"><Form.Label>Notes</Form.Label><Form.Control as="textarea" rows={3} name="notes" value={currentAbonnement.notes || ""} onChange={handleAbonnementChange} placeholder="Notes supplémentaires..." /></Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>{t("notes")}</Form.Label>
+                <Form.Control as="textarea" rows={3} name="notes" value={currentAbonnement.notes || ""} onChange={handleAbonnementChange} placeholder={t("additional_notes")} />
+              </Form.Group>
             </Form>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowAbonnementModal(false)}>Annuler</Button>
-            <Button variant="success" onClick={handleSaveAbonnement}><i className="fas fa-check me-2"></i>Créer l'abonnement</Button>
+            <Button variant="secondary" onClick={() => setShowAbonnementModal(false)}>{t("cancel")}</Button>
+            <Button variant="success" onClick={handleSaveAbonnement}>
+              <i className="fas fa-check me-2"></i>{t("create_subscription")}
+            </Button>
           </Modal.Footer>
         </Modal>
       </div>
