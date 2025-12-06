@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\MembreController;
+use App\Http\Controllers\UserController; // Ajouté
 use App\Http\Controllers\PublicationController;
 use App\Http\Controllers\EvenementController;
 use App\Http\Controllers\AppelOffreController;
@@ -14,7 +15,6 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Api\AbonnementController;
-
 
 /*
 |--------------------------------------------------------------------------
@@ -40,24 +40,21 @@ Route::get('/test', function () {
 Route::post('/register', [RegisterController::class, 'register']);
 Route::post('/login', [LoginController::class, 'login']);
 
-// Publications (publiques) - ROUTES CORRIGÉES POUR LES RÉACTIONS
+// Publications (publiques)
 Route::get('/publications/validees', [PublicationController::class, 'getPublicationsValidees']);
 Route::get('/publications', [PublicationController::class, 'index']);
 Route::get('/publications/{id}', [PublicationController::class, 'show']);
 Route::get('/publications/{id}/download', [PublicationController::class, 'downloadFile']);
 
-// Routes pour les réactions des visiteurs - DÉPLACÉES HORS AUTH
+// Routes pour les réactions des visiteurs
 Route::post('/publications/{id}/react', [PublicationController::class, 'react']);
 Route::post('/publications/{id}/view', [PublicationController::class, 'view']);
-
 
 // Événements (publics)
 Route::get('/evenements', [EvenementController::class, 'index']);
 Route::get('/evenements/{evenement}', [EvenementController::class, 'show']);
 Route::get('/evenements/valides', [EvenementController::class, 'getEvenementsValides']);
-// Routes pour les visiteurs (événements validés)
 Route::get('/evenements-valides', [EvenementController::class, 'getEvenementsValides']);
-// Routes pour les réactions et vues des événements visiteurs
 Route::post('/evenements/{id}/react', [EvenementController::class, 'react']);
 Route::post('/evenements/{id}/view', [EvenementController::class, 'view']);
 Route::get('/evenements/{id}/stats', [EvenementController::class, 'getStats']);
@@ -66,7 +63,6 @@ Route::get('/evenements/{id}/stats', [EvenementController::class, 'getStats']);
 Route::get('/appeloffres', [AppelOffreController::class, 'index']);
 Route::get('/appeloffres/valides', [AppelOffreController::class, 'getAppelsOffresValides']);
 Route::get('/appels-offre-valides', [AppelOffreController::class, 'getAppelsOffreValides']);
-// Routes pour les réactions et vues des appels d'offre visiteurs
 Route::post('/appeloffres/{id}/react', [AppelOffreController::class, 'react']);
 Route::post('/appeloffres/{id}/view', [AppelOffreController::class, 'view']);
 Route::get('/appeloffres/{id}/stats', [AppelOffreController::class, 'getStats']);
@@ -78,6 +74,9 @@ Route::get('/contacts-visiteur', [MessageController::class, 'getContactsForVisit
 // Membres (publics - lecture seulement)
 Route::get('/membres', [MembreController::class, 'index']);
 Route::get('/membres/{id}/profile', [MembreController::class, 'show']);
+
+// Visiteurs (publics - lecture seulement pour l'admin)
+Route::get('/users', [UserController::class, 'index']);
 
 // =========================================================================
 // ROUTES PROTÉGÉES PAR SANCTUM (Authentification requise)
@@ -108,7 +107,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}', [PublicationController::class, 'update']);
         Route::delete('/{id}', [PublicationController::class, 'destroy']);
         Route::post('/{id}/validate', [PublicationController::class, 'validatePublication']);
-        // Les routes react et view sont maintenant publiques pour les visiteurs
     });
 
     // ==================== ÉVÉNEMENTS ====================
@@ -116,20 +114,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [EvenementController::class, 'store']);
         Route::put('/{evenement}', [EvenementController::class, 'update']);
         Route::delete('/{evenement}', [EvenementController::class, 'destroy']);
-        // Routes POST spécifiques pour les mises à jour
         Route::post('/{id}/status', [EvenementController::class, 'updateStatus']);
         Route::post('/{id}/update', [EvenementController::class, 'updateEvent']);
     });
-// ====================abonnement=============================
+
+    // ==================== ABONNEMENTS ====================
     Route::prefix('abonnements')->group(function () {
-    Route::get('/', [AbonnementController::class, 'index']);
-    Route::get('/stats', [AbonnementController::class, 'stats']);
-    Route::get('/membre/{membreId}', [AbonnementController::class, 'byMembre']);
-    Route::get('/check/{membreId}', [AbonnementController::class, 'checkMembreAbonnement']);
-    Route::post('/', [AbonnementController::class, 'store']);
-    Route::put('/{id}', [AbonnementController::class, 'update']);
-    Route::delete('/{id}', [AbonnementController::class, 'destroy']);
-});
+        Route::get('/', [AbonnementController::class, 'index']);
+        Route::get('/stats', [AbonnementController::class, 'stats']);
+        Route::get('/membre/{membreId}', [AbonnementController::class, 'byMembre']);
+        Route::get('/check/{membreId}', [AbonnementController::class, 'checkMembreAbonnement']);
+        Route::post('/', [AbonnementController::class, 'store']);
+        Route::put('/{id}', [AbonnementController::class, 'update']);
+        Route::delete('/{id}', [AbonnementController::class, 'destroy']);
+    });
 
     // ==================== APPELS D'OFFRES ====================
     Route::prefix('appeloffres')->group(function () {
@@ -156,7 +154,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/send-admin', [MessageController::class, 'sendAdminMessage']);
         Route::get('/members', [MessageController::class, 'listMembers']);
     });
-    
 
     // ==================== NOTIFICATIONS ====================
     Route::prefix('notifications')->group(function () {
@@ -177,6 +174,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/avatar', [MembreController::class, 'updateAvatar']);
     });
 
+    // ==================== VISITEURS (Utilisateurs - Opérations CRUD Admin) ====================
+    Route::prefix('users')->group(function () {
+        Route::post('/', [UserController::class, 'store']);
+        Route::put('/{id}', [UserController::class, 'update']);
+        Route::delete('/{id}', [UserController::class, 'destroy']);
+    });
+
 });
 
 // =========================================================================
@@ -195,8 +199,6 @@ Route::prefix('admin')->group(function () {
         Route::post('/', [NotificationController::class, 'store']);
     });
 
-    // Autres routes admin peuvent être ajoutées ici...
-
 });
 
 // =========================================================================
@@ -208,32 +210,4 @@ Route::fallback(function () {
         'message' => 'Route API non trouvée. Veuillez vérifier l\'URL.',
         'status' => 404
     ], 404);
-});
-
-// Route de test directe sans contrôleur
-Route::get('/test-direct', function() {
-    try {
-        Log::info('=== TEST DIRECT ROUTE CALLED ===');
-        
-        $publications = \App\Models\Publication::where('statut', 'Validé')->get();
-        
-        return response()->json([
-            'success' => true,
-            'count' => $publications->count(),
-            'publications' => $publications->map(function($pub) {
-                return [
-                    'id' => $pub->id_publication,
-                    'titre' => $pub->titre,
-                    'statut' => $pub->statut
-                ];
-            })->toArray()
-        ]);
-        
-    } catch (\Exception $e) {
-        Log::error('Direct route error:', ['error' => $e->getMessage()]);
-        return response()->json([
-            'success' => false,
-            'error' => $e->getMessage()
-        ]);
-    }
 });

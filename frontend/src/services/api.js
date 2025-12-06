@@ -1,16 +1,15 @@
-// services/api.js
 import axios from "axios";
 
 const API_URL = "http://127.0.0.1:8000/api";
 export const API_CONFIG = {
   BASE_URL: "http://127.0.0.1:8000/api",
-  TIMEOUT: 10000,
+  timeout: 30000,
 };
 
 // Instance axios configurée
 export const apiClient = axios.create({
   baseURL: API_CONFIG.BASE_URL,
-  timeout: API_CONFIG.TIMEOUT,
+  timeout: API_CONFIG.timeout,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -105,35 +104,27 @@ export const updateMembre = (id, data) => apiClient.post(`/membres/${id}?_method
 });
 export const deleteMembre = (id) => apiClient.delete(`/membres/${id}`);
 
+// --- Visiteurs (Utilisateurs) ---
+export const fetchVisiteurs = () => apiClient.get('/users');
+export const addVisiteur = (data) => apiClient.post('/users', data);
+export const updateVisiteur = (id, data) => {
+  // Pour JSON, utiliser application/json
+  return apiClient.put(`/users/${id}`, data, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+};
+export const deleteVisiteur = (id) => apiClient.delete(`/users/${id}`);
+
 // --- Abonnements ---
-export const fetchAbonnements = () => {
-  return apiClient.get('/abonnements');
-};
-
-export const fetchAbonnementById = (id) => {
-  return apiClient.get(`/abonnements/${id}`);
-};
-
-export const addAbonnement = (data) => {
-  return apiClient.post('/abonnements', data);
-};
-
-export const updateAbonnement = (id, data) => {
-  return apiClient.post(`/abonnements/${id}?_method=PUT`, data);
-};
-
-export const deleteAbonnement = (id) => {
-  return apiClient.delete(`/abonnements/${id}`);
-};
-
-export const getAbonnementStats = () => {
-  return apiClient.get('/abonnements/stats');
-};
-
-export const checkMembreAbonnement = (membreId) => {
-  return apiClient.get(`/abonnements/check/${membreId}`);
-};
-
+export const fetchAbonnements = () => apiClient.get('/abonnements');
+export const fetchAbonnementById = (id) => apiClient.get(`/abonnements/${id}`);
+export const addAbonnement = (data) => apiClient.post('/abonnements', data);
+export const updateAbonnement = (id, data) => apiClient.post(`/abonnements/${id}?_method=PUT`, data);
+export const deleteAbonnement = (id) => apiClient.delete(`/abonnements/${id}`);
+export const getAbonnementStats = () => apiClient.get('/abonnements/stats');
+export const checkMembreAbonnement = (membreId) => apiClient.get(`/abonnements/check/${membreId}`);
 
 // Export par défaut pour une utilisation directe
 export default apiClient;
