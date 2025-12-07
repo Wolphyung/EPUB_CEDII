@@ -1,24 +1,80 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ThemeProvider, ThemeToggle, useTheme } from '../components/journuit';
+import axios from 'axios';
+
+const API_URL = "http://127.0.0.1:8000/api";
 
 const Dashboard = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [stats, setStats] = useState({
+    evenements: 0,
+    publications: 0,
+    appelsOffre: 0,
+    membres: 0,
+    evenementsEnAttente: 0,
+    publicationsEnAttente: 0,
+    appelsOffreActifs: 0
+  });
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
 
   useEffect(() => {
     checkAuthStatus();
+    fetchStats();
   }, []);
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      
+      const [eventsRes, pubsRes, offresRes, membresRes] = await Promise.all([
+        axios.get(`${API_URL}/evenements`),
+        axios.get(`${API_URL}/publications`),
+        axios.get(`${API_URL}/appeloffres`),
+        axios.get(`${API_URL}/membres`)
+      ]);
+
+      const events = eventsRes.data.data || eventsRes.data || [];
+      const publications = pubsRes.data.data || pubsRes.data || [];
+      const appelsOffre = offresRes.data?.data || offresRes.data || [];
+      const membres = membresRes.data || [];
+
+      const evenementsEnAttente = events.filter(ev => ev.statut === "En attente").length;
+      const publicationsEnAttente = publications.filter(pub => pub.statut === "En attente").length;
+      const appelsOffreActifs = appelsOffre.filter(offre => offre.statut === "Validé").length;
+
+      setStats({
+        evenements: events.length,
+        publications: publications.length,
+        appelsOffre: appelsOffre.length,
+        membres: membres.length,
+        evenementsEnAttente,
+        publicationsEnAttente,
+        appelsOffreActifs
+      });
+
+    } catch (error) {
+      console.error("Erreur chargement stats dashboard:", error);
+      setStats({
+        evenements: 0, 
+        publications: 0, 
+        appelsOffre: 0, 
+        membres: 0,
+        evenementsEnAttente: 0,
+        publicationsEnAttente: 0,
+        appelsOffreActifs: 0
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const checkAuthStatus = () => {
     const token = localStorage.getItem("token");
     const user = localStorage.getItem("user");
     setIsLoggedIn(!!(token && user));
-  };
-
-  const handleAccessDashboard = () => {
-    navigate('/login');
   };
 
   const features = [
@@ -44,18 +100,34 @@ const Dashboard = () => {
     }
   ];
 
-  const stats = [
-    { number: "500+", label: "Publications" },
-    { number: "150+", label: "Événements" },
-    { number: "80+", label: "Appels d'offre" },
-    { number: "50+", label: "Membres Institutionnels" }
+  const displayStats = [
+    { 
+      number: loading ? "..." : `${stats.publications}+`, 
+      label: "Publications",
+      description: "Articles, rapports et documents"
+    },
+    { 
+      number: loading ? "..." : `${stats.evenements}+`, 
+      label: "Événements",
+      description: "Conférences, formations, séminaires"
+    },
+    { 
+      number: loading ? "..." : `${stats.appelsOffre}+`, 
+      label: "Appels d'offre",
+      description: "Opportunités professionnelles"
+    },
+    { 
+      number: loading ? "..." : `${stats.membres}+`, 
+      label: "Membres Institutionnels",
+      description: "Organisations partenaires"
+    }
   ];
 
   const publicationTypes = [
-    { type: "Actualités", color: "blue" },
-    { type: "Événements", color: "green" },
-    { type: "Appels d'offre", color: "purple" },
-    { type: "Annonces", color: "orange" }
+    { type: "Actualités", color: "blue", count: stats.publications },
+    { type: "Événements", color: "green", count: stats.evenements },
+    { type: "Appels d'offre", color: "purple", count: stats.appelsOffre },
+    { type: "Annonces", color: "orange", count: stats.membres }
   ];
 
   return (
@@ -73,8 +145,6 @@ const Dashboard = () => {
               </Link>
               <span className="logo-subtitle">Centre d'Échange, de Documentation et d'Information Interinstitutionnels</span>
             </div>
-            
-            
             
             <div className="header-actions">
               <div className="auth-buttons">
@@ -158,12 +228,109 @@ const Dashboard = () => {
       <section className="stats-section">
         <div className="container">
           <div className="stats-grid">
-            {stats.map((stat, index) => (
+            {displayStats.map((stat, index) => (
               <div key={index} className="stat-item">
                 <div className="stat-number">{stat.number}</div>
                 <div className="stat-label">{stat.label}</div>
+                <div className="stat-description">{stat.description}</div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Statistics Details Section */}
+      <section className="statistics-details-section">
+        <div className="container">
+          <div className="section-header">
+            <h2>Statistiques Détaillées CEDII</h2>
+            <p>Vue d'ensemble des activités et contenus de la plateforme</p>
+          </div>
+          
+          <div className="detailed-stats-grid">
+            <div className="detailed-stat-card">
+              <div className="stat-icon">📅</div>
+              <div className="stat-content">
+                <h3>Événements</h3>
+                <div className="stat-main-value">{loading ? "..." : stats.evenements}</div>
+                <div className="stat-details">
+                  <div className="stat-detail-item">
+                    <span className="detail-label">En attente de validation</span>
+                    <span className="detail-value warning">{stats.evenementsEnAttente}</span>
+                  </div>
+                  <div className="stat-detail-item">
+                    <span className="detail-label">Taux de validation</span>
+                    <span className="detail-value">
+                      {stats.evenements > 0 
+                        ? `${Math.round(((stats.evenements - stats.evenementsEnAttente) / stats.evenements) * 100)}%`
+                        : "0%"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="detailed-stat-card">
+              <div className="stat-icon">📢</div>
+              <div className="stat-content">
+                <h3>Publications</h3>
+                <div className="stat-main-value">{loading ? "..." : stats.publications}</div>
+                <div className="stat-details">
+                  <div className="stat-detail-item">
+                    <span className="detail-label">En attente de validation</span>
+                    <span className="detail-value warning">{stats.publicationsEnAttente}</span>
+                  </div>
+                  <div className="stat-detail-item">
+                    <span className="detail-label">Taux de validation</span>
+                    <span className="detail-value">
+                      {stats.publications > 0 
+                        ? `${Math.round(((stats.publications - stats.publicationsEnAttente) / stats.publications) * 100)}%`
+                        : "0%"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="detailed-stat-card">
+              <div className="stat-icon">📝</div>
+              <div className="stat-content">
+                <h3>Appels d'offre</h3>
+                <div className="stat-main-value">{loading ? "..." : stats.appelsOffre}</div>
+                <div className="stat-details">
+                  <div className="stat-detail-item">
+                    <span className="detail-label">Actuellement actifs</span>
+                    <span className="detail-value success">{stats.appelsOffreActifs}</span>
+                  </div>
+                  <div className="stat-detail-item">
+                    <span className="detail-label">Taux d'activité</span>
+                    <span className="detail-value">
+                      {stats.appelsOffre > 0 
+                        ? `${Math.round((stats.appelsOffreActifs / stats.appelsOffre) * 100)}%`
+                        : "0%"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="detailed-stat-card">
+              <div className="stat-icon">👥</div>
+              <div className="stat-content">
+                <h3>Membres</h3>
+                <div className="stat-main-value">{loading ? "..." : stats.membres}</div>
+                <div className="stat-details">
+                  <div className="stat-detail-item">
+                    <span className="detail-label">Institutions actives</span>
+                    <span className="detail-value">{stats.membres}</span>
+                  </div>
+                  <div className="stat-detail-item">
+                    <span className="detail-label">Croissance</span>
+                    <span className="detail-value success">+{Math.floor(stats.membres * 0.2)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -250,7 +417,7 @@ const Dashboard = () => {
               <div key={index} className={`type-card type-${pub.color}`}>
                 <h4>{pub.type}</h4>
                 <div className="type-stats">
-                  <span className="count">120+</span>
+                  <span className="count">{loading ? "..." : `${pub.count}+`}</span>
                   <span className="label">publications</span>
                 </div>
               </div>
@@ -305,7 +472,6 @@ const Dashboard = () => {
                 Plateforme officielle d'échange d'informations institutionnelles
               </p>
             </div>
-            
             
             <div className="footer-section">
               <h4>Contact</h4>
@@ -366,6 +532,9 @@ const Dashboard = () => {
           --feature-badge-bg: #e0f2fe;
           --feature-badge-color: #0369a1;
           --access-level-bg: rgba(255, 255, 255, 0.1);
+          --warning-color: #f59e0b;
+          --success-color: #10b981;
+          --info-color: #3b82f6;
         }
 
         .dashboard.dark-mode {
@@ -437,8 +606,10 @@ const Dashboard = () => {
           font-size: 1.5rem;
         }
 
-        .logo-icon {
-          font-size: 1.8rem;
+        .logo-img {
+          width: 40px;
+          height: 40px;
+          object-fit: contain;
         }
 
         .logo-subtitle {
@@ -546,7 +717,7 @@ const Dashboard = () => {
           padding: 0.5rem;
         }
 
-        /* Hero Section - Ajuster pour le header fixe */
+        /* Hero Section */
         .hero {
           position: relative;
           padding: 160px 0 80px;
@@ -555,9 +726,6 @@ const Dashboard = () => {
           overflow: hidden;
         }
 
-        /* ... (le reste du CSS existant reste inchangé) ... */
-
-        /* Hero Section */
         .hero-background {
           position: absolute;
           top: 0;
@@ -780,6 +948,11 @@ const Dashboard = () => {
           border-radius: 12px;
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
           border: 1px solid var(--card-border);
+          transition: transform 0.3s ease;
+        }
+
+        .stat-item:hover {
+          transform: translateY(-5px);
         }
 
         .stat-number {
@@ -793,10 +966,134 @@ const Dashboard = () => {
         }
 
         .stat-label {
+          font-size: 1.1rem;
+          color: var(--text-color);
+          font-weight: 600;
+          margin-bottom: 0.5rem;
+        }
+
+        .stat-description {
+          font-size: 0.9rem;
+          color: var(--text-color);
+          opacity: 0.7;
+        }
+
+        /* Statistics Details Section */
+        .statistics-details-section {
+          padding: 4rem 0;
+          background: var(--section-bg);
+        }
+
+        .detailed-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 2rem;
+          margin-top: 2rem;
+        }
+
+        @media (max-width: 768px) {
+          .detailed-stats-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .detailed-stat-card {
+          background: var(--card-bg);
+          border-radius: 16px;
+          padding: 2rem;
+          border: 1px solid var(--card-border);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: flex-start;
+          gap: 1.5rem;
+        }
+
+        .detailed-stat-card:hover {
+          transform: translateY(-8px);
+          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-icon {
+          font-size: 2.5rem;
+          background: linear-gradient(135deg, var(--info-color), var(--success-color));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        .stat-content {
+          flex: 1;
+        }
+
+        .stat-content h3 {
+          font-size: 1.3rem;
+          font-weight: 600;
+          color: var(--text-color);
+          margin-bottom: 0.5rem;
+        }
+
+        .stat-main-value {
+          font-size: 3rem;
+          font-weight: 700;
+          background: linear-gradient(45deg, #1e3a8a, #3730a3);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          margin-bottom: 1.5rem;
+        }
+
+        .stat-details {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .stat-detail-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid var(--card-border);
+        }
+
+        .detail-label {
+          font-size: 0.9rem;
+          color: var(--text-color);
+          opacity: 0.7;
+        }
+
+        .detail-value {
+          font-weight: 600;
           font-size: 1rem;
+        }
+
+        .detail-value.warning {
+          color: var(--warning-color);
+        }
+
+        .detail-value.success {
+          color: var(--success-color);
+        }
+
+        .section-header {
+          text-align: center;
+          margin-bottom: 3rem;
+        }
+
+        .section-header h2 {
+          font-size: 2.5rem;
+          font-weight: 700;
+          color: var(--text-color);
+          margin-bottom: 1rem;
+        }
+
+        .section-header p {
+          font-size: 1.2rem;
           color: var(--text-color);
           opacity: 0.8;
-          font-weight: 500;
+          max-width: 600px;
+          margin: 0 auto;
         }
 
         /* Mission Section */
@@ -891,26 +1188,6 @@ const Dashboard = () => {
         .features-section {
           padding: 6rem 0;
           background: var(--features-bg);
-        }
-
-        .section-header {
-          text-align: center;
-          margin-bottom: 4rem;
-        }
-
-        .section-header h2 {
-          font-size: 2.5rem;
-          font-weight: 700;
-          color: var(--text-color);
-          margin-bottom: 1rem;
-        }
-
-        .section-header p {
-          font-size: 1.2rem;
-          color: var(--text-color);
-          opacity: 0.8;
-          max-width: 600px;
-          margin: 0 auto;
         }
 
         .features-grid {
@@ -1102,7 +1379,7 @@ const Dashboard = () => {
 
         .footer-content {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(2, 1fr);
           gap: 3rem;
           margin-bottom: 3rem;
         }
@@ -1127,27 +1404,6 @@ const Dashboard = () => {
         .footer-description {
           font-size: 0.9rem;
           line-height: 1.5;
-        }
-
-        .footer-links {
-          list-style: none;
-          padding: 0;
-          margin: 0;
-        }
-
-        .footer-links li {
-          margin-bottom: 0.5rem;
-        }
-
-        .footer-links a {
-          color: var(--footer-text);
-          text-decoration: none;
-          font-size: 0.9rem;
-          transition: color 0.3s ease;
-        }
-
-        .footer-links a:hover {
-          color: var(--text-color);
         }
 
         .footer-contact {
