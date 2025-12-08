@@ -39,6 +39,13 @@ class UserController extends Controller
             Log::info('Store user request:', [
                 'name' => $request->name,
                 'email' => $request->email,
+                'email_verified_at' => $request->email_verified_at,
+                'all_data' => $request->all()
+            ]);
+            Log::info('FULL REQUEST:', [
+                'headers' => $request->headers->all(),
+                'all_data' => $request->all(),
+                'content_type' => $request->header('Content-Type')
             ]);
 
             $validator = Validator::make($request->all(), [
@@ -46,13 +53,14 @@ class UserController extends Controller
                 'email' => 'required|string|email|max:255|unique:users',
                 'password' => 'required|string|min:8',
                 'statut' => 'nullable|in:actif,inactif,suspendu',
-                // Supprimer la validation de l'avatar
+                'email_verified_at' => 'nullable|date',
             ]);
 
             if ($validator->fails()) {
                 Log::error('Validation errors:', $validator->errors()->toArray());
                 return response()->json([
                     'success' => false,
+                    'message' => 'Erreurs de validation',
                     'errors' => $validator->errors()
                 ], 422);
             }
@@ -62,11 +70,18 @@ class UserController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'statut' => $request->statut ?? 'actif',
-                'email_verified_at' => $request->email_verified_at ?: null,
-                // Ne pas inclure avatar dans les données
             ];
 
+            // Gérer email_verified_at correctement
+            if ($request->has('email_verified_at') && $request->email_verified_at) {
+                $data['email_verified_at'] = $request->email_verified_at;
+            } else {
+                $data['email_verified_at'] = null;
+            }
+
             $user = User::create($data);
+
+            Log::info('User created:', ['user_id' => $user->id]);
 
             return response()->json([
                 'success' => true,
@@ -75,7 +90,11 @@ class UserController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
-            Log::error('Store user error:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            Log::error('Store user error:', [
+                'error' => $e->getMessage(), 
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la création du visiteur',

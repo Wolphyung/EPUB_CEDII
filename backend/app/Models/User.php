@@ -22,7 +22,7 @@ class User extends Authenticatable
         'password',
         'statut',
         'email_verified_at',
-        // Ne pas inclure 'avatar' ici
+        // Pas d'avatar ici
     ];
 
     /**
@@ -33,7 +33,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
-        'avatar', // Cacher l'avatar des réponses JSON
+        // Pas d'avatar ici non plus
     ];
 
     /**

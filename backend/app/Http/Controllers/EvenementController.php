@@ -11,6 +11,7 @@ use App\Models\Membre;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use App\Http\Controllers\NotificationController;
 
 class EvenementController extends Controller
 {
@@ -74,6 +75,12 @@ class EvenementController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
+
+        app(NotificationController::class)->store(
+            'evenement',
+            "Nouvel événement : {$event->titre}",
+            ['id' => $event->id]
+        );
     }
 
     // 🔹 Afficher un événement

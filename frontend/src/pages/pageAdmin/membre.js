@@ -360,8 +360,8 @@ const MembrePage = () => {
       const formData = new FormData();
       formData.append("nom", currentMembre.nom.trim());
       formData.append("prenom", currentMembre.prenom || "-");
-      formData.append("type", currentMembre.type);
-      formData.append("statut", currentMembre.statut);
+      formData.append("type", currentMembre.type.toLowerCase());
+      formData.append("statut", currentMembre.statut.toLowerCase());
       formData.append("email", currentMembre.email.trim());
       if (currentMembre.password) formData.append("password", currentMembre.password);
       if (currentMembre.telephone) formData.append("telephone", currentMembre.telephone);
@@ -391,13 +391,19 @@ const MembrePage = () => {
       loadMembres();
       setShowModal(false);
     } catch (err) {
-      console.error(`${t("error")}:`, err);
+      console.error('Erreur complète :', err.response?.data);
+
       const errors = err.response?.data?.errors;
+      const message = err.response?.data?.message;
+
       if (errors) {
-        const msg = Object.values(errors).flat().join(", ");
-        showNotification("error", msg);
+        // Affiche chaque erreur clairement
+        const errorMessages = Object.values(errors).flat();
+        errorMessages.forEach(msg => showNotification("error", msg));
+      } else if (message) {
+        showNotification("error", message);
       } else {
-        showNotification("error", err.response?.data?.message || err.message || t("server_error"));
+        showNotification("error", "Erreur serveur inconnue");
       }
     }
   };
@@ -418,42 +424,45 @@ const MembrePage = () => {
 
     try {
         const userData = {
-        name: currentVisiteur.name.trim(),
-        email: currentVisiteur.email.trim(),
-        statut: currentVisiteur.statut,
+            name: currentVisiteur.name.trim(),
+            email: currentVisiteur.email.trim(),
+            password: currentVisiteur.password,
+            statut: currentVisiteur.statut,
         };
-        
-        if (currentVisiteur.password) {
-        userData.password = currentVisiteur.password;
-        }
 
-        if (currentVisiteur.email_verified_at) {
-        userData.email_verified_at = currentVisiteur.email_verified_at;
+        // Gérer email_verified_at correctement
+        if (currentVisiteur.email_verified_at === "1") {
+            userData.email_verified_at = new Date().toISOString();
         } else {
-        userData.email_verified_at = null;
+            userData.email_verified_at = null;
         }
 
         let response;
         if (currentVisiteur.id) {
-        response = await updateVisiteur(currentVisiteur.id, userData);
-        showNotification("success", t("visitor_updated_success"));
+            // Pour la mise à jour, ne pas envoyer le password s'il est vide
+            if (!userData.password) {
+                delete userData.password;
+            }
+            response = await updateVisiteur(currentVisiteur.id, userData);
+            showNotification("success", t("visitor_updated_success"));
         } else {
-        response = await addVisiteur(userData);
-        showNotification("success", t("visitor_created_success"));
+            response = await addVisiteur(userData);
+            showNotification("success", t("visitor_created_success"));
         }
         
         loadVisiteurs();
         setShowModal(false);
     } catch (err) {
+        console.error('API Error details:', err.response?.data);
         const errors = err.response?.data?.errors;
         if (errors) {
-        const msg = Object.values(errors).flat().join(", ");
-        showNotification("error", msg);
+            const msg = Object.values(errors).flat().join(", ");
+            showNotification("error", msg);
         } else {
-        showNotification("error", err.response?.data?.message || err.message || t("server_error"));
+            showNotification("error", err.response?.data?.message || err.message || t("server_error"));
         }
     }
-    };
+  };
 
   const handleSaveAbonnement = async () => {
     try {
@@ -466,24 +475,31 @@ const MembrePage = () => {
         membre_id: currentAbonnement.membre_id,
         type_abonnement: currentAbonnement.type_abonnement,
         date_debut: currentAbonnement.date_debut,
-        date_fin: currentAbonnement.date_fin,
         montant: currentAbonnement.montant,
         methode_paiement: currentAbonnement.methode_paiement,
         statut: currentAbonnement.statut,
-        notes: currentAbonnement.notes || `${t("subscription_created_for")} ${currentAbonnement.membre_nom}`
+        notes: currentAbonnement.notes || null
+        // → PAS de date_fin ici !
       };
 
       const response = await addAbonnement(abonnementData);
       showNotification("success", t("subscription_created_success"));
       loadMembres();
       setShowAbonnementModal(false);
-    } catch (error) {
-      console.error(`${t("error")}:`, error);
-      const errors = error.response?.data?.errors;
+    } catch (err) {
+      console.error('Erreur complète :', err.response?.data);
+
+      const errors = err.response?.data?.errors;
+      const message = err.response?.data?.message;
+
       if (errors) {
-        Object.values(errors).flat().forEach(err => showNotification("error", err));
+        // Affiche chaque erreur clairement
+        const errorMessages = Object.values(errors).flat();
+        errorMessages.forEach(msg => showNotification("error", msg));
+      } else if (message) {
+        showNotification("error", message);
       } else {
-        showNotification("error", error.response?.data?.message || error.message || t("server_error"));
+        showNotification("error", "Erreur serveur inconnue");
       }
     }
   };
@@ -710,12 +726,6 @@ const MembrePage = () => {
               <i className="fas fa-user-plus me-2"></i> 
               {activeView === "membres" ? t("new_member_button") : t("new_visitor_button")}
             </Button>
-            
-            {activeView === "membres" && (
-              <Button variant="success" onClick={() => openAbonnementModal({ id: "", nom: t("select_member"), prenom: "" })} className="shadow">
-                <i className="fas fa-credit-card me-2"></i> {t("new_subscription")}
-              </Button>
-            )}
           </div>
         </div>
 

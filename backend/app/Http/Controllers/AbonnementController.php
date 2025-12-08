@@ -46,7 +46,8 @@ class AbonnementController extends Controller
             'date_debut' => 'required|date',
             'montant' => 'required|numeric|min:0',
             'methode_paiement' => 'nullable|string',
-            'notes' => 'nullable|string'
+            'notes' => 'nullable|string',
+            'date_fin' => 'required|date|after_or_equal:date_debut',
         ]);
 
         if ($validator->fails()) {

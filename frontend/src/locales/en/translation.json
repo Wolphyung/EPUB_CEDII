@@ -544,5 +544,7 @@
     "remaining": "Remaining",
     "period": "Period",
     "visitor_profile": "Visitor History",
-    "member_profile": "Member History"
+    "member_profile": "Member History",
+    "grid_view": "Grid View",
+    "list_view": "List View"
 }

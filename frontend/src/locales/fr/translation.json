@@ -593,5 +593,8 @@
     "error_update_subscription": "Erreur lors de la modification de l'abonnement",
     "new_subscription_type": "Nouveau type d'abonnement",
     "remaining": "Restant",
-    "period": "Période"
+    "period": "Période",
+    "grid_view": "Vue en grille",
+    "member_profile": "Historique du membre",
+    "list_view": "Vue en liste"
 }

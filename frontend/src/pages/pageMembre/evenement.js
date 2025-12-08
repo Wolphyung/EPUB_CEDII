@@ -1,973 +1,1033 @@
+// src/pages/membre/EvenementMembre.jsx
+
 import React, { useState, useEffect, useCallback } from "react";
-import { Card, Button, Modal, Form, Row, Col, Badge, Alert, Spinner } from "react-bootstrap";
+import {
+  Button,
+  Form,
+  Modal,
+  Card,
+  Row,
+  Col,
+  Badge,
+  Alert,
+  Spinner,
+  InputGroup
+} from "react-bootstrap";
 import MembreSidebar from "../../components/MembreSidebar";
+import LanguageSwitcher from "../../components/LanguageSwitcher";
+import { useTranslation } from 'react-i18next';
+import {
+  FaCalendarAlt,
+  FaCheckCircle,
+  FaClock,
+  FaExclamationTriangle,
+  FaEye,
+  FaHeart,
+  FaChartLine,
+  FaUsers,
+  FaPlusCircle,
+  FaEdit,
+  FaTrash,
+  FaMapMarkerAlt,
+  FaUserTie,
+  FaTag,
+  FaSearch,
+  FaDownload,
+  FaTimes,
+  FaVideo,
+  FaGlobe,
+  FaRegClock,
+  FaFilter,
+  FaCloudUploadAlt,
+  FaCalendarDay,
+  FaFileWord,
+  FaFilePdf,
+  FaFileImage,
+  FaExternalLinkAlt,
+  FaUser,
+  FaCalendar
+} from 'react-icons/fa';
+import axios from "axios";
 
-// 🚀 URL API CORRIGÉE
-const BASE_API_URL = "http://127.0.0.1:8000/api"; 
-const BASE_STORAGE_URL = "http://127.0.0.1:8000/storage"; // ✅ URL pour les fichiers
-const EVENEMENTS_API_URL = `${BASE_API_URL}/evenements`;
+// === CONFIGURATION ===
+const API_URL = "http://127.0.0.1:8000/api";
 
-// Configuration axios pour l'authentification
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  return {
-    'Authorization': token ? `Bearer ${token}` : '',
-    'Accept': 'application/json'
-  };
+// === COULEURS ===
+const COLORS = {
+  primary: "#667eea",
+  secondary: "#764ba2",
+  accent: "#4facfe",
+  neon: "#00f2fe",
+  dark: "#2c3e50",
+  gray: "#6c757d",
+  light: "#f5f7fa",
+  white: "#ffffff",
+  border: "#e0e6ef",
+  success: "#28a745",
+  warning: "#ffc107",
+  danger: "#dc3545",
+  info: "#17a2b8",
+  purple: "#6f42c1",
+  pink: "#e83e8c",
+  teal: "#20c997"
 };
 
 const EvenementMembre = () => {
+  const { t } = useTranslation();
+  const [evenements, setEvenements] = useState([]);
+  const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [alert, setAlert] = useState({ show: false, message: "", type: "" });
   const [editMode, setEditMode] = useState(false);
-  const [currentEvent, setCurrentEvent] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [currentEvenement, setCurrentEvenement] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("Tous");
+  const [typeFilter, setTypeFilter] = useState("Tous");
+  const [viewMode, setViewMode] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
-  
-  const [evenements, setEvenements] = useState([]); 
-  const [membres, setMembres] = useState({});
 
   const [nouvelEvenement, setNouvelEvenement] = useState({
     titre: "",
-    lieu: "",
     description: "",
-    date: "",
-    heure: "09:00",
-    type: "Présentiel", 
-    image: null 
+    date_heure: "",
+    lieu: "",
+    type: "Présentiel",
+    statut: "En attente",
+    fichier: null,
+    membre_id: ""
   });
 
-  /* -------------------------- FONCTIONS UTILITAIRES -------------------------- */
-  const isUserAuthor = (evenement) => {
-    const currentUser = JSON.parse(localStorage.getItem('user'));
-    if (!currentUser) return false;
-    if (currentUser.type === 'admin') return true;
-    if (evenement.membre_id && currentUser.id) {
-      return evenement.membre_id === currentUser.id;
-    }
-    return false;
+  // === TYPES ET STATUTS ===
+  const typesEvenement = [
+    { value: "Présentiel", label: "Présentiel", icon: FaUsers, color: COLORS.primary },
+    { value: "En ligne", label: "En ligne", icon: FaVideo, color: COLORS.success },
+    { value: "Hybride", label: "Hybride", icon: FaGlobe, color: COLORS.warning }
+  ];
+
+  const statutsEvenement = [
+    { value: "En attente", label: "En attente", icon: FaClock, color: COLORS.warning },
+    { value: "Validé", label: "Validé", icon: FaCheckCircle, color: COLORS.success },
+    { value: "Rejeté", label: "Rejeté", icon: FaExclamationTriangle, color: COLORS.danger }
+  ];
+
+  // === INITIALISATION ===
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user'));
+    setCurrentUser(user);
+    fetchEvenements();
+  }, []);
+
+  // === FONCTIONS UTILITAIRES ===
+  const showAlert = (message, type) => {
+    setAlert({ show: true, message, type });
+    setTimeout(() => setAlert({ show: false }), 4000);
   };
 
-  const getUserBadge = (evenement) => {
+  const handleClose = () => {
+    setShowModal(false);
+    setViewMode(false);
+    setEditMode(false);
+    setCurrentEvenement(null);
+    setPreviewFile(null);
+  };
+
+  const handleShowAdd = () => {
+    const user = currentUser || JSON.parse(localStorage.getItem('user'));
+    
+    setEditMode(false);
+    setViewMode(false);
+    setCurrentEvenement(null);
+    setNouvelEvenement({
+      titre: "",
+      description: "",
+      date_heure: "",
+      lieu: "",
+      type: "Présentiel",
+      statut: "En attente",
+      fichier: null,
+      membre_id: user?.id || 1
+    });
+    setPreviewFile(null);
+    setShowModal(true);
+  };
+
+  const handleShowEdit = (evenement) => {
+    if (!isUserAuthor(evenement) && currentUser?.type !== 'admin') {
+      showAlert("Vous n'êtes pas autorisé à modifier cet événement", "warning");
+      return;
+    }
+
+    setEditMode(true);
+    setViewMode(false);
+    setCurrentEvenement(evenement);
+    
+    // Formater la date pour l'input datetime-local
+    let formattedDate = "";
+    if (evenement.date_heure) {
+      const date = new Date(evenement.date_heure);
+      formattedDate = date.toISOString().slice(0, 16);
+    }
+    
+    setNouvelEvenement({
+      titre: evenement.titre || "",
+      description: evenement.description || "",
+      date_heure: formattedDate,
+      lieu: evenement.lieu || "",
+      type: evenement.type || "Présentiel",
+      statut: evenement.statut || "En attente",
+      fichier: null,
+      membre_id: evenement.membre_id || currentUser?.id || 1
+    });
+    setPreviewFile(null);
+    setShowModal(true);
+  };
+
+  const handleShowView = (evenement) => {
+    setViewMode(true);
+    setEditMode(false);
+    setCurrentEvenement(evenement);
+    setShowModal(true);
+  };
+
+  const isUserAuthor = (evenement) => {
+    if (!currentUser) return false;
+    if (currentUser.type === 'admin') return true;
+    return evenement.membre_id === currentUser.id;
+  };
+
+  const handleChange = (e) => {
+    const { name, value, type, files } = e.target;
+    
+    if (type === "file" && files[0]) {
+      const file = files[0];
+      setNouvelEvenement(prev => ({
+        ...prev,
+        fichier: file
+      }));
+      
+      if (file) {
+        const url = URL.createObjectURL(file);
+        setPreviewFile({ url, name: file.name, type: file.type });
+      } else {
+        setPreviewFile(null);
+      }
+    } else {
+      setNouvelEvenement(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setNouvelEvenement(prev => ({ ...prev, fichier: null }));
+    if (previewFile?.url?.startsWith("blob:")) {
+      URL.revokeObjectURL(previewFile.url);
+    }
+    setPreviewFile(null);
+  };
+
+  // Cleanup des URLs blob
+  useEffect(() => {
+    return () => {
+      if (previewFile?.url?.startsWith("blob:")) {
+        URL.revokeObjectURL(previewFile.url);
+      }
+    };
+  }, [previewFile]);
+
+  // === API FUNCTIONS ===
+  const fetchEvenements = useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const config = {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      };
+      
+      const response = await axios.get(`${API_URL}/evenements`, config);
+      
+      let evenementsData = [];
+      
+      if (Array.isArray(response.data)) {
+        evenementsData = response.data;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        evenementsData = response.data.data;
+      } else if (response.data.evenements && Array.isArray(response.data.evenements)) {
+        evenementsData = response.data.evenements;
+      }
+      
+      // Traiter les URLs des fichiers
+      evenementsData = evenementsData.map(evenement => {
+        // Si le fichier est un chemin relatif, construire l'URL complète
+        if (evenement.fichier && !evenement.fichier.startsWith('http')) {
+          evenement.fichier_url = `${API_URL}/storage/${evenement.fichier}`;
+        } else {
+          evenement.fichier_url = evenement.fichier;
+        }
+        
+        // Déterminer le type de fichier basé sur l'extension
+        if (evenement.fichier) {
+          const extension = evenement.fichier.split('.').pop().toLowerCase();
+          const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+          if (imageExtensions.includes(extension)) {
+            evenement.fichier_type = 'image/' + (extension === 'jpg' ? 'jpeg' : extension);
+          } else if (extension === 'pdf') {
+            evenement.fichier_type = 'application/pdf';
+          } else if (['doc', 'docx'].includes(extension)) {
+            evenement.fichier_type = 'application/msword';
+          }
+        }
+        
+        return evenement;
+      });
+      
+      // Filtrer selon le type d'utilisateur
+      if (currentUser && currentUser.type === 'membre' && currentUser.type !== 'admin') {
+        evenementsData = evenementsData.filter(evenement => 
+          evenement.membre_id === currentUser.id
+        );
+      }
+      
+      setEvenements(evenementsData);
+    } catch (err) {
+      console.error("Erreur chargement événements:", err.response || err);
+      setError(err.response?.data?.message || "Erreur lors du chargement des événements");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUser]);
+
+  const handleSave = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      showAlert("Vous devez être connecté", "danger");
+      return;
+    }
+
+    if (!nouvelEvenement.titre || !nouvelEvenement.date_heure || !nouvelEvenement.lieu) {
+      showAlert("Veuillez remplir tous les champs obligatoires", "warning");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const formData = new FormData();
+    
+    // Ajouter les champs
+    formData.append('titre', nouvelEvenement.titre);
+    formData.append('description', nouvelEvenement.description);
+    formData.append('date_heure', nouvelEvenement.date_heure);
+    formData.append('lieu', nouvelEvenement.lieu);
+    formData.append('type', nouvelEvenement.type);
+    formData.append('statut', nouvelEvenement.statut);
+    formData.append('membre_id', nouvelEvenement.membre_id || 1);
+    
+    if (nouvelEvenement.fichier) {
+      formData.append('fichier', nouvelEvenement.fichier);
+    }
+
+    try {
+      const config = {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      };
+
+      if (editMode && currentEvenement) {
+        // Pour la mise à jour
+        formData.append('_method', 'PUT');
+        await axios.post(`${API_URL}/evenements/${currentEvenement.id}`, formData, config);
+        showAlert("Événement modifié avec succès", "success");
+      } else {
+        await axios.post(`${API_URL}/evenements`, formData, config);
+        showAlert("Événement ajouté avec succès", "success");
+      }
+      
+      handleClose();
+      fetchEvenements();
+    } catch (err) {
+      console.error("Erreur sauvegarde:", err.response || err);
+      showAlert(err.response?.data?.message || "Erreur lors de l'opération", "danger");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const confirmDelete = (id) => {
+    setDeleteId(id);
+    setShowConfirm(true);
+  };
+
+  const executeDelete = async () => {
+    setIsSubmitting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.delete(`${API_URL}/evenements/${deleteId}`, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      // Vérifier si la suppression a réussi
+      if (response.data.success || response.status === 200 || response.status === 204) {
+        showAlert("Événement supprimé avec succès", "success");
+        
+        // Mettre à jour la liste des événements
+        setEvenements(prev => prev.filter(evenement => evenement.id !== deleteId));
+      } else {
+        showAlert("Erreur lors de la suppression", "danger");
+      }
+    } catch (err) {
+      console.error("Erreur suppression:", err.response || err);
+      
+      // Messages d'erreur spécifiques
+      if (err.response?.status === 404) {
+        showAlert("Événement non trouvé", "warning");
+        // Mettre quand même à jour l'interface si l'événement n'existe plus
+        setEvenements(prev => prev.filter(evenement => evenement.id !== deleteId));
+      } else if (err.response?.status === 401) {
+        showAlert("Session expirée, veuillez vous reconnecter", "danger");
+      } else if (err.response?.status === 403) {
+        showAlert("Vous n'êtes pas autorisé à supprimer cet événement", "danger");
+      } else {
+        showAlert(err.response?.data?.message || "Erreur lors de la suppression", "danger");
+      }
+    } finally {
+      setIsSubmitting(false);
+      setShowConfirm(false);
+      setDeleteId(null);
+    }
+  };
+
+  // === BADGES ===
+  const StatusBadge = ({ statut }) => {
+    const config = statutsEvenement.find(s => s.value === statut) || statutsEvenement[0];
+    const Icon = config.icon;
+    
+    return (
+      <Badge 
+        bg={config.value === "Validé" ? "success" : 
+            config.value === "En attente" ? "warning" : "danger"} 
+        className="d-flex align-items-center px-3 py-2" 
+        style={{ borderRadius: "15px", fontSize: "0.8rem" }}
+      >
+        <Icon size={14} className="me-1" />
+        {config.label}
+      </Badge>
+    );
+  };
+
+  const TypeBadge = ({ type }) => {
+    const config = typesEvenement.find(t => t.value === type) || typesEvenement[0];
+    const Icon = config.icon;
+    
+    let bgColor = "primary";
+    if (type === "En ligne") bgColor = "success";
+    if (type === "Hybride") bgColor = "warning";
+    
+    return (
+      <Badge 
+        bg={bgColor}
+        className="d-flex align-items-center px-3 py-2"
+        style={{ borderRadius: "15px", fontSize: "0.8rem" }}
+      >
+        <Icon size={14} className="me-1" />
+        {config.label}
+      </Badge>
+    );
+  };
+
+  const UserBadge = ({ evenement }) => {
     if (isUserAuthor(evenement)) {
       return (
-        <Badge bg="info" className="ms-2 d-inline-flex align-items-center px-2 py-1" style={{ borderRadius: "10px", fontSize: "0.6rem" }}>
-          <i className="fas fa-user me-1"></i>Votre événement
+        <Badge bg="info" className="ms-2 px-2 py-1" style={{ fontSize: "0.7rem", borderRadius: "10px" }}>
+          <FaUserTie size={10} className="me-1" />
+          Votre événement
         </Badge>
       );
     }
     return null;
   };
 
-  // ✅ FONCTION CORRIGÉE : Obtenir l'URL complète du fichier
-  const getFileUrl = (fichier) => {
-    if (!fichier) return null;
-    if (typeof fichier === 'string') {
-      if (fichier.startsWith('http')) return fichier;
-      // ✅ Utiliser BASE_STORAGE_URL pour les fichiers
-      return `${BASE_STORAGE_URL}/${fichier.replace(/^\//, '')}`;
-    }
-    return null;
-  };
-
-  const getAuteurName = (evenement) => {
-    if (!evenement.membre_id) return 'Auteur inconnu';
-    if (evenement.auteur && evenement.auteur !== 'Auteur inconnu') {
-      return evenement.auteur;
-    }
-    const membre = membres[evenement.membre_id];
-    if (membre) {
-      return membre.nom_complet || membre.name || membre.email || 'Auteur inconnu';
-    }
-    return 'Auteur inconnu';
-  };
-
-  const handleSidebarCollapse = (isCollapsed) => {
-    setSidebarCollapsed(isCollapsed);
-  };
-
-  const showAlert = (message, type) => {
-    setAlert({ show: true, message, type });
-    setTimeout(() => setAlert({ ...alert, show: false }), 4000);
-  };
-
-  const handleDownloadFile = async (fichier, fileName) => {
+  // === FORMATAGE DES DATES ===
+  const formatDate = (dateString) => {
+    if (!dateString) return "Date non définie";
     try {
-      const fileUrl = getFileUrl(fichier);
-      if (!fileUrl) {
-        showAlert("❌ Fichier non disponible", "error");
-        return;
-      }
-      
-      const response = await fetch(fileUrl);
-      
-      if (!response.ok) throw new Error('Erreur de téléchargement');
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName || 'fichier';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      showAlert("✅ Téléchargement commencé", "success");
-    } catch (error) {
-      console.error('Erreur lors du téléchargement:', error);
-      showAlert("❌ Erreur lors du téléchargement", "error");
+      const date = new Date(dateString);
+      return date.toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return dateString;
     }
   };
 
-  const getFileIcon = (fileName) => {
-    if (!fileName) return 'fa-file';
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    switch (extension) {
-      case 'pdf': return 'fa-file-pdf';
-      case 'doc': case 'docx': return 'fa-file-word';
-      case 'xls': case 'xlsx': return 'fa-file-excel';
-      case 'ppt': case 'pptx': return 'fa-file-powerpoint';
-      case 'jpg': case 'jpeg': case 'png': case 'gif': case 'bmp': return 'fa-file-image';
-      case 'mp4': case 'avi': case 'mov': return 'fa-file-video';
-      case 'mp3': case 'wav': return 'fa-file-audio';
-      case 'zip': case 'rar': return 'fa-file-archive';
-      default: return 'fa-file';
-    }
-  };
-
-  const getFileBadgeVariant = (fileName) => {
-    if (!fileName) return 'secondary';
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    switch (extension) {
-      case 'pdf': return 'danger';
-      case 'doc': case 'docx': return 'primary';
-      case 'xls': case 'xlsx': return 'success';
-      case 'jpg': case 'jpeg': case 'png': case 'gif': return 'info';
-      default: return 'secondary';
-    }
-  };
-
-  // ✅ AJOUTÉ : Fonction pour calculer le total des réactions
-  const getTotalReactions = (stats) => {
-    if (!stats?.reactions_by_type) return 0;
-    return Object.values(stats.reactions_by_type).reduce((sum, count) => sum + count, 0);
-  };
-
-  // ✅ AJOUTÉ : Fonction pour obtenir l'emoji de réaction
-  const getReactionEmoji = (type) => {
-    switch(type) {
-      case 'like': return '👍';
-      case 'love': return '❤️';
-      case 'wow': return '😮';
-      default: return '👍';
-    }
-  };
-
-  // ✅ COMPOSANT AMÉLIORÉ : Aperçu des fichiers avec affichage correct
-  const FilePreviewCard = ({ fichier, fileName }) => {
-    if (!fichier) return null;
+  // === FILTRAGE ===
+  const filteredEvenements = evenements.filter(evenement => {
+    const matchesSearch = searchTerm === "" || 
+      (evenement.titre && evenement.titre.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (evenement.description && evenement.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (evenement.lieu && evenement.lieu.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const fileUrl = getFileUrl(fichier);
-    const isImage = fileName?.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i);
-    const isVideo = fileName?.match(/\.(mp4|avi|mov|wmv|flv|webm)$/i);
-    const isPDF = fileName?.match(/\.pdf$/i);
-    const isDocument = fileName?.match(/\.(doc|docx|xls|xlsx|ppt|pptx)$/i);
+    const matchesStatus = statusFilter === "Tous" || evenement.statut === statusFilter;
+    const matchesType = typeFilter === "Tous" || evenement.type === typeFilter;
+    
+    return matchesSearch && matchesStatus && matchesType;
+  });
 
+  // === STATISTIQUES ===
+  const statsCards = [
+    {
+      icon: FaCalendarAlt,
+      color: COLORS.primary,
+      bg: "rgba(102, 126, 234, 0.1)",
+      count: evenements.length,
+      label: "Total des événements",
+      onClick: () => setStatusFilter("Tous")
+    },
+    {
+      icon: FaCheckCircle,
+      color: COLORS.success,
+      bg: "rgba(40, 167, 69, 0.1)",
+      count: evenements.filter(e => e.statut === "Validé").length,
+      label: "Événements validés",
+      onClick: () => setStatusFilter("Validé")
+    },
+    {
+      icon: FaClock,
+      color: COLORS.warning,
+      bg: "rgba(255, 193, 7, 0.1)",
+      count: evenements.filter(e => e.statut === "En attente").length,
+      label: "Événements en attente",
+      onClick: () => setStatusFilter("En attente")
+    },
+    {
+      icon: FaExclamationTriangle,
+      color: COLORS.danger,
+      bg: "rgba(220, 53, 69, 0.1)",
+      count: evenements.filter(e => e.statut === "Rejeté").length,
+      label: "Événements rejetés",
+      onClick: () => setStatusFilter("Rejeté")
+    },
+    {
+      icon: FaUsers,
+      color: COLORS.purple,
+      bg: "rgba(111, 66, 193, 0.1)",
+      count: evenements.filter(e => e.type === "Présentiel").length,
+      label: "Événements présents",
+      onClick: () => setTypeFilter("Présentiel")
+    },
+    {
+      icon: FaVideo,
+      color: COLORS.teal,
+      bg: "rgba(32, 201, 151, 0.1)",
+      count: evenements.filter(e => e.type === "En ligne").length,
+      label: "Événements en ligne",
+      onClick: () => setTypeFilter("En ligne")
+    }
+  ];
+
+  // === ICÔNES DE FICHIERS ===
+  const getFileIcon = (fileName) => {
+    if (!fileName) return <FaFileWord className="text-white" />;
+    const ext = fileName.split('.').pop().toLowerCase();
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) {
+      return <FaFileImage className="text-white" />;
+    } else if (ext === 'pdf') {
+      return <FaFilePdf className="text-white" />;
+    } else if (['doc', 'docx'].includes(ext)) {
+      return <FaFileWord className="text-white" />;
+    }
+    
+    return <FaFileWord className="text-white" />;
+  };
+
+  // === RENDU ===
+  if (error) {
     return (
-      <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
-        <div className="d-flex justify-content-between align-items-center mb-2">
-          <div className="d-flex align-items-center">
-            <i className={`fas ${getFileIcon(fileName)} text-${getFileBadgeVariant(fileName)} me-2`}></i>
-            <span className="small fw-semibold">Fichier joint:</span>
+      <div className="d-flex justify-content-center align-items-center min-vh-100">
+        <Alert variant="danger" className="shadow-lg p-4" style={{ borderRadius: "15px" }}>
+          <FaExclamationTriangle className="me-2" />
+          <h4>Erreur API</h4>
+          <p>{error}</p>
+          <Button 
+            variant="outline-danger" 
+            onClick={fetchEvenements}
+            className="mt-3"
+          >
+            Réessayer
+          </Button>
+        </Alert>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-vh-100 d-flex flex-column" style={{ background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)" }}>
+      <MembreSidebar onCollapse={setSidebarCollapsed} dark={false} />
+
+      <div 
+        className="flex-grow-1"
+        style={{ 
+          marginLeft: sidebarCollapsed ? "80px" : "280px", 
+          padding: "2rem", 
+          transition: "margin 0.4s ease",
+          minHeight: "calc(100vh - 80px)"
+        }}
+      >
+        {/* Header */}
+        <div className="d-flex justify-content-between align-items-center mb-5">
+          <div>
+            <h1 style={{ 
+              color: "#2c3e50", 
+              fontWeight: "bold", 
+              fontSize: "2rem",
+              marginBottom: "1rem"
+            }}>
+              <FaCalendarAlt className="me-3" style={{ color: COLORS.primary }} />
+              {currentUser?.type === 'admin' ? "Gestion des événements" : "Mes événements"}
+            </h1>
+            <p style={{ color: COLORS.gray, fontSize: "1rem", margin: 0 }}>
+              {currentUser?.type === 'admin' 
+                ? "Gérez tous les événements du système" 
+                : "Gérez vos événements et conférences"}
+            </p>
           </div>
           <Button
-            variant="outline-primary"
-            size="sm"
-            onClick={() => handleDownloadFile(fichier, fileName)}
-            className="d-flex align-items-center"
-            style={{ borderRadius: "6px", fontSize: "0.7rem" }}
+            onClick={handleShowAdd}
+            className="shadow-lg rounded-pill px-4 px-lg-5 py-2 py-lg-3 d-flex align-items-center"
+            style={{
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              border: "none",
+              fontWeight: "600",
+              fontSize: "1rem",
+              minWidth: "220px"
+            }}
           >
-            <i className="fas fa-download me-1"></i>
-            Télécharger
+            <FaPlusCircle className="me-2" />
+            Nouvel événement
           </Button>
         </div>
-        <p className="small text-muted mb-2">{fileName}</p>
-        
-        {fileUrl && (
-          <div className="text-center">
-            {isImage ? (
-              <div>
-                <img 
-                  src={fileUrl} 
-                  alt="Aperçu" 
-                  style={{ 
-                    maxWidth: '100%', 
-                    maxHeight: '200px', 
-                    objectFit: 'contain', 
-                    borderRadius: '6px', 
-                    border: '1px solid #dee2e6' 
-                  }} 
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'block';
-                  }}
-                />
-                <div style={{ display: 'none' }} className="py-2">
-                  <i className={`fas ${getFileIcon(fileName)} fa-3x text-${getFileBadgeVariant(fileName)} mb-2`}></i>
-                  <p className="small text-muted mb-0">Impossible de charger l'image</p>
-                </div>
-              </div>
-            ) : isVideo ? (
-              <div>
-                <video 
-                  controls 
-                  style={{ 
-                    maxWidth: '100%', 
-                    maxHeight: '200px', 
-                    borderRadius: '6px',
-                    border: '1px solid #dee2e6'
-                  }}
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'block';
-                  }}
-                >
-                  <source src={fileUrl} type="video/mp4" />
-                  Votre navigateur ne supporte pas la lecture vidéo.
-                </video>
-                <div style={{ display: 'none' }} className="py-2">
-                  <i className={`fas ${getFileIcon(fileName)} fa-3x text-${getFileBadgeVariant(fileName)} mb-2`}></i>
-                  <p className="small text-muted mb-0">Impossible de charger la vidéo</p>
-                </div>
-              </div>
-            ) : (
-              <div className="py-2">
-                <i className={`fas ${getFileIcon(fileName)} fa-3x text-${getFileBadgeVariant(fileName)} mb-2`}></i>
-                <p className="small text-muted mb-0">
-                  {isPDF ? 'Document PDF - ' : isDocument ? 'Document Office - ' : 'Fichier - '}
-                  Cliquez sur "Télécharger" pour voir le fichier
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
 
-  const FilePreviewModal = ({ file }) => {
-    if (!file) return null;
-    const isImage = file.type.startsWith('image/');
-    const isVideo = file.type.startsWith('video/');
-    
-    return (
-      <div className="mt-3 p-3 border rounded" style={{ background: '#f8f9fa' }}>
-        <h6 className="mb-3"><i className="fas fa-eye me-2"></i>Aperçu du fichier</h6>
-        {isImage ? (
-          <div className="text-center">
-            <img 
-              src={file.url} 
-              alt="Aperçu" 
-              style={{ 
-                maxWidth: '100%', 
-                maxHeight: '200px', 
-                objectFit: 'contain', 
-                borderRadius: '8px' 
-              }} 
-            />
-            <p className="mt-2 mb-0 small text-muted">{file.name}</p>
-          </div>
-        ) : isVideo ? (
-          <div className="text-center">
-            <video 
-              src={file.url} 
-              controls 
-              style={{ 
-                maxWidth: '100%', 
-                maxHeight: '200px', 
-                borderRadius: '8px' 
-              }}
-            />
-            <p className="mt-2 mb-0 small text-muted">{file.name}</p>
-          </div>
-        ) : (
-          <div className="text-center">
-            <i className={`fas ${getFileIcon(file.name)} fa-3x text-${getFileBadgeVariant(file.name)} mb-2`}></i>
-            <p className="mb-0 small text-muted">{file.name}</p>
-            <p className="small text-muted">Aperçu non disponible pour ce type de fichier</p>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const getStatusBadge = (statut) => {
-    const statusConfig = {
-      'Validé': { variant: "success", text: "Validé", icon: "fa-check-circle" },
-      'En attente': { variant: "warning", text: "En attente", icon: "fa-clock" },
-      'Rejeté': { variant: "danger", text: "Rejeté", icon: "fa-times-circle" }
-    };
-    const config = statusConfig[statut] || statusConfig['En attente'];
-    return <Badge bg={config.variant} className="d-inline-flex align-items-center px-3 py-2" style={{ borderRadius:"15px", fontSize:"0.8rem" }}><i className={`fas ${config.icon} me-1`}></i>{config.text}</Badge>;
-  };
-
-  const getTypeIcon = (type) => {
-    const icons = {"Présentiel":"fa-building","En ligne":"fa-globe","Hybride":"fa-exchange-alt"};
-    return icons[type] || "fa-calendar";
-  };
-
-  const getTypeBadge = (type) => {
-    const typeColors = {"Présentiel":"primary","En ligne":"info","Hybride":"warning"};
-    return <Badge bg={typeColors[type]||"secondary"} className="px-3 py-2" style={{ borderRadius:"15px", fontSize:"0.8rem" }}><i className={`fas ${getTypeIcon(type)} me-1`}></i>{type}</Badge>;
-  };
-
-  const formatDate = (dateString) => {
-    try { 
-      const date = new Date(dateString); 
-      return date.getTime() > 0 ? date.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}) : dateString.split(' ')[0]; 
-    } catch(e){ 
-      return dateString.split(' ')[0] || ''; 
-    }
-  };
-
-  const getFileName = (fichier) => {
-    if (!fichier) return '';
-    if (typeof fichier === 'string') return fichier.split('/').pop() || 'Fichier joint';
-    if (fichier instanceof File) return fichier.name;
-    return 'Fichier joint';
-  };
-
-  /* -------------------------- FETCH DONNÉES -------------------------- */
-  const fetchMembres = useCallback(async () => {
-    try {
-      const response = await fetch(`${BASE_API_URL}/membres`, {
-        headers: getAuthHeaders()
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const membresMap = {};
-        data.forEach(membre => {
-          membresMap[membre.id] = membre;
-        });
-        setMembres(membresMap);
-      }
-    } catch (error) {
-      console.error('Erreur fetch membres:', error);
-    }
-  }, []);
-
-  // ✅ MODIFIÉ : Charger les événements avec leurs statistiques
-  const fetchEvenements = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(EVENEMENTS_API_URL, {
-        headers: getAuthHeaders()
-      });
-      
-      if (!response.ok) {
-        if (response.status === 401) {
-          showAlert("Session expirée. Veuillez vous reconnecter.", "danger");
-          localStorage.removeItem('token');
-          window.location.href = '/login';
-          return;
-        }
-        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-
-      const eventsArray = Array.isArray(data) ? data : data.evenements || data.data || [];
-      
-      // Charger les statistiques pour chaque événement
-      const eventsWithStats = await Promise.all(
-        eventsArray.map(async (evt) => {
-          try {
-            const statsResponse = await fetch(`${BASE_API_URL}/evenements/${evt.id}/stats`);
-            if (statsResponse.ok) {
-              const statsData = await statsResponse.json();
-              return {
-                ...evt,
-                date: evt.date_heure ? evt.date_heure.split(' ')[0] : '',
-                heure: evt.date_heure ? evt.date_heure.split(' ')[1]?.substring(0,5) : '09:00',
-                auteur: evt.auteur || 'Auteur inconnu',
-                membre_id: evt.membre_id,
-                stats: statsData.stats || {
-                  total_reactions: 0,
-                  total_views: 0,
-                  reactions_by_type: {}
-                }
-              };
-            }
-          } catch (error) {
-            console.error(`Erreur chargement stats pour événement ${evt.id}:`, error);
-          }
-          
-          // Retourner l'événement avec des stats par défaut en cas d'erreur
-          return {
-            ...evt,
-            date: evt.date_heure ? evt.date_heure.split(' ')[0] : '',
-            heure: evt.date_heure ? evt.date_heure.split(' ')[1]?.substring(0,5) : '09:00',
-            auteur: evt.auteur || 'Auteur inconnu',
-            membre_id: evt.membre_id,
-            stats: {
-              total_reactions: 0,
-              total_views: 0,
-              reactions_by_type: {}
-            }
-          };
-        })
-      );
-
-      setEvenements(eventsWithStats);
-    } catch (error) {
-      console.error('Erreur fetch evenements:', error);
-      showAlert(`Erreur de chargement: ${error.message}`, "danger");
-      setEvenements([]);
-    } finally { 
-      setLoading(false); 
-    }
-  }, []);
-
-  useEffect(() => { 
-    fetchEvenements();
-    fetchMembres();
-  }, [fetchEvenements, fetchMembres]);
-
-  /* -------------------------- GESTION MODAL -------------------------- */
-  const handleShowAdd = () => { 
-    setEditMode(false); 
-    setCurrentEvent(null); 
-    setNouvelEvenement({ 
-      titre:"", 
-      lieu:"", 
-      description:"", 
-      date:"", 
-      heure:"09:00", 
-      type:"Présentiel", 
-      image:null 
-    }); 
-    setPreviewFile(null); 
-    setShowModal(true); 
-  };
-
-  const handleShowEdit = (event) => { 
-    if (!isUserAuthor(event)) {
-      showAlert("Vous n'êtes pas autorisé à modifier cet événement", "warning");
-      return;
-    }
-    
-    setEditMode(true); 
-    setCurrentEvent(event); 
-    setNouvelEvenement({ ...event, image:null }); 
-    setPreviewFile(null); 
-    setShowModal(true); 
-  };
-
-  const handleClose = () => { 
-    setShowModal(false); 
-    setEditMode(false); 
-    setCurrentEvent(null); 
-    setPreviewFile(null); 
-  };
-
-  const handleChange = (e) => { 
-    const { name, value, files } = e.target; 
-    if (name === "image") { 
-      const file = files[0]; 
-      setNouvelEvenement({ ...nouvelEvenement, image: file }); 
-      if (file) { 
-        setPreviewFile({ 
-          url: URL.createObjectURL(file), 
-          name: file.name, 
-          type: file.type 
-        }); 
-      } else { 
-        setPreviewFile(null); 
-      } 
-    } else { 
-      setNouvelEvenement({ ...nouvelEvenement, [name]: value }); 
-    } 
-  };
-
-  /* -------------------------- CRUD ÉVÉNEMENTS -------------------------- */
-  const handleAdd = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      showAlert("Vous devez être connecté pour créer un événement", "warning");
-      return;
-    }
-
-    if (!nouvelEvenement.titre || !nouvelEvenement.lieu || !nouvelEvenement.date || !nouvelEvenement.description) { 
-      showAlert("Veuillez remplir tous les champs obligatoires", "warning"); 
-      return; 
-    }
-
-    const dateHeure = `${nouvelEvenement.date} ${nouvelEvenement.heure}:00`;
-    const formData = new FormData();
-    formData.append('titre', nouvelEvenement.titre);
-    formData.append('description', nouvelEvenement.description);
-    formData.append('date_heure', dateHeure);
-    formData.append('lieu', nouvelEvenement.lieu);
-    formData.append('type', nouvelEvenement.type);
-    formData.append('statut', 'En attente');
-    if (nouvelEvenement.image) formData.append('fichier', nouvelEvenement.image);
-    
-    setLoading(true);
-    try {
-      const response = await fetch(EVENEMENTS_API_URL, { 
-        method: 'POST', 
-        body: formData,
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) { 
-        showAlert(`Événement créé avec succès ! Statut: ${data.statut || 'En attente'}`, "success"); 
-        fetchEvenements(); 
-      } else { 
-        const errorMessages = data.errors ? Object.values(data.errors).flat().join(' ') : (data.message || 'La création a échoué.'); 
-        showAlert(`Erreur: ${errorMessages}`, "danger"); 
-      }
-    } catch (error) { 
-      console.error('Erreur création événement:', error);
-      showAlert("Erreur de connexion au serveur ou problème réseau.", "danger"); 
-    } finally { 
-      setLoading(false); 
-      handleClose(); 
-    }
-  };
-
-  const handleEdit = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      showAlert("Vous devez être connecté pour modifier un événement", "warning");
-      return;
-    }
-
-    if (!currentEvent || !isUserAuthor(currentEvent)) {
-      showAlert("Vous n'êtes pas autorisé à modifier cet événement", "warning");
-      return;
-    }
-
-    if (!nouvelEvenement.titre || !nouvelEvenement.lieu || !nouvelEvenement.date || !nouvelEvenement.description) { 
-      showAlert("Veuillez remplir tous les champs obligatoires", "warning"); 
-      return; 
-    }
-
-    const dateHeure = `${nouvelEvenement.date} ${nouvelEvenement.heure}:00`;
-    const formData = new FormData();
-    formData.append('_method', 'PUT');
-    formData.append('titre', nouvelEvenement.titre);
-    formData.append('description', nouvelEvenement.description);
-    formData.append('date_heure', dateHeure);
-    formData.append('lieu', nouvelEvenement.lieu);
-    formData.append('type', nouvelEvenement.type);
-    formData.append('statut', currentEvent.statut);
-    if (nouvelEvenement.image) formData.append('fichier', nouvelEvenement.image);
-    
-    setLoading(true);
-    try {
-      const response = await fetch(`${EVENEMENTS_API_URL}/${currentEvent.id}`, { 
-        method: 'POST', 
-        body: formData,
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) { 
-        showAlert("Événement modifié avec succès !", "success"); 
-        fetchEvenements(); 
-      } else { 
-        const errorMessages = data.errors ? Object.values(data.errors).flat().join(' ') : (data.message || 'La modification a échoué.'); 
-        showAlert(`Erreur: ${errorMessages}`, "danger"); 
-      }
-    } catch (error) { 
-      console.error('Erreur modification événement:', error);
-      showAlert("Erreur de connexion au serveur ou problème réseau.", "danger"); 
-    } finally { 
-      setLoading(false); 
-      handleClose(); 
-    }
-  };
-
-  const handleDelete = async (id) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      showAlert("Vous devez être connecté pour supprimer un événement", "warning");
-      return;
-    }
-
-    const eventToDelete = evenements.find(evt => evt.id === id);
-    if (!eventToDelete || !isUserAuthor(eventToDelete)) {
-      showAlert("Vous n'êtes pas autorisé à supprimer cet événement", "warning");
-      return;
-    }
-
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet événement ?")) return;
-    
-    setLoading(true);
-    try {
-      const response = await fetch(`${EVENEMENTS_API_URL}/${id}`, { 
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (response.ok || response.status === 204) { 
-        showAlert("Événement supprimé avec succès !", "success"); 
-        fetchEvenements(); 
-      } else { 
-        const data = await response.json(); 
-        showAlert(`Erreur: ${data.message || 'La suppression a échoué.'}`, "danger"); 
-      }
-    } catch (error) { 
-      console.error('Erreur suppression événement:', error);
-      showAlert("Erreur de connexion au serveur ou problème réseau.", "danger"); 
-    } finally { 
-      setLoading(false); 
-    }
-  };
-
-  /* -------------------------- RENDER -------------------------- */
-  return (
-    <div className="d-flex min-vh-100" style={{ 
-      background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)"
-    }}>
-      {/* Sidebar */}
-      <div style={{ 
-        width: sidebarCollapsed ? "80px" : "280px",
-        transition: "width 0.3s ease",
-        flexShrink: 0
-      }}>
-        <MembreSidebar onCollapse={handleSidebarCollapse} />
-      </div>
-
-      {/* Contenu Principal */}
-      <div className="flex-grow-1" style={{ 
-        padding: "30px",
-        marginLeft: "0",
-        transition: "all 0.3s ease"
-      }}>
         {/* Alert */}
         {alert.show && (
-          <Alert 
-            variant={alert.type} 
-            dismissible 
-            onClose={() => setAlert({ ...alert, show: false })}
-            className="mb-4 border-0 shadow"
+          <Alert
+            variant={alert.type}
+            dismissible
+            onClose={() => setAlert({ show: false })}
+            className="shadow-sm border-0 mb-4"
             style={{ borderRadius: "15px" }}
           >
-            <i className={`fas ${alert.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'} me-2`}></i>
+            <i className={`fas ${
+              alert.type === "success" ? "fa-check-circle" :
+              alert.type === "warning" ? "fa-exclamation-triangle" :
+              "fa-exclamation-circle"
+            } me-2`}></i>
             {alert.message}
           </Alert>
         )}
 
-        {/* En-tête */}
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <div>
-            <h1 className="fw-bold mb-2" style={{ 
-              color: "#2c3e50",
-              fontSize: "2.2rem"
-            }}>
-              🎉 Mes Événements
-            </h1>
-            <p className="text-muted mb-0" style={{ fontSize: "1.1rem" }}>
-              Gérez et organisez vos événements (en attente de validation Admin)
-            </p>
-          </div>
-          <Button 
-            variant="success" 
-            onClick={handleShowAdd}
-            className="rounded-pill px-4 py-2"
-            style={{
-              background: "linear-gradient(135deg, #00b09b 0%, #96c93d 100%)",
-              border: "none",
-              fontWeight: "600",
-              fontSize: "1rem"
-            }}
-            disabled={loading}
-          >
-            <i className="fas fa-plus-circle me-2"></i>
-            Nouvel Événement
-          </Button>
-        </div>
+        {/* Search and Filters */}
+        <Card className="shadow-sm border-0 mb-4" style={{ borderRadius: "18px", background: COLORS.white }}>
+          <Card.Body className="p-4">
+            <Row className="g-3">
+              <Col md={4}>
+                <InputGroup>
+                  <InputGroup.Text style={{ 
+                    background: 'transparent', 
+                    borderRight: 'none',
+                    borderTopLeftRadius: '12px',
+                    borderBottomLeftRadius: '12px'
+                  }}>
+                    <FaSearch size={14} style={{ color: COLORS.gray }} />
+                  </InputGroup.Text>
+                  <Form.Control
+                    type="text"
+                    placeholder="Rechercher des événements..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{
+                      borderLeft: 'none',
+                      borderRadius: '0 12px 12px 0',
+                      padding: '0.75rem',
+                      fontSize: '0.95rem'
+                    }}
+                    className="border-start-0"
+                  />
+                </InputGroup>
+              </Col>
+              <Col md={4}>
+                <Form.Select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  style={{
+                    borderRadius: "12px",
+                    padding: "0.75rem 1rem",
+                    border: "1px solid #e9ecef",
+                    fontSize: "0.95rem"
+                  }}
+                >
+                  <option value="Tous">Tous les statuts</option>
+                  {statutsEvenement.map(statut => (
+                    <option key={statut.value} value={statut.value}>
+                      {statut.label}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Col>
+              <Col md={4}>
+                <Form.Select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  style={{
+                    borderRadius: "12px",
+                    padding: "0.75rem 1rem",
+                    border: "1px solid #e9ecef",
+                    fontSize: "0.95rem"
+                  }}
+                >
+                  <option value="Tous">Tous les types</option>
+                  {typesEvenement.map(type => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Col>
+            </Row>
+          </Card.Body>
+        </Card>
 
-        {/* ✅ MODIFIÉ : Statistiques avec réactions et vues */}
-        <Row className="mb-5">
-          <Col xl={3} lg={6} className="mb-4">
-            <Card className="shadow-lg border-0 text-center p-4" style={{ borderRadius: "20px" }}>
-              <div className="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: "60px", height: "60px" }}>
-                <i className="fas fa-calendar-alt text-primary fs-4"></i>
-              </div>
-              <h3 className="fw-bold text-primary">{evenements.length}</h3>
-              <p className="text-muted mb-0">Événements total</p>
-            </Card>
-          </Col>
-          <Col xl={3} lg={6} className="mb-4">
-            <Card className="shadow-lg border-0 text-center p-4" style={{ borderRadius: "20px" }}>
-              <div className="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: "60px", height: "60px" }}>
-                <i className="fas fa-check-circle text-success fs-4"></i>
-              </div>
-              <h3 className="fw-bold text-success">{evenements.filter(e => e.statut === 'Validé').length}</h3>
-              <p className="text-muted mb-0">Événements Validés</p>
-            </Card>
-          </Col>
-          <Col xl={3} lg={6} className="mb-4">
-            <Card className="shadow-lg border-0 text-center p-4" style={{ borderRadius: "20px" }}>
-              <div className="bg-info bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: "60px", height: "60px" }}>
-                <i className="fas fa-eye text-info fs-4"></i>
-              </div>
-              <h3 className="fw-bold text-info">
-                {evenements.reduce((sum, evt) => sum + (evt.stats?.total_views || 0), 0)}
-              </h3>
-              <p className="text-muted mb-0">Total des vues</p>
-            </Card>
-          </Col>
-          <Col xl={3} lg={6} className="mb-4">
-            <Card className="shadow-lg border-0 text-center p-4" style={{ borderRadius: "20px" }}>
-              <div className="bg-danger bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: "60px", height: "60px" }}>
-                <i className="fas fa-heart text-danger fs-4"></i>
-              </div>
-              <h3 className="fw-bold text-danger">
-                {evenements.reduce((sum, evt) => sum + getTotalReactions(evt.stats), 0)}
-              </h3>
-              <p className="text-muted mb-0">Total des réactions</p>
-            </Card>
-          </Col>
+        {/* Stats Cards */}
+        <Row className="mb-5 g-4">
+          {statsCards.map((stat, index) => (
+            <Col xl={4} lg={4} md={6} key={index}>
+              <Card 
+                className="border-0 shadow-sm text-center p-4 h-100"
+                style={{
+                  borderRadius: "18px",
+                  background: COLORS.white,
+                  transition: "all 0.3s ease",
+                  cursor: "pointer"
+                }}
+                onClick={stat.onClick}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-8px)";
+                  e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.15)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.1)";
+                }}
+              >
+                <div
+                  className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                  style={{
+                    width: "70px",
+                    height: "70px",
+                    background: stat.bg,
+                    border: `3px solid ${stat.color}`,
+                  }}
+                >
+                  <stat.icon size={28} style={{ color: stat.color }} />
+                </div>
+                <h3 style={{ 
+                  fontWeight: "bold", 
+                  color: "#2c3e50", 
+                  fontSize: "2rem",
+                  margin: 0 
+                }}>
+                  {stat.count}
+                </h3>
+                <p style={{ 
+                  fontWeight: "600", 
+                  color: COLORS.gray, 
+                  margin: 0,
+                  fontSize: "0.9rem",
+                  marginTop: "0.5rem"
+                }}>
+                  {stat.label}
+                </p>
+              </Card>
+            </Col>
+          ))}
         </Row>
 
-        {/* ⏳ Affichage de chargement */}
-        {loading && (
-          <div className="text-center my-5">
-            <Spinner animation="border" variant="primary" role="status" />
-            <p className="mt-2 text-primary fw-semibold">Chargement des événements...</p>
+        {/* Info pour les membres */}
+        {currentUser?.type === 'membre' && evenements.some(e => e.statut === "En attente") && (
+          <Alert variant="info" className="mb-4" style={{ borderRadius: "12px" }}>
+            <i className="fas fa-info-circle me-2"></i>
+            <strong>Information:</strong> Vos événements sont en attente de validation par l'administrateur.
+          </Alert>
+        )}
+
+        {/* Liste des événements */}
+        {loading ? (
+          <div className="text-center py-5">
+            <Spinner animation="border" variant="primary" style={{ width: '3rem', height: '3rem' }} />
+            <p className="mt-3 text-muted">Chargement des événements...</p>
           </div>
-        )}
-
-        {/* ❌ Événements vides */}
-        {!loading && evenements.length === 0 && (
-            <Alert variant="info" className="text-center my-5 border-0 shadow" style={{ borderRadius: "15px" }}>
-                <i className="fas fa-info-circle me-2"></i>
-                Aucun événement trouvé. Créez-en un pour commencer !
-            </Alert>
-        )}
-
-        {/* ✅ MODIFIÉ : Liste des événements avec statistiques */}
-        {!loading && evenements.length > 0 && (
-            <Row>
-              {evenements.map((evt) => {
-                const userIsAuthor = isUserAuthor(evt);
-                const auteurName = getAuteurName(evt);
-
-                return (
-                  <Col xl={4} lg={6} className="mb-4" key={evt.id}>
-                    <Card 
-                      className="shadow-lg border-0 h-100"
-                      style={{ 
-                        borderRadius: "20px",
-                        transition: "all 0.3s ease",
-                        overflow: "hidden",
-                        borderLeft: `4px solid ${
-                          evt.statut === "Validé" ? "#28a745" :
-                          evt.statut === "En attente" ? "#ffc107" :
-                          "#dc3545"
-                        }`
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = "translateY(-8px)";
-                        e.currentTarget.style.boxShadow = "0 12px 35px rgba(0, 0, 0, 0.15)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = "translateY(0)";
-                        e.currentTarget.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.1)";
-                      }}
-                    >
-                      <Card.Body className="p-4">
-                        <div className="d-flex justify-content-between align-items-start mb-3">
-                          <div className="d-flex align-items-center">
-                            {getTypeBadge(evt.type)}
-                            {getUserBadge(evt)}
-                          </div>
-                          {getStatusBadge(evt.statut)}
+        ) : filteredEvenements.length === 0 ? (
+          <Card className="text-center border-0 shadow-sm p-5" style={{ borderRadius: "20px", minHeight: "300px" }}>
+            <div className="d-flex flex-column justify-content-center align-items-center h-100">
+              <FaCalendarAlt size={80} className="text-muted mb-4" />
+              <h3 className="text-dark mb-3">Aucun événement trouvé</h3>
+              <p className="text-muted mb-4">
+                {searchTerm || statusFilter !== "Tous" || typeFilter !== "Tous"
+                  ? "Aucun événement ne correspond à vos critères" 
+                  : currentUser?.type === 'admin' 
+                    ? "Aucun événement dans le système" 
+                    : "Commencez par créer votre premier événement"}
+              </p>
+              <Button 
+                onClick={handleShowAdd}
+                className="rounded-pill px-4 py-2 shadow-sm"
+                style={{
+                  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                  border: "none"
+                }}
+              >
+                <FaPlusCircle className="me-2" />
+                Créer un événement
+              </Button>
+            </div>
+          </Card>
+        ) : (
+          <Row className="g-4">
+            {filteredEvenements.map(evenement => {
+              const userIsAuthor = isUserAuthor(evenement);
+              const isPastEvent = new Date(evenement.date_heure) < new Date();
+              
+              return (
+                <Col xl={4} lg={6} md={6} key={evenement.id}>
+                  <Card
+                    className="border-0 shadow-sm h-100"
+                    style={{
+                      borderRadius: "18px",
+                      overflow: "hidden",
+                      transition: "all 0.3s ease",
+                      borderLeft: `4px solid ${
+                        isPastEvent ? "#6c757d" : 
+                        evenement.statut === "Validé" ? "#28a745" : 
+                        evenement.statut === "En attente" ? "#ffc107" : 
+                        "#dc3545"
+                      }`
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-8px)";
+                      e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.15)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.1)";
+                    }}
+                  >
+                    <Card.Body className="p-4 d-flex flex-column">
+                      <div className="d-flex justify-content-between align-items-start mb-3">
+                        <div className="d-flex align-items-center flex-wrap gap-1">
+                          <TypeBadge type={evenement.type} />
+                          {userIsAuthor && <UserBadge evenement={evenement} />}
                         </div>
-                        
-                        <Card.Title 
-                          className="fw-bold mb-3"
-                          style={{ 
-                            color: "#2c3e50",
-                            fontSize: "1.3rem",
-                            lineHeight: "1.4"
-                          }}
-                        >
-                          {evt.titre}
-                        </Card.Title>
-                        
-                        {/* ✅ AJOUTÉ : Statistiques d'engagement */}
+                        <StatusBadge statut={evenement.statut} />
+                      </div>
+
+                      <Card.Title 
+                        className="fw-bold mb-2" 
+                        style={{ fontSize: "1.3rem", color: "#2c3e50", minHeight: "60px" }}
+                      >
+                        {evenement.titre}
+                      </Card.Title>
+
+                      <Card.Text 
+                        className="text-muted small mb-3 flex-grow-1" 
+                        style={{ lineHeight: "1.6" }}
+                      >
+                        {evenement.description && evenement.description.length > 120 
+                          ? `${evenement.description.substring(0, 120)}...` 
+                          : evenement.description || "Pas de description"}
+                      </Card.Text>
+
+                      <div className="mb-3">
+                        <div className="d-flex align-items-center mb-2">
+                          <FaRegClock className="me-2 text-primary" size={14} />
+                          <span className={isPastEvent ? "text-muted" : "fw-semibold"}>
+                            {formatDate(evenement.date_heure)}
+                          </span>
+                        </div>
+                        <div className="d-flex align-items-center">
+                          <FaMapMarkerAlt className="me-2 text-danger" size={14} />
+                          <span>{evenement.lieu || "Non spécifié"}</span>
+                        </div>
+                      </div>
+
+                      {evenement.fichier && (
                         <div className="mb-3">
-                          <div className="d-flex justify-content-between align-items-center small text-muted mb-2">
-                            <div className="d-flex align-items-center gap-3">
-                              {/* Vues */}
-                              <div className="d-flex align-items-center">
-                                <i className="fas fa-eye me-1 text-primary"></i>
-                                <span>{evt.stats?.total_views || 0} vues</span>
-                              </div>
-                              
-                              {/* Réactions totales */}
-                              <div className="d-flex align-items-center">
-                                <i className="fas fa-heart me-1 text-danger"></i>
-                                <span>{getTotalReactions(evt.stats)} réactions</span>
-                              </div>
+                          <div className="d-flex align-items-center justify-content-between p-2 border rounded" style={{ background: "#f8f9fa" }}>
+                            <div className="d-flex align-items-center">
+                              {evenement.fichier_type && evenement.fichier_type.startsWith("image/") ? (
+                                <img 
+                                  src={evenement.fichier_url} 
+                                  alt="Miniature"
+                                  className="me-2"
+                                  style={{ 
+                                    width: "40px", 
+                                    height: "40px", 
+                                    objectFit: "cover",
+                                    borderRadius: "6px"
+                                  }}
+                                />
+                              ) : (
+                                <div className="me-2" style={{ width: "40px", height: "40px", background: "#667eea", borderRadius: "6px" }}>
+                                  {getFileIcon(evenement.fichier)}
+                                </div>
+                              )}
+                              <span className="small text-truncate" style={{ maxWidth: "150px" }}>
+                                {evenement.fichier.split('/').pop()}
+                              </span>
                             </div>
-                            
-                            {/* Détails des réactions par type */}
-                            {evt.stats?.reactions_by_type && Object.keys(evt.stats.reactions_by_type).length > 0 && (
-                              <div className="d-flex gap-1">
-                                {Object.entries(evt.stats.reactions_by_type).map(([type, count]) => (
-                                  count > 0 && (
-                                    <Badge 
-                                      key={type}
-                                      bg="light" 
-                                      text="dark"
-                                      className="small"
-                                      style={{ fontSize: "0.6rem" }}
-                                    >
-                                      {getReactionEmoji(type)} {count}
-                                    </Badge>
-                                  )
-                                ))}
-                              </div>
-                            )}
+                            <div className="d-flex gap-1">
+                              {evenement.fichier_type && evenement.fichier_type.startsWith("image/") && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline-info" 
+                                  href={evenement.fichier_url} 
+                                  target="_blank"
+                                  className="rounded-circle"
+                                  style={{ width: '32px', height: '32px' }}
+                                  title="Voir l'image"
+                                >
+                                  <FaEye size={12} />
+                                </Button>
+                              )}
+                              <Button 
+                                size="sm" 
+                                variant="outline-primary" 
+                                href={evenement.fichier_url} 
+                                target="_blank"
+                                className="rounded-circle"
+                                style={{ width: '32px', height: '32px' }}
+                                title="Ouvrir"
+                              >
+                                <FaExternalLinkAlt size={12} />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline-secondary" 
+                                href={evenement.fichier_url} 
+                                download
+                                className="rounded-circle"
+                                style={{ width: '32px', height: '32px' }}
+                                title="Télécharger"
+                              >
+                                <FaDownload size={12} />
+                              </Button>
+                            </div>
                           </div>
                         </div>
+                      )}
 
-                        <div className="mb-3">
-                          <div className="d-flex align-items-center mb-2">
-                            <i className="fas fa-map-marker-alt text-danger me-2"></i>
-                            <span className="fw-semibold">{evt.lieu}</span>
-                          </div>
-                          <div className="d-flex align-items-center mb-2">
-                            <i className="fas fa-calendar text-primary me-2"></i>
-                            <span>{formatDate(evt.date)}</span>
-                          </div>
-                          <div className="d-flex align-items-center mb-2">
-                            <i className="fas fa-clock text-warning me-2"></i>
-                            <span>{evt.heure}</span>
-                          </div>
-                          <div className="d-flex align-items-center mb-3">
-                            <i className="fas fa-user text-success me-2"></i>
-                            <span className="small text-muted">
-                              Auteur: <strong>{auteurName}</strong>
-                            </span>
-                          </div>
+
+                      <div className="mt-auto">
+                        <div className="d-flex justify-content-between text-muted small mb-3">
+                          <span><FaUser className="me-1" />
+                            {evenement.membre && typeof evenement.membre === 'object' 
+                              ? evenement.membre.nom_complet || evenement.membre.email || "Non spécifié"
+                              : evenement.membre || evenement.auteur || "Non spécifié"}
+                          </span>
+                          <span><FaCalendar className="me-1" />{new Date(evenement.created_at).toLocaleDateString('fr-FR')}</span>
                         </div>
 
-                        <Card.Text 
-                          className="text-muted mb-4"
-                          style={{ 
-                            lineHeight: "1.6",
-                            fontSize: "0.95rem"
-                          }}
-                        >
-                          {evt.description?.length > 120 ? `${evt.description.substring(0, 120)}...` : evt.description}
-                        </Card.Text>
-
-                        {/* ✅ Section Fichier AMÉLIORÉE */}
-                        {evt.fichier && (
-                          <FilePreviewCard 
-                            fichier={evt.fichier} 
-                            fileName={getFileName(evt.fichier)} 
-                          />
-                        )}
-
-                        {/* Actions conditionnelles */}
-                        <div className="d-flex gap-2">
+                        {/* Action Buttons */}
+                        <div className="d-flex justify-content-end gap-1">
+                          <Button 
+                            variant="outline-info" 
+                            size="sm" 
+                            className="rounded-circle" 
+                            onClick={() => handleShowView(evenement)}
+                            style={{ width: '36px', height: '36px' }}
+                            title="Voir les détails"
+                          >
+                            <FaEye size={14} />
+                          </Button>
+                          
                           {userIsAuthor && (
                             <>
                               <Button 
                                 variant="outline-primary" 
-                                size="sm"
-                                onClick={() => handleShowEdit(evt)}
-                                className="rounded-pill flex-grow-1"
-                                disabled={evt.statut !== 'En attente' || loading}
+                                size="sm" 
+                                className="rounded-circle" 
+                                onClick={() => handleShowEdit(evenement)}
+                                style={{ width: '36px', height: '36px' }}
+                                title="Modifier"
                               >
-                                <i className="fas fa-edit me-1"></i>
-                                Modifier
+                                <FaEdit size={14} />
                               </Button>
                               <Button 
                                 variant="outline-danger" 
-                                size="sm"
-                                onClick={() => handleDelete(evt.id)}
-                                className="rounded-pill"
-                                style={{ width: "45px" }}
-                                disabled={loading}
+                                size="sm" 
+                                className="rounded-circle" 
+                                onClick={() => confirmDelete(evenement.id)}
+                                style={{ width: '36px', height: '36px' }}
+                                title="Supprimer"
                               >
-                                <i className="fas fa-trash"></i>
+                                <FaTrash size={14} />
                               </Button>
                             </>
                           )}
-                          {!userIsAuthor && (
-                            <small className="text-muted">
-                              <i className="fas fa-info-circle me-1"></i>
-                              Lecture seule
-                            </small>
-                          )}
                         </div>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                );
-              })}
-            </Row>
+                      </div>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              );
+            })}
+          </Row>
         )}
 
         {/* Modal d'ajout/modification */}
-        <Modal 
-          show={showModal} 
-          onHide={handleClose} 
-          centered
-          size="lg"
-          className="modern-modal"
-        >
-          <Modal.Header 
-            className="border-0"
-            style={{ 
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              color: "white",
-              borderTopLeftRadius: "20px",
-              borderTopRightRadius: "20px"
-            }}
-          >
-            <Modal.Title className="fw-bold">
-              <i className="fas fa-calendar-plus me-2"></i>
-              {editMode ? "Modifier l'événement" : "Créer un nouvel événement (Envoi en attente)"}
+        <Modal show={showModal && !viewMode} onHide={handleClose} centered size="lg">
+          <Modal.Header closeButton style={{
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            color: "white",
+            borderTopLeftRadius: "18px",
+            borderTopRightRadius: "18px",
+            padding: "1.5rem 2rem",
+            border: 'none'
+          }}>
+            <Modal.Title className="fw-bold d-flex align-items-center">
+              {editMode ? <FaEdit className="me-2" /> : <FaPlusCircle className="me-2" />}
+              {editMode ? "Modifier l'événement" : "Nouvel événement"}
             </Modal.Title>
-            <Button 
-              variant="link" 
-              onClick={handleClose}
-              className="text-white p-0"
-              style={{ fontSize: "1.5rem" }}
-            >
-              <i className="fas fa-times"></i>
-            </Button>
           </Modal.Header>
-          
-          <Modal.Body className="p-4">
-            <Form>
-              <Row>
+
+          <Modal.Body className="p-4 p-md-5" style={{ background: "#f8f9fa" }}>
+            <Form onSubmit={handleSave}>
+              <Row className="g-4">
                 <Col md={8}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold">
-                      <i className="fas fa-heading me-2 text-primary"></i>
-                      Titre de l'événement *
+                  <Form.Group>
+                    <Form.Label className="fw-semibold mb-3" style={{ color: COLORS.primary }}>
+                      <FaCalendarDay className="me-2" />Titre de l'événement *
                     </Form.Label>
                     <Form.Control
                       type="text"
@@ -975,39 +1035,69 @@ const EvenementMembre = () => {
                       value={nouvelEvenement.titre}
                       onChange={handleChange}
                       required
-                      className="border-0 shadow-sm rounded-3 py-3"
-                      placeholder="Donnez un titre attractif..."
-                      style={{ background: "#f8f9fa" }}
+                      className="shadow-sm"
+                      style={{
+                        borderRadius: "12px",
+                        padding: "0.75rem 1rem",
+                        fontSize: "1rem",
+                      }}
+                      placeholder="Ex: Conférence sur l'IA"
                     />
                   </Form.Group>
                 </Col>
+
                 <Col md={4}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold">
-                      <i className="fas fa-tag me-2 text-success"></i>
-                      Type
+                  <Form.Group>
+                    <Form.Label className="fw-semibold mb-3" style={{ color: COLORS.success }}>
+                      <FaTag className="me-2" />Type d'événement *
                     </Form.Label>
                     <Form.Select
                       name="type"
                       value={nouvelEvenement.type}
                       onChange={handleChange}
-                      className="border-0 shadow-sm rounded-3 py-3"
-                      style={{ background: "#f8f9fa" }}
+                      required
+                      className="shadow-sm"
+                      style={{
+                        borderRadius: "12px",
+                        padding: "0.75rem 1rem",
+                      }}
                     >
-                      <option value="Présentiel">Présentiel</option>
-                      <option value="En ligne">En ligne</option>
-                      <option value="Hybride">Hybride</option>
+                      {typesEvenement.map(type => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
                     </Form.Select>
                   </Form.Group>
                 </Col>
               </Row>
 
-              <Row>
+              <Row className="g-4 mt-3">
                 <Col md={6}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold">
-                      <i className="fas fa-map-marker-alt me-2 text-danger"></i>
-                      Lieu *
+                  <Form.Group>
+                    <Form.Label className="fw-semibold mb-3" style={{ color: COLORS.info }}>
+                      <FaRegClock className="me-2" />Date et Heure *
+                    </Form.Label>
+                    <Form.Control
+                      type="datetime-local"
+                      name="date_heure"
+                      value={nouvelEvenement.date_heure}
+                      onChange={handleChange}
+                      required
+                      className="shadow-sm"
+                      style={{
+                        borderRadius: "12px",
+                        padding: "0.75rem 1rem",
+                      }}
+                      min={new Date().toISOString().slice(0, 16)}
+                    />
+                  </Form.Group>
+                </Col>
+
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-semibold mb-3" style={{ color: COLORS.danger }}>
+                      <FaMapMarkerAlt className="me-2" />Lieu *
                     </Form.Label>
                     <Form.Control
                       type="text"
@@ -1015,120 +1105,436 @@ const EvenementMembre = () => {
                       value={nouvelEvenement.lieu}
                       onChange={handleChange}
                       required
-                      className="border-0 shadow-sm rounded-3 py-3"
-                      placeholder="Lieu de l'événement..."
-                      style={{ background: "#f8f9fa" }}
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={3}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold">
-                      <i className="fas fa-calendar me-2 text-primary"></i>
-                      Date *
-                    </Form.Label>
-                    <Form.Control
-                      type="date"
-                      name="date"
-                      value={nouvelEvenement.date}
-                      onChange={handleChange}
-                      required
-                      className="border-0 shadow-sm rounded-3 py-3"
-                      style={{ background: "#f8f9fa" }}
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={3}>
-                  <Form.Group className="mb-4">
-                    <Form.Label className="fw-semibold">
-                      <i className="fas fa-clock me-2 text-warning"></i>
-                      Heure
-                    </Form.Label>
-                    <Form.Control
-                      type="time"
-                      name="heure"
-                      value={nouvelEvenement.heure}
-                      onChange={handleChange}
-                      className="border-0 shadow-sm rounded-3 py-3"
-                      style={{ background: "#f8f9fa" }}
+                      className="shadow-sm"
+                      style={{
+                        borderRadius: "12px",
+                        padding: "0.75rem 1rem",
+                      }}
+                      placeholder="Ex: Salle des conférences, Paris"
                     />
                   </Form.Group>
                 </Col>
               </Row>
-              
-              <Form.Group className="mb-4">
-                <Form.Label className="fw-semibold">
-                  <i className="fas fa-align-left me-2 text-info"></i>
-                  Description *
+
+              <Form.Group className="mt-4">
+                <Form.Label className="fw-semibold mb-3" style={{ color: COLORS.accent }}>
+                  <FaCalendarAlt className="me-2" />Description
                 </Form.Label>
                 <Form.Control
                   as="textarea"
-                  rows={4}
+                  rows={5}
                   name="description"
                   value={nouvelEvenement.description}
                   onChange={handleChange}
-                  required
-                  className="border-0 shadow-sm rounded-3 py-3"
-                  placeholder="Décrivez votre événement..."
-                  style={{ background: "#f8f9fa", resize: "none" }}
+                  className="shadow-sm"
+                  style={{
+                    borderRadius: "12px",
+                    padding: "1rem",
+                    resize: "none",
+                  }}
+                  placeholder="Décrivez en détail l'événement..."
+                  maxLength={2000}
                 />
-              </Form.Group>
-
-              <Form.Group className="mb-4">
-                <Form.Label className="fw-semibold">
-                  <i className="fas fa-image me-2 text-warning"></i>
-                  Fichier joint
-                </Form.Label>
-                <Form.Control
-                  type="file"
-                  name="image"
-                  accept="*/*" // ✅ Accepter tous les types de fichiers
-                  onChange={handleChange}
-                  className="border-0 shadow-sm rounded-3 py-3"
-                  style={{ background: "#f8f9fa" }}
-                />
-                <Form.Text className="text-muted">
-                  Formats acceptés: images, PDF, documents, vidéos
+                <Form.Text className="text-muted d-block text-end mt-2">
+                  {nouvelEvenement.description.length}/2000 caractères
                 </Form.Text>
               </Form.Group>
 
-              {/* Aperçu du fichier sélectionné */}
-              <FilePreviewModal file={previewFile} />
+              <Row className="g-4 mt-3">
+                <Col md={8}>
+                  <Form.Group>
+                    <Form.Label className="fw-semibold mb-3" style={{ color: COLORS.warning }}>
+                      <FaCloudUploadAlt className="me-2" />Fichier joint (optionnel)
+                    </Form.Label>
+                    <Form.Control
+                      type="file"
+                      name="fichier"
+                      onChange={handleChange}
+                      className="shadow-sm"
+                      style={{
+                        borderRadius: "12px",
+                        padding: "0.75rem 1rem",
+                      }}
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    />
+                    <Form.Text className="text-muted">
+                      Formats acceptés: PDF, Word, Images (max 5MB)
+                    </Form.Text>
+                  </Form.Group>
+                </Col>
+
+                {currentUser?.type === 'admin' && (
+                  <Col md={4}>
+                    <Form.Group>
+                      <Form.Label className="fw-semibold mb-3" style={{ color: COLORS.success }}>
+                        <FaCheckCircle className="me-2" />Statut
+                      </Form.Label>
+                      <Form.Select
+                        name="statut"
+                        value={nouvelEvenement.statut}
+                        onChange={handleChange}
+                        className="shadow-sm"
+                        style={{
+                          borderRadius: "12px",
+                          padding: "0.75rem 1rem",
+                        }}
+                      >
+                        {statutsEvenement.map(statut => (
+                          <option key={statut.value} value={statut.value}>
+                            {statut.label}
+                          </option>
+                        ))}
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                )}
+              </Row>
+
+              {previewFile && (
+                <div className="mt-4 p-4 border-0 rounded shadow-sm" style={{ background: "white", borderRadius: "15px" }}>
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h6 className="fw-bold mb-0" style={{ color: COLORS.primary }}>
+                      <FaEye className="me-2" />
+                      {previewFile.type.startsWith("image/") ? "Aperçu de l'image" : "Aperçu du fichier"}
+                    </h6>
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      onClick={handleRemoveFile}
+                      className="rounded-circle"
+                      style={{ width: '32px', height: '32px' }}
+                      title="Supprimer le fichier"
+                    >
+                      <FaTimes />
+                    </Button>
+                  </div>
+                  <div className="text-center">
+                    {previewFile.type.startsWith("image/") ? (
+                      <div>
+                        <img
+                          src={previewFile.url}
+                          alt="Aperçu"
+                          style={{
+                            maxHeight: "220px",
+                            maxWidth: "100%",
+                            borderRadius: "12px",
+                            boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+                          }}
+                        />
+                        <p className="mt-2 small text-muted">{previewFile.name}</p>
+                      </div>
+                    ) : (
+                      <div className="p-4 text-center">
+                        <div className="d-inline-flex align-items-center justify-content-center mb-3" 
+                          style={{ 
+                            width: "80px", 
+                            height: "80px", 
+                            background: COLORS.primary,
+                            borderRadius: "12px" 
+                          }}>
+                          {getFileIcon(previewFile.name)}
+                        </div>
+                        <p className="fw-semibold text-break mb-1">{previewFile.name}</p>
+                        <small className="text-muted">Document à télécharger</small>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </Form>
           </Modal.Body>
-          
-          <Modal.Footer className="border-0">
+
+          <Modal.Footer className="border-0 p-4" style={{ 
+            background: "#f8f9fa", 
+            borderBottomLeftRadius: "18px", 
+            borderBottomRightRadius: "18px" 
+          }}>
             <Button 
               variant="outline-secondary" 
-              onClick={handleClose}
-              className="rounded-pill px-4 py-2"
-              style={{ fontWeight: "600" }}
-              disabled={loading}
+              onClick={handleClose} 
+              className="rounded-pill px-4 px-lg-5 py-2" 
+              disabled={isSubmitting}
+              style={{ minWidth: '120px' }}
             >
-              <i className="fas fa-times me-2"></i>
+              <FaTimes className="me-2" />Annuler
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleSave}
+              disabled={isSubmitting}
+              className="rounded-pill px-4 px-lg-5 py-2 shadow-lg"
+              style={{
+                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                border: "none",
+                fontWeight: "600",
+                minWidth: '150px'
+              }}
+            >
+              {isSubmitting ? (
+                <>
+                  <Spinner animation="border" size="sm" className="me-2" />
+                  {editMode ? "Enregistrement..." : "Création..."}
+                </>
+              ) : (
+                <>
+                  {editMode ? <FaEdit className="me-2" /> : <FaCloudUploadAlt className="me-2" />}
+                  {editMode ? "Enregistrer" : "Créer"}
+                </>
+              )}
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* Modal de visualisation */}
+        <Modal show={showModal && viewMode} onHide={handleClose} centered size="lg">
+          {currentEvenement && (
+            <>
+              <Modal.Header closeButton style={{
+                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                color: "white",
+                borderTopLeftRadius: "18px",
+                borderTopRightRadius: "18px",
+                padding: "1.5rem 2rem",
+                border: 'none'
+              }}>
+                <Modal.Title className="fw-bold d-flex align-items-center">
+                  <FaEye className="me-2" />
+                  Détails de l'événement
+                </Modal.Title>
+              </Modal.Header>
+
+              <Modal.Body className="p-4 p-md-5">
+                <Row className="mb-4">
+                  <Col>
+                    <h3 className="text-dark mb-3">{currentEvenement.titre}</h3>
+                    <div className="d-flex flex-wrap gap-2 mb-3">
+                      <TypeBadge type={currentEvenement.type} />
+                      <StatusBadge statut={currentEvenement.statut} />
+                      {isUserAuthor(currentEvenement) && <UserBadge evenement={currentEvenement} />}
+                    </div>
+                  </Col>
+                </Row>
+
+                <Row className="mb-4">
+                  <Col md={6}>
+                    <div className="d-flex align-items-center mb-3">
+                      <FaRegClock className="me-3 text-primary" size={20} />
+                      <div>
+                        <div className="fw-semibold">Date et Heure</div>
+                        <div className="text-dark">{formatDate(currentEvenement.date_heure)}</div>
+                      </div>
+                    </div>
+                  </Col>
+                  <Col md={6}>
+                    <div className="d-flex align-items-center mb-3">
+                      <FaMapMarkerAlt className="me-3 text-danger" size={20} />
+                      <div>
+                        <div className="fw-semibold">Lieu</div>
+                        <div className="text-dark">{currentEvenement.lieu}</div>
+                      </div>
+                    </div>
+                  </Col>
+                </Row>
+
+                <div className="mb-4">
+                  <h5 className="fw-semibold mb-2">Description</h5>
+                  <div className="p-3 bg-light rounded" style={{ whiteSpace: 'pre-wrap' }}>
+                    {currentEvenement.description || "Pas de description"}
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <h5 className="fw-semibold mb-2">Organisateur</h5>
+                  <div className="d-flex align-items-center">
+                    <FaUserTie className="me-3 text-info" size={20} />
+                    <div>
+                      <div className="text-dark">
+                        {currentEvenement.membre && typeof currentEvenement.membre === 'object'
+                          ? currentEvenement.membre.nom_complet || currentEvenement.membre.email || "Non spécifié"
+                          : currentEvenement.membre || currentEvenement.auteur || "Non spécifié"}
+                      </div>
+                      <small className="text-muted">Organisateur de l'événement</small>
+                    </div>
+                  </div>
+                </div>
+
+                {currentEvenement.fichier && (
+                  <div className="mb-4">
+                    <h5 className="fw-semibold mb-2">Fichier joint</h5>
+                    <div className="p-3 border rounded" style={{ background: "#f8f9fa" }}>
+                      <div className="d-flex align-items-center mb-3">
+                        {currentEvenement.fichier_type && currentEvenement.fichier_type.startsWith("image/") ? (
+                          <img 
+                            src={currentEvenement.fichier_url} 
+                            alt="Aperçu"
+                            className="me-3"
+                            style={{ 
+                              width: "80px", 
+                              height: "80px", 
+                              objectFit: "cover",
+                              borderRadius: "8px",
+                              border: "2px solid #dee2e6"
+                            }}
+                          />
+                        ) : (
+                          <div className="me-3 p-3 text-center" style={{ width: "80px", height: "80px", background: "#667eea", borderRadius: "8px" }}>
+                            {getFileIcon(currentEvenement.fichier)}
+                          </div>
+                        )}
+                        <div className="flex-grow-1">
+                          <div className="fw-semibold text-truncate">
+                            {currentEvenement.fichier.split('/').pop()}
+                          </div>
+                          <small className="text-muted">
+                            {currentEvenement.fichier_type || "Fichier"}
+                          </small>
+                        </div>
+                      </div>
+                      <div className="d-flex justify-content-end gap-2">
+                        {currentEvenement.fichier_type && currentEvenement.fichier_type.startsWith("image/") && (
+                          <Button 
+                            variant="outline-info" 
+                            size="sm"
+                            href={currentEvenement.fichier_url} 
+                            target="_blank"
+                            className="rounded-pill px-3"
+                          >
+                            <FaEye className="me-1" />
+                            Voir l'image
+                          </Button>
+                        )}
+                        <Button 
+                          variant="outline-primary" 
+                          size="sm"
+                          href={currentEvenement.fichier_url} 
+                          target="_blank"
+                          className="rounded-pill px-3"
+                        >
+                          <FaExternalLinkAlt className="me-1" />
+                          Ouvrir
+                        </Button>
+                        <Button 
+                          variant="outline-secondary" 
+                          size="sm"
+                          href={currentEvenement.fichier_url} 
+                          download
+                          className="rounded-pill px-3"
+                        >
+                          <FaDownload className="me-1" />
+                          Télécharger
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-4 pt-4 border-top">
+                  <small className="text-muted">
+                    Créé le: {formatDate(currentEvenement.created_at)} • 
+                    Mis à jour le: {formatDate(currentEvenement.updated_at)}
+                  </small>
+                </div>
+              </Modal.Body>
+
+              <Modal.Footer className="border-0 p-4">
+                <Button 
+                  variant="outline-secondary" 
+                  onClick={handleClose} 
+                  className="rounded-pill px-4 py-2"
+                >
+                  <FaTimes className="me-2" />
+                  Fermer
+                </Button>
+                {isUserAuthor(currentEvenement) && (
+                  <Button 
+                    variant="primary" 
+                    onClick={() => {
+                      handleClose();
+                      handleShowEdit(currentEvenement);
+                    }}
+                    className="rounded-pill px-4 py-2"
+                  >
+                    <FaEdit className="me-2" />
+                    Modifier
+                  </Button>
+                )}
+              </Modal.Footer>
+            </>
+          )}
+        </Modal>
+
+        {/* Modal de confirmation de suppression */}
+        <Modal show={showConfirm} onHide={() => setShowConfirm(false)} centered size="sm">
+          <Modal.Header closeButton className="border-0">
+            <Modal.Title className="fw-bold text-danger">
+              <FaExclamationTriangle className="me-2" />
+              Confirmation
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body className="text-center py-4">
+            <FaExclamationTriangle size={48} className="text-danger mb-3" />
+            <p className="mb-0">Êtes-vous sûr de vouloir supprimer cet événement ? Cette action est irréversible.</p>
+          </Modal.Body>
+          <Modal.Footer className="border-0 justify-content-center">
+            <Button 
+              variant="outline-secondary" 
+              onClick={() => setShowConfirm(false)} 
+              className="px-4 rounded-pill"
+              disabled={isSubmitting}
+            >
               Annuler
             </Button>
             <Button 
-              variant="success" 
-              onClick={editMode ? handleEdit : handleAdd}
-              className="rounded-pill px-4 py-2"
-              style={{
-                background: "linear-gradient(135deg, #00b09b 0%, #96c93d 100%)",
-                border: "none",
-                fontWeight: "600"
-              }}
-              disabled={loading}
+              variant="danger" 
+              onClick={executeDelete} 
+              className="px-4 rounded-pill"
+              disabled={isSubmitting}
             >
-              {loading ? (
-                <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
+              {isSubmitting ? (
+                <Spinner animation="border" size="sm" className="me-2" />
               ) : (
-                <i className={`fas ${editMode ? 'fa-save' : 'fa-plus'} me-2`}></i>
+                <FaTrash className="me-2" />
               )}
-              {editMode ? "Sauvegarder" : "Créer et Envoyer"}
+              Supprimer
             </Button>
           </Modal.Footer>
         </Modal>
       </div>
+
+      {/* Language Switcher */}
+      <footer style={{ 
+        position: "fixed",
+        bottom: "20px",
+        right: "20px",
+        zIndex: 1000,
+        background: "rgba(255, 255, 255, 0.9)",
+        padding: "10px",
+        borderRadius: "10px",
+        backdropFilter: "blur(5px)",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.1)"
+      }}>
+        <LanguageSwitcher />
+      </footer>
+
+      {/* Custom Styles */}
+      <style jsx>{`
+        .modal-content {
+          border-radius: 18px !important;
+          border: none !important;
+          box-shadow: 0 25px 50px rgba(0,0,0,0.2) !important;
+        }
+        
+        .form-control:focus,
+        .form-select:focus {
+          border-color: #667eea !important;
+          box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25) !important;
+        }
+        
+        .card:hover {
+          transform: translateY(-8px);
+          box-shadow: 0 12px 30px rgba(0,0,0,0.15) !important;
+        }
+      `}</style>
     </div>
   );
 };
