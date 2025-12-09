@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import Navbar from "../../components/Navbar";
 import axios from "axios";
+import { useTranslation } from 'react-i18next'; // Import de useTranslation
 
 const EvenementVisiteur = () => {
+  const { t } = useTranslation(); // Utiliser le hook de traduction
   const [evenements, setEvenements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -93,7 +95,7 @@ const EvenementVisiteur = () => {
               user_reaction: null,
               has_viewed: false
             },
-            category: event.type || "Général",
+            category: event.type || t('general'),
             fichier_url: event.fichier ? 
               (event.fichier.startsWith('http') ? 
                 event.fichier : 
@@ -118,7 +120,7 @@ const EvenementVisiteur = () => {
               user_reaction: null,
               has_viewed: false
             },
-            category: event.type || "Général",
+            category: event.type || t('general'),
             fichier_url: event.fichier ? 
               (event.fichier.startsWith('http') ? event.fichier : `http://127.0.0.1:8000/storage/${event.fichier.replace(/^\//, '')}`)
               : null,
@@ -144,13 +146,13 @@ const EvenementVisiteur = () => {
           }
         });
       } catch (error) {
-        console.error("Erreur de chargement :", error);
+        console.error(t('error_load'), error);
         setLoading(false);
       }
     };
 
     fetchEvents();
-  }, []);
+  }, [t]);
 
   // Déterminer le type de fichier
   const getFileType = (fichier) => {
@@ -165,7 +167,7 @@ const EvenementVisiteur = () => {
   // Charger les statistiques d'un événement
   const loadEventStats = async (eventId) => {
     if (!eventId || eventId === 'undefined') {
-      console.error('ID d\'événement invalide:', eventId);
+      console.error(t('invalid_event_id'), eventId);
       return;
     }
 
@@ -196,14 +198,14 @@ const EvenementVisiteur = () => {
         ));
       }
     } catch (error) {
-      console.error('Erreur chargement stats:', error);
+      console.error(t('error_load_stats'), error);
     }
   };
 
   // Fonction pour gérer les réactions "J'adore"
   const handleReaction = async (eventId) => {
     if (!eventId || eventId === 'undefined') {
-      console.error('ID d\'événement invalide pour réaction:', eventId);
+      console.error(t('invalid_event_id_reaction'), eventId);
       return;
     }
 
@@ -251,12 +253,12 @@ const EvenementVisiteur = () => {
           }));
         }
       } else {
-        console.error("Réponse API non réussie:", data);
-        alert(data.message || "Erreur lors de l'ajout de la réaction");
+        console.error(t('api_response_error'), data);
+        alert(data.message || t('reaction_error'));
       }
     } catch (error) {
-      console.error('Erreur réaction:', error.response?.data || error);
-      const errorMessage = error.response?.data?.message || "Erreur lors de l'ajout de la réaction";
+      console.error(t('reaction_error'), error.response?.data || error);
+      const errorMessage = error.response?.data?.message || t('reaction_error');
       alert(errorMessage);
     }
   };
@@ -264,7 +266,7 @@ const EvenementVisiteur = () => {
   // Fonction pour enregistrer une vue
   const handleView = async (eventId) => {
     if (!eventId || eventId === 'undefined') {
-      console.error('ID d\'événement invalide pour vue:', eventId);
+      console.error(t('invalid_event_id_view'), eventId);
       return;
     }
 
@@ -315,7 +317,7 @@ const EvenementVisiteur = () => {
         return true;
       }
     } catch (error) {
-      console.error('Erreur vue API:', error);
+      console.error(t('view_api_error'), error);
       // Même en cas d'erreur API, marquer comme vu localement
       setEvenements(prev => prev.map(event => 
         event.id === eventId 
@@ -332,7 +334,7 @@ const EvenementVisiteur = () => {
 
   const handleShowDetails = async (event) => {
     try {
-      console.log("Ouverture des détails pour l'événement:", event.id, event.titre);
+      console.log(t('opening_details'), event.id, event.titre);
       
       // Enregistrer la vue (locale + API)
       await handleView(event.id);
@@ -347,7 +349,7 @@ const EvenementVisiteur = () => {
           timeout: 5000
         });
         
-        console.log("Réponse API détails:", res.data);
+        console.log(t('api_response_details'), res.data);
         
         if (res.data.success) {
           setSelectedEvent({
@@ -356,7 +358,7 @@ const EvenementVisiteur = () => {
             stats: event.stats || res.data.data.stats,
             already_viewed: true, // Forcer à true car on vient de le voir
             userReacted: event.userReacted || false,
-            category: event.category || res.data.data.type || "Général",
+            category: event.category || res.data.data.type || t('general'),
             fichier_url: event.fichier_url || res.data.data.fichier_url,
             type_fichier: event.type_fichier || getFileType(res.data.data.fichier),
             nom_fichier_original: event.nom_fichier_original || (res.data.data.fichier ? res.data.data.fichier.split('/').pop() : null),
@@ -371,7 +373,7 @@ const EvenementVisiteur = () => {
           });
         }
       } catch (apiError) {
-        console.error("Erreur API détails:", apiError);
+        console.error(t('api_error_details'), apiError);
         // En cas d'erreur API, utiliser les données locales
         setSelectedEvent({
           ...event,
@@ -384,7 +386,7 @@ const EvenementVisiteur = () => {
       setShowModal(true);
       
     } catch (error) {
-      console.error("Erreur générale chargement détails:", error);
+      console.error(t('general_error_details'), error);
       // Utiliser les données locales en cas d'erreur
       setSelectedEvent({
         ...event,
@@ -403,7 +405,7 @@ const EvenementVisiteur = () => {
   const handleDownload = (fileUrl, fileName) => {
     const link = document.createElement('a');
     link.href = fileUrl;
-    link.download = fileName || 'document';
+    link.download = fileName || t('document');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -461,13 +463,13 @@ const EvenementVisiteur = () => {
 
   const getStatusBadge = (statut) => {
     const statusConfig = {
-      'Validé': { color: colors.success, text: "Validé", icon: "fa-check-circle" },
-      'en attente': { color: "#F59E0B", text: "En attente", icon: "fa-clock" },
-      'Rejeté': { color: colors.danger, text: "Rejeté", icon: "fa-times-circle" },
-      'Actif': { color: colors.primary, text: "Actif", icon: "fa-play-circle" },
-      'Terminé': { color: colors.neutral, text: "Terminé", icon: "fa-flag-checkered" }
+      'Validé': { color: colors.success, text: t('Validé'), icon: "fa-check-circle" },
+      'En attente': { color: "#F59E0B", text: t('En attente'), icon: "fa-clock" },
+      'Rejeté': { color: colors.danger, text: t('Rejeté'), icon: "fa-times-circle" },
+      'Actif': { color: colors.primary, text: t('Actif'), icon: "fa-play-circle" },
+      'Terminé': { color: colors.neutral, text: t('finished'), icon: "fa-flag-checkered" }
     };
-    const config = statusConfig[statut] || statusConfig['en attente'];
+    const config = statusConfig[statut] || statusConfig[t('En attente')];
     return (
       <span style={{
         backgroundColor: `${config.color}15`,
@@ -542,9 +544,9 @@ const EvenementVisiteur = () => {
         <div className="d-flex justify-content-center align-items-center min-vh-50">
           <div className="text-center">
             <div className="spinner-border" style={{color: colors.primary, width: '3rem', height: '3rem'}}>
-              <span className="visually-hidden">Chargement...</span>
+              <span className="visually-hidden">{t('loading')}...</span>
             </div>
-            <p className="text-muted mt-3">Chargement des événements...</p>
+            <p className="text-muted mt-3">{t('loading_events')}</p>
           </div>
         </div>
       </div>
@@ -563,9 +565,9 @@ const EvenementVisiteur = () => {
         <div className="container">
           <div className="row justify-content-center text-center">
             <div className="col-lg-8">
-              <h1 className="display-5 fw-bold mb-3">Événements Validés</h1>
+              <h1 className="display-5 fw-bold mb-3">{t('events_upcoming_title')}</h1>
               <p className="lead mb-0 opacity-90">
-                Découvrez tous nos événements validés et rejoignez-nous pour des moments inoubliables
+                {t('event_hero_subtitle')}
               </p>
             </div>
           </div>
@@ -587,7 +589,7 @@ const EvenementVisiteur = () => {
               <input
                 type="text"
                 className="form-control"
-                placeholder="Rechercher un événement par titre, description ou lieu..."
+                placeholder={t('search_event_placeholder')}
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 style={{
@@ -608,9 +610,9 @@ const EvenementVisiteur = () => {
                 color: colors.primaryDark
               }}
             >
-              <option value="">Tous les types</option>
+              <option value="">{t('all_types')}</option>
               {types.map(type => (
-                <option key={type} value={type}>{type}</option>
+                <option key={type} value={type}>{t(type) || type}</option>
               ))}
             </select>
           </div>
@@ -627,11 +629,11 @@ const EvenementVisiteur = () => {
             }}>
               <div className="card-body py-5">
                 <i className="fas fa-calendar-times display-1 mb-3" style={{color: colors.neutral}}></i>
-                <h3 className="h4 mb-2" style={{color: colors.primaryDarker}}>Aucun événement trouvé</h3>
+                <h3 className="h4 mb-2" style={{color: colors.primaryDarker}}>{t('no_events_found')}</h3>
                 <p style={{color: colors.neutral}}>
                   {searchTerm || selectedType 
-                    ? "Aucun événement ne correspond à vos critères." 
-                    : "Aucun événement validé pour le moment."
+                    ? t('no_events_match') 
+                    : t('events_empty_message')
                   }
                 </p>
               </div>
@@ -642,7 +644,7 @@ const EvenementVisiteur = () => {
             {/* En-tête avec compteur et indicateurs */}
             <div className="d-flex justify-content-between align-items-center mb-4">
               <h2 className="h4 mb-0" style={{color: colors.primaryDarker}}>
-                {filteredEvents.length} Événement{filteredEvents.length > 1 ? 's' : ''}
+                {filteredEvents.length} {t('events_total')}{filteredEvents.length > 1 ? 's' : ''}
               </h2>
               
               {/* Indicateurs de pagination */}
@@ -855,7 +857,7 @@ const EvenementVisiteur = () => {
                                           gap: '4px'
                                         }}>
                                           <i className="fas fa-clock"></i>
-                                          Passé
+                                          {t('past')}
                                         </span>
                                       )}
                                     </div>
@@ -926,7 +928,7 @@ const EvenementVisiteur = () => {
                                       fontWeight: '500',
                                       fontSize: '0.8rem'
                                     }}>
-                                      {event.category}
+                                      {t(event.category) || event.category}
                                     </span>
                                     <small style={{color: colors.neutral, fontSize: '0.8rem'}}>
                                       <i className="fas fa-map-marker-alt me-1"></i>
@@ -954,7 +956,7 @@ const EvenementVisiteur = () => {
                                   }}>
                                     {event.description && event.description.length > 100 ? 
                                       event.description.substring(0, 100) + '...' : 
-                                      event.description || "Aucune description disponible"}
+                                      event.description || t('no_description')}
                                   </p>
 
                                   {/* Informations dates */}
@@ -965,7 +967,7 @@ const EvenementVisiteur = () => {
                                           <div className="d-flex align-items-center mb-2">
                                             <i className="fas fa-calendar text-primary me-2" style={{fontSize: '0.8rem'}}></i>
                                             <span style={{fontSize: '0.8rem'}}>
-                                              <strong>Date:</strong> {formatDateShort(event.date_heure)}
+                                              <strong>{t('date_label')}:</strong> {formatDateShort(event.date_heure)}
                                             </span>
                                           </div>
                                         )}
@@ -973,7 +975,7 @@ const EvenementVisiteur = () => {
                                           <div className="d-flex align-items-center mb-2">
                                             <i className="fas fa-user text-secondary me-2" style={{fontSize: '0.8rem'}}></i>
                                             <span style={{fontSize: '0.8rem'}}>
-                                              <strong>Organisateur:</strong> {event.auteur.length > 20 ? event.auteur.substring(0, 20) + '...' : event.auteur}
+                                              <strong>{t('organizer')}:</strong> {event.auteur.length > 20 ? event.auteur.substring(0, 20) + '...' : event.auteur}
                                             </span>
                                           </div>
                                         )}
@@ -981,7 +983,7 @@ const EvenementVisiteur = () => {
                                           <div className="d-flex align-items-center">
                                             <i className="fas fa-clock text-success me-2" style={{fontSize: '0.8rem'}}></i>
                                             <span style={{fontSize: '0.8rem'}}>
-                                              <strong>Heure:</strong> {getTimeFromDate(event.date_heure)}
+                                              <strong>{t('time')}:</strong> {getTimeFromDate(event.date_heure)}
                                             </span>
                                           </div>
                                         )}
@@ -1003,7 +1005,7 @@ const EvenementVisiteur = () => {
                                             color: colors.primaryDark,
                                             fontWeight: '500'
                                           }}>
-                                            {event.nom_fichier_original || 'Document'}
+                                            {event.nom_fichier_original || t('document')}
                                           </span>
                                         </div>
                                         <button 
@@ -1044,7 +1046,7 @@ const EvenementVisiteur = () => {
                                             minWidth: '32px',
                                             minHeight: '32px'
                                           }}
-                                          title={event.userReacted ? "Vous avez déjà aimé cet événement" : "Cliquez pour ajouter aux favoris"}
+                                          title={event.userReacted ? t('already_reacted_event') : t('click_to_favorite')}
                                         >
                                           <i 
                                             className={`fas fa-heart fs-6`}
@@ -1096,7 +1098,7 @@ const EvenementVisiteur = () => {
                                         }}
                                       >
                                         <i className={`fas ${event.already_viewed ? 'fa-check' : 'fa-eye'} me-1`}></i>
-                                        {event.already_viewed ? 'Déjà vu' : 'Détails'}
+                                        {event.already_viewed ? t('already_viewed') : t('details')}
                                       </button>
                                     </div>
                                   </div>
@@ -1171,7 +1173,7 @@ const EvenementVisiteur = () => {
                       borderRadius: '20px',
                       fontWeight: '500'
                     }}>
-                      {selectedEvent.category}
+                      {t(selectedEvent.category) || selectedEvent.category}
                     </span>
                     {getStatusBadge(selectedEvent.statut)}
                     {selectedEvent.is_past && (
@@ -1184,7 +1186,7 @@ const EvenementVisiteur = () => {
                         marginLeft: '8px'
                       }}>
                         <i className="fas fa-clock me-1"></i>
-                        Événement passé
+                        {t('past_event')}
                       </span>
                     )}
                   </div>
@@ -1195,7 +1197,7 @@ const EvenementVisiteur = () => {
                   {selectedEvent.auteur && (
                     <div className="d-flex align-items-center" style={{color: colors.neutral}}>
                       <i className="fas fa-user me-1"></i>
-                      Organisateur: {selectedEvent.auteur}
+                      {t('organizer')}: {selectedEvent.auteur}
                     </div>
                   )}
                 </div>
@@ -1233,14 +1235,14 @@ const EvenementVisiteur = () => {
                   <div className="col-md-6">
                     <div className="mb-3">
                       <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                        <i className="fas fa-user me-2"></i>Organisateur
+                        <i className="fas fa-user me-2"></i>{t('organizer')}
                       </h6>
                       <p style={{color: colors.neutral}}>{selectedEvent.auteur}</p>
                     </div>
                     {selectedEvent.lieu && (
                       <div className="mb-3">
                         <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                          <i className="fas fa-map-marker-alt me-2"></i>Lieu
+                          <i className="fas fa-map-marker-alt me-2"></i>{t('location')}
                         </h6>
                         <p style={{color: colors.neutral}}>{selectedEvent.lieu}</p>
                       </div>
@@ -1248,7 +1250,7 @@ const EvenementVisiteur = () => {
                     {selectedEvent.type && (
                       <div className="mb-3">
                         <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                          <i className="fas fa-tag me-2"></i>Type d'événement
+                          <i className="fas fa-tag me-2"></i>{t('event_type')}
                         </h6>
                         <p style={{color: colors.neutral}}>{selectedEvent.type}</p>
                       </div>
@@ -1257,7 +1259,7 @@ const EvenementVisiteur = () => {
                   <div className="col-md-6">
                     <div className="mb-3">
                       <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                        <i className="fas fa-calendar-day me-2"></i>Date et heure
+                        <i className="fas fa-calendar-day me-2"></i>{t('date_time')}
                       </h6>
                       <p style={{color: colors.neutral}}>
                         {formatDate(selectedEvent.date_heure)}
@@ -1266,15 +1268,15 @@ const EvenementVisiteur = () => {
                     {selectedEvent.capacite && (
                       <div className="mb-3">
                         <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                          <i className="fas fa-users me-2"></i>Capacité
+                          <i className="fas fa-users me-2"></i>{t('capacity')}
                         </h6>
-                        <p style={{color: colors.neutral}}>{selectedEvent.capacite} personnes</p>
+                        <p style={{color: colors.neutral}}>{selectedEvent.capacite} {t('people')}</p>
                       </div>
                     )}
                     {selectedEvent.prix && selectedEvent.prix > 0 && (
                       <div className="mb-3">
                         <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                          <i className="fas fa-money-bill-wave me-2"></i>Prix
+                          <i className="fas fa-money-bill-wave me-2"></i>{t('price')}
                         </h6>
                         <p style={{color: colors.neutral}}>{selectedEvent.prix} €</p>
                       </div>
@@ -1284,7 +1286,7 @@ const EvenementVisiteur = () => {
 
                 {/* Description détaillée */}
                 <div className="mb-4">
-                  <h6 style={{color: colors.primaryDarker, fontWeight: '600', marginBottom: '16px'}}>Description détaillée</h6>
+                  <h6 style={{color: colors.primaryDarker, fontWeight: '600', marginBottom: '16px'}}>{t('detailed_description')}</h6>
                   <div 
                     style={{
                       lineHeight: '1.6',
@@ -1295,7 +1297,7 @@ const EvenementVisiteur = () => {
                       whiteSpace: 'pre-wrap'
                     }}
                   >
-                    {selectedEvent.description || "Aucune description disponible"}
+                    {selectedEvent.description || t('no_description')}
                   </div>
                 </div>
 
@@ -1307,10 +1309,10 @@ const EvenementVisiteur = () => {
                         <i className={`fas ${getFileIcon(selectedEvent.nom_fichier_original)} me-3 fs-2`} style={{color: colors.secondary}}></i>
                         <div>
                           <h6 style={{color: colors.primaryDark, fontWeight: '600', marginBottom: '4px'}}>
-                            Document attaché
+                            {t('attached_document')}
                           </h6>
                           <p style={{color: colors.neutral, margin: 0}}>
-                            {selectedEvent.nom_fichier_original || 'Document'}
+                            {selectedEvent.nom_fichier_original || t('document')}
                           </p>
                         </div>
                       </div>
@@ -1327,7 +1329,7 @@ const EvenementVisiteur = () => {
                         }}
                       >
                         <i className="fas fa-download me-2"></i>
-                        Télécharger
+                        {t('download')}
                       </button>
                     </div>
                   </div>
@@ -1349,14 +1351,14 @@ const EvenementVisiteur = () => {
                             transition: 'all 0.3s ease'
                           }}
                           onClick={() => handleReaction(selectedEvent.id)}
-                          title={selectedEvent.userReacted ? "Vous avez déjà aimé cet événement" : "Cliquez pour ajouter aux favoris"}
+                          title={selectedEvent.userReacted ? t('already_reacted_event') : t('click_to_favorite')}
                         >
                           <i className={`fas fa-heart fs-5`} style={{
                             color: selectedEvent.userReacted ? colors.darkGray : colors.neutral
                           }}></i>
                         </button>
                         <small style={{color: colors.neutral}}>
-                          {selectedEvent.total_reactions || 0} J'adore
+                          {selectedEvent.total_reactions || 0} {t('love')}
                         </small>
                       </div>
                     </div>
@@ -1374,7 +1376,7 @@ const EvenementVisiteur = () => {
                           <i className={`fas ${selectedEvent.already_viewed ? 'fa-eye' : 'far fa-eye'} fs-5`}></i>
                         </div>
                         <small style={{color: colors.neutral}}>
-                          {selectedEvent.vues || 0} vue{selectedEvent.vues !== 1 ? 's' : ''}
+                          {selectedEvent.vues || 0} {t('view')}{selectedEvent.vues !== 1 ? 's' : ''}
                         </small>
                       </div>
                     </div>
@@ -1393,7 +1395,7 @@ const EvenementVisiteur = () => {
                           <i className="fas fa-info fs-5"></i>
                         </div>
                         <small style={{color: colors.neutral}}>
-                          {selectedEvent.statut}
+                          {t(selectedEvent.statut) || selectedEvent.statut}
                         </small>
                       </div>
                     </div>
@@ -1414,7 +1416,7 @@ const EvenementVisiteur = () => {
                     fontWeight: '500'
                   }}
                 >
-                  Fermer
+                  {t('close')}
                 </button>
                 {selectedEvent.fichier_url && (
                   <button 
@@ -1431,7 +1433,7 @@ const EvenementVisiteur = () => {
                     }}
                   >
                     <i className="fas fa-download me-2"></i>
-                    Télécharger
+                    {t('download')}
                   </button>
                 )}
               </div>

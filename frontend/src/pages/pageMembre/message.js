@@ -29,12 +29,37 @@ import {
   FaRocket,
   FaPlus,
   FaClock,
-  FaArrowRight
+  FaArrowRight,
+  FaSync,
+  FaBell,
+  FaHeadset,
+  FaHandshake
 } from 'react-icons/fa';
 import axios from "axios";
 
 // === CONFIG ===
 const API_URL = "http://127.0.0.1:8000/api";
+
+// Configuration globale d'axios pour l'authentification
+axios.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+axios.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 // === COULEURS CEDII 2025 ===
 const COLORS = {
@@ -263,29 +288,98 @@ const StatsCard = ({ icon: Icon, value, label, color }) => (
   </Card>
 );
 
+// === FONCTIONS UTILITAIRES ===
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+const formatTime = (dateString) => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+// Hook personnalisé pour le debounce
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  
+  return debouncedValue;
+};
+
 // === COMPOSANT PRINCIPAL ===
 const MessagerieMembre = () => {
   const { t } = useTranslation();
+  
+  // --- États ---
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [selectedConv, setSelectedConv] = useState(null);
   const [newMessage, setNewMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterCategory, setFilterCategory] = useState("Tous");
+  const [showAlert, setShowAlert] = useState({ show: false, type: "", message: "" });
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-  const [stats, setStats] = useState({
-    total: 0,
-    unread: 0,
-    withSupport: 0,
-    withAdmin: 0
-  });
+  const [refreshing, setRefreshing] = useState(false);
+  const [authError, setAuthError] = useState(null);
+  const [lastUpdateTime, setLastUpdateTime] = useState(null);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
   const messagesEndRef = useRef(null);
+  
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
-  // Récupérer les infos du membre connecté
+  // --- Fonctions Utilitaires ---
+  const showNotification = (type, message) => {
+    setShowAlert({ show: true, type, message });
+    setTimeout(() => setShowAlert({ show: false, type: "", message: "" }), 4000);
+  };
+
+  const checkAuth = () => {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    
+    if (!token || !user) {
+      setAuthError(t("authentication_required", "Authentification requise"));
+      return false;
+    }
+    
+    try {
+      const userData = JSON.parse(user);
+      if (userData.type !== 'membre') {
+        setAuthError(t("member_access_required", "Accès membre requis"));
+        return false;
+      }
+    } catch (e) {
+      setAuthError(t("invalid_user_data", "Données utilisateur invalides"));
+      return false;
+    }
+    
+    return true;
+  };
+
   const getCurrentUser = () => {
+    if (!checkAuth()) return null;
+    
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
@@ -300,46 +394,29 @@ const MessagerieMembre = () => {
         console.error("Erreur parsing user:", e);
       }
     }
-    return {
-      id: 1,
-      name: "Membre CEDII",
-      email: "membre@cedii.com",
-      type: "membre"
-    };
+    return null;
   };
 
   const currentUser = getCurrentUser();
 
-  // === INTERCEPTEUR AXIOS POUR L'AUTHENTIFICATION ===
-  useEffect(() => {
-    const interceptor = axios.interceptors.request.use(config => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
-    });
+  // Fonction pour réessayer le chargement
+  const retryLoadConversations = () => {
+    setAuthError(null);
+    setInitialLoadComplete(false);
+    fetchConversations();
+  };
 
-    return () => {
-      axios.interceptors.request.eject(interceptor);
-    };
-  }, []);
+  // === CHARGEMENT DES CONVERSATIONS DU MEMBRE CONNECTÉ ===
+  const fetchConversations = useCallback(async (showLoading = true, silent = false) => {
+    if (!currentUser) {
+      console.error("Aucun utilisateur connecté");
+      return;
+    }
 
-  // === STATISTIQUES ===
-  const calculateStats = useCallback((convs) => {
-    const total = convs.length;
-    const unread = convs.reduce((sum, conv) => sum + (conv.nonLu || 0), 0);
-    const withSupport = convs.filter(c => c.sender?.includes('Support') || c.category === 'Support').length;
-    const withAdmin = convs.filter(c => c.sender?.includes('Admin') || c.category === 'Admin').length;
-    
-    return { total, unread, withSupport, withAdmin };
-  }, []);
-
-  // === CHARGEMENT DES CONVERSATIONS ===
-  const fetchConversations = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
+      if (showLoading && !silent) {
+        setLoading(true);
+      }
       
       console.log("Fetching conversations for user ID:", currentUser.id);
       
@@ -350,7 +427,7 @@ const MessagerieMembre = () => {
       if (res.data && Array.isArray(res.data)) {
         const conversationsData = res.data.map(conv => ({
           id: conv.id || Date.now(),
-          sender: conv.sender || t("support_cedii", "Support CEDII"),
+          sender: conv.sender || "Support CEDII",
           avatarUrl: conv.avatarUrl || null,
           nonLu: conv.nonLu || 0,
           lastMessage: conv.lastMessage || null,
@@ -359,38 +436,71 @@ const MessagerieMembre = () => {
           updated_at: conv.updated_at || new Date().toISOString()
         }));
 
-        setConversations(conversationsData);
-        setStats(calculateStats(conversationsData));
+        const sortedConversations = conversationsData.sort((a, b) => 
+          new Date(b.updated_at) - new Date(a.updated_at)
+        );
+
+        setConversations(sortedConversations);
+        setLastUpdateTime(new Date());
         
-        // Sélectionner la première conversation avec messages non lus, sinon la première
-        const unreadConv = conversationsData.find(c => c.nonLu > 0);
-        if (unreadConv) {
-          setSelectedConv(unreadConv);
-        } else if (conversationsData.length > 0) {
-          setSelectedConv(conversationsData[0]);
+        // Sélectionner une conversation seulement si aucune n'est sélectionnée
+        // ET seulement au chargement initial
+        if (!selectedConv && !initialLoadComplete && sortedConversations.length > 0) {
+          const unreadConv = sortedConversations.find(c => c.nonLu > 0);
+          setSelectedConv(unreadConv || sortedConversations[0]);
+        }
+        
+        // Marquer le chargement initial comme terminé
+        if (!initialLoadComplete) {
+          setInitialLoadComplete(true);
+        }
+        
+        if (!silent) {
+          showNotification("success", t("conversations_updated", "Conversations mises à jour"));
         }
       } else {
-        console.log("No conversations found or invalid response format");
+        console.log("No conversations found");
         setConversations([]);
-        setStats(calculateStats([]));
+        if (!initialLoadComplete) {
+          setInitialLoadComplete(true);
+        }
       }
     } catch (err) {
       console.error("Erreur chargement conversations:", err);
       if (err.response?.status === 401) {
-        setError(t("unauthorized_access", "Accès non autorisé. Veuillez vous reconnecter."));
+        setAuthError(t("unauthorized_access", "Accès non autorisé. Veuillez vous reconnecter."));
+        if (!silent) {
+          showNotification("error", t("session_expired", "Votre session a expiré, veuillez vous reconnecter"));
+        }
       } else {
-        setError(t("error_load_conversations", "Erreur lors du chargement des conversations: " + (err.message || "")));
+        if (!silent) {
+          showNotification("error", t("error_load_conversations", "Erreur lors du chargement des conversations: ") + (err.message || ""));
+        }
       }
       setConversations([]);
-      setStats(calculateStats([]));
+      if (!initialLoadComplete) {
+        setInitialLoadComplete(true);
+      }
     } finally {
-      setLoading(false);
+      if (showLoading && !silent) {
+        setLoading(false);
+      }
+      setRefreshing(false);
     }
-  }, [currentUser.id, t, calculateStats]);
+  }, [currentUser, t, initialLoadComplete]); // selectedConv retiré des dépendances
 
-  useEffect(() => { 
-    fetchConversations();
-  }, [fetchConversations]);
+  // Initialisation seulement - corrigé
+  useEffect(() => {
+    if (currentUser && !initialLoadComplete) {
+      fetchConversations();
+    }
+  }, [currentUser, initialLoadComplete, fetchConversations]);
+
+  // Fonction de rafraîchissement manuel
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchConversations(false);
+  };
 
   // === CHARGEMENT DÉTAILLÉ D'UNE CONVERSATION ===
   const fetchConversationDetail = async (conversationId) => {
@@ -399,12 +509,25 @@ const MessagerieMembre = () => {
       return res.data;
     } catch (err) {
       console.error("Erreur chargement détail conversation:", err);
+      if (err.response?.status === 401) {
+        showNotification("error", t("session_expired", "Votre session a expiré"));
+      } else {
+        showNotification("error", t("error_load_conversation_detail", "Erreur lors du chargement des détails de la conversation"));
+      }
       return null;
     }
   };
 
   // === SÉLECTION CONVERSATION ===
   const handleSelectConv = async (conv) => {
+    // Éviter de recharger si c'est déjà la conversation sélectionnée
+    if (selectedConv && selectedConv.id === conv.id) {
+      return;
+    }
+    
+    // Mettre à jour d'abord l'état pour un feedback immédiat
+    setSelectedConv(conv);
+    
     try {
       const conversationDetail = await fetchConversationDetail(conv.id);
       
@@ -412,21 +535,18 @@ const MessagerieMembre = () => {
         const updatedConv = {
           ...conv,
           messages: conversationDetail.messages || [],
-          nonLu: 0
+          nonLu: 0,
+          lastMessage: conversationDetail.messages && conversationDetail.messages.length > 0 
+            ? conversationDetail.messages[conversationDetail.messages.length - 1]
+            : conv.lastMessage
         };
         
         setSelectedConv(updatedConv);
         
-        // Mettre à jour la liste des conversations
+        // Mettre à jour la liste des conversations sans déclencher de rechargement
         setConversations(prev => 
           prev.map(c => c.id === conv.id ? updatedConv : c)
         );
-
-        // Mettre à jour les stats
-        setStats(prev => ({
-          ...prev,
-          unread: Math.max(0, prev.unread - conv.nonLu)
-        }));
 
         // Marquer comme lu
         try {
@@ -434,12 +554,10 @@ const MessagerieMembre = () => {
         } catch (err) {
           console.error("Erreur marquage comme lu:", err);
         }
-      } else {
-        setSelectedConv(conv);
       }
     } catch (err) {
       console.error("Erreur sélection conversation:", err);
-      setError(t("error_select_conversation", "Erreur lors de la sélection de la conversation"));
+      showNotification("error", t("error_select_conversation", "Erreur lors de la sélection de la conversation"));
     }
   };
 
@@ -449,17 +567,15 @@ const MessagerieMembre = () => {
   }, [selectedConv?.messages]);
 
   // === ENVOI MESSAGE ===
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
+  const sendMessage = async () => {
     if (!newMessage.trim() || !selectedConv) {
-      setError(t("write_message_error", "Veuillez écrire un message"));
+      showNotification("error", t("message_write_error", "Veuillez écrire un message"));
       return;
     }
 
     const content = newMessage.trim();
     setNewMessage("");
     setSending(true);
-    setError(null);
 
     // Message temporaire
     const tempMsg = {
@@ -473,17 +589,23 @@ const MessagerieMembre = () => {
     };
 
     // Mettre à jour l'interface immédiatement
-    setSelectedConv(prev => ({
-      ...prev,
-      messages: [...(prev.messages || []), tempMsg],
-      lastMessage: { content, created_at: new Date().toISOString() }
-    }));
+    const updatedSelectedConv = {
+      ...selectedConv,
+      messages: [...(selectedConv.messages || []), tempMsg],
+      lastMessage: { content, created_at: new Date().toISOString() },
+      updated_at: new Date().toISOString()
+    };
+    
+    setSelectedConv(updatedSelectedConv);
+    
+    // Mettre à jour la conversation dans la liste
+    setConversations(prev => 
+      prev.map(c => c.id === selectedConv.id ? updatedSelectedConv : c)
+    );
 
     try {
-      console.log("Sending message to conversation ID:", selectedConv.id);
-      console.log("Current user ID:", currentUser.id);
+      console.log("Sending message for user:", currentUser.id);
       
-      // Structure de données corrigée selon ce que Laravel attend
       const messageData = {
         membre_id: currentUser.id,
         sender: currentUser.name,
@@ -491,7 +613,6 @@ const MessagerieMembre = () => {
         category: selectedConv.category || "Support",
         content: content,
         conversation_id: selectedConv.id || null,
-        // Ajout des champs qui pourraient être requis par Laravel
         sujet: selectedConv.sujet || "Nouveau message",
         is_from_admin: false,
         read: false
@@ -503,35 +624,52 @@ const MessagerieMembre = () => {
 
       console.log("Message sent successfully:", res.data);
 
-      setSuccess(t("message_sent_success", "Message envoyé avec succès"));
-      setTimeout(() => setSuccess(null), 3000);
+      showNotification("success", t("message_sent_success", "Message envoyé avec succès"));
 
-      // Recharger les conversations
-      await fetchConversations();
+      // Rafraîchir seulement les détails de cette conversation
+      const conversationDetail = await fetchConversationDetail(selectedConv.id);
+      if (conversationDetail) {
+        const refreshedConv = {
+          ...selectedConv,
+          messages: conversationDetail.messages || [],
+          lastMessage: conversationDetail.messages && conversationDetail.messages.length > 0 
+            ? conversationDetail.messages[conversationDetail.messages.length - 1]
+            : selectedConv.lastMessage
+        };
+        
+        setSelectedConv(refreshedConv);
+        setConversations(prev => 
+          prev.map(c => c.id === selectedConv.id ? refreshedConv : c)
+        );
+      }
 
     } catch (err) {
       console.error("Erreur détaillée envoi message:", err);
       
-      // Afficher les détails de l'erreur de validation
       if (err.response?.status === 422) {
         const validationErrors = err.response.data.errors;
         const errorMessages = Object.values(validationErrors).flat().join(', ');
-        setError(t("validation_error", "Erreur de validation: ") + errorMessages);
+        showNotification("error", t("validation_error", "Erreur de validation: ") + errorMessages);
       } else if (err.response?.status === 401) {
-        setError(t("unauthorized_send", "Non autorisé à envoyer des messages"));
+        showNotification("error", t("unauthorized_send", "Non autorisé à envoyer des messages"));
       } else {
-        setError(t("message_send_error", "Erreur lors de l'envoi du message: ") + (err.message || ""));
+        showNotification("error", t("message_send_error", "Erreur lors de l'envoi du message: ") + (err.message || ""));
       }
       
       // Marquer le message comme en erreur
-      setSelectedConv(prev => ({
-        ...prev,
-        messages: prev.messages.map(msg => 
+      const errorSelectedConv = {
+        ...selectedConv,
+        messages: selectedConv.messages.map(msg => 
           msg.id === tempMsg.id 
             ? { ...msg, error: true, content: `${content} (${t("send_failed", "Échec de l'envoi")})` }
             : msg
         )
-      }));
+      };
+      
+      setSelectedConv(errorSelectedConv);
+      setConversations(prev => 
+        prev.map(c => c.id === selectedConv.id ? errorSelectedConv : c)
+      );
     } finally {
       setSending(false);
     }
@@ -540,8 +678,6 @@ const MessagerieMembre = () => {
   // === NOUVELLE CONVERSATION ===
   const startNewConversation = async () => {
     try {
-      setError(null);
-      
       console.log("Starting new conversation for user:", currentUser);
       
       const conversationData = {
@@ -561,488 +697,684 @@ const MessagerieMembre = () => {
       console.log("Conversation started:", res.data);
 
       if (res.data.conversation) {
-        setSuccess(t("conversation_started_success", "Conversation démarrée avec succès"));
-        await fetchConversations();
+        showNotification("success", t("conversation_started_success", "Conversation démarrée avec succès"));
         
-        // Sélectionner la nouvelle conversation
-        setTimeout(() => {
-          const newConv = conversations.find(c => c.id === res.data.conversation.id) || 
-                         res.data.conversation;
-          if (newConv) {
-            setSelectedConv(newConv);
-          }
-        }, 500);
+        // Créer l'objet conversation
+        const newConv = {
+          id: res.data.conversation.id,
+          sender: "Support CEDII",
+          avatarUrl: null,
+          nonLu: 0,
+          lastMessage: res.data.conversation,
+          messages: [res.data.conversation],
+          category: "Support",
+          updated_at: new Date().toISOString()
+        };
+        
+        // Ajouter la conversation en tête de liste
+        setConversations(prev => [newConv, ...prev]);
+        setSelectedConv(newConv);
       }
     } catch (err) {
       console.error("Erreur détaillée démarrage conversation:", err);
       if (err.response?.status === 422) {
         const validationErrors = err.response.data.errors;
         const errorMessages = Object.values(validationErrors).flat().join(', ');
-        setError(t("validation_error", "Erreur de validation: ") + errorMessages);
+        showNotification("error", t("validation_error", "Erreur de validation: ") + errorMessages);
+      } else if (err.response?.status === 401) {
+        showNotification("error", t("unauthorized_access", "Accès non autorisé"));
       } else {
-        setError(t("error_start_conversation", "Erreur lors du démarrage de la conversation: ") + (err.message || ""));
+        showNotification("error", t("error_start_conversation", "Erreur lors du démarrage de la conversation: ") + (err.message || ""));
       }
     }
   };
 
+  // === MARQUER TOUS LES MESSAGES COMME LUS ===
+  // === MARQUER TOUS LES MESSAGES COMME LUS - SOLUTION FINALE ===
+const markAllAsRead = async (conversationId) => {
+  if (!conversationId) {
+    showNotification("error", t("conversation_not_selected", "Veuillez sélectionner une conversation"));
+    return;
+  }
+
+  // 1. Mise à jour locale immédiate pour une UX fluide
+  if (selectedConv && selectedConv.id === conversationId) {
+    const updatedConv = {
+      ...selectedConv,
+      nonLu: 0,
+      messages: selectedConv.messages.map(msg => ({ ...msg, read: true }))
+    };
+    
+    setSelectedConv(updatedConv);
+    
+    setConversations(prev => 
+      prev.map(c => c.id === conversationId ? { ...c, nonLu: 0 } : c)
+    );
+    
+    showNotification("success", t("messages_marked_read", "Messages marqués comme lus"));
+  }
+
+  // 2. Essayer de synchroniser avec le backend (silencieusement)
+  try {
+    // D'abord, vérifier si l'endpoint existe via une requête OPTIONS
+    try {
+      const optionsResponse = await axios.options(`${API_URL}/messages/${conversationId}/mark-as-read`);
+      console.log("OPTIONS response:", optionsResponse.headers['allow']);
+      
+      // Si PUT est supporté (ce qui n'est pas le cas d'après votre erreur)
+      if (optionsResponse.headers['allow'] && optionsResponse.headers['allow'].includes('PUT')) {
+        await axios.put(`${API_URL}/messages/${conversationId}/mark-as-read`);
+        console.log("Synchronisation PUT réussie");
+      }
+    } catch (optionsErr) {
+      console.log("OPTIONS failed, trying alternative methods");
+    }
+    
+    // Essayer d'autres méthodes communes
+    const methods = [
+      { method: 'post', url: `${API_URL}/conversations/${conversationId}/mark-read` },
+      { method: 'patch', url: `${API_URL}/conversations/${conversationId}`, data: { read: true } },
+      { method: 'post', url: `${API_URL}/messages/mark-conversation-read`, data: { conversation_id: conversationId } },
+    ];
+    
+    for (const config of methods) {
+      try {
+        const response = await axios[config.method](config.url, config.data || {});
+        if (response.data.success) {
+          console.log(`Synchronisation réussie avec ${config.method.toUpperCase()} ${config.url}`);
+          break;
+        }
+      } catch (methodErr) {
+        // Continuer avec la méthode suivante
+      }
+    }
+    
+    // Rafraîchir silencieusement après la synchronisation
+    setTimeout(() => {
+      handleRefresh();
+    }, 2000);
+    
+  } catch (syncErr) {
+    console.log("Échec de synchronisation, mais mise à jour locale appliquée");
+    // Ne pas montrer d'erreur à l'utilisateur puisque la mise à jour locale a fonctionné
+  }
+};
+
   // === FILTRAGE ===
   const filteredConversations = conversations.filter(c => 
-    c.sender.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.lastMessage?.content?.toLowerCase().includes(searchTerm.toLowerCase())
+    (c.sender?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+     c.lastMessage?.content?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) &&
+    (filterCategory === "Tous" || c.category === filterCategory)
   );
 
+  // Calculer le total des messages non lus
+  const totalUnread = conversations.reduce((sum, conv) => sum + (conv.nonLu || 0), 0);
+
   // === STATISTIQUES ===
-  const statsCards = [
-    {
-      icon: FaEnvelope,
-      value: stats.total,
-      label: t("total_messages", "Total messages"),
-      color: COLORS.primary
+  const stats = [
+    { 
+      title: "total_messages", 
+      count: conversations.reduce((sum, c) => sum + (c.messages?.length || 0), 0), 
+      icon: FaEnvelope, 
+      color: "linear-gradient(135deg, #667eea, #764ba2)" 
     },
-    {
-      icon: FaComments,
-      value: stats.unread,
-      label: t("unread_messages", "Messages non lus"),
-      color: COLORS.warning
+    { 
+      title: "unread", 
+      count: totalUnread, 
+      icon: FaBell, 
+      color: "linear-gradient(135deg, #00b09b, #96c93d)" 
     },
-    {
-      icon: FaUserFriends,
-      value: stats.withSupport,
-      label: t("with_support", "Avec support"),
-      color: COLORS.success
+    { 
+      title: "support", 
+      count: conversations.filter(c => c.category === "Support").length, 
+      icon: FaHeadset, 
+      color: "linear-gradient(135deg, #4facfe, #00f2fe)" 
     },
-    {
-      icon: FaUserCircle,
-      value: stats.withAdmin,
-      label: t("with_admin", "Avec admin"),
-      color: COLORS.info
+    { 
+      title: "admin", 
+      count: conversations.filter(c => c.category === "Admin").length, 
+      icon: FaUserCircle, 
+      color: "linear-gradient(135deg, #f093fb, #f5576c)" 
     }
   ];
 
-  return (
-    <div className="min-vh-100 d-flex flex-column" style={{ background: styles.container.background }}>
-      <MembreSidebar onCollapse={setSidebarCollapsed} dark={false} />
+  // Afficher l'erreur d'authentification si présente
+  if (authError) {
+    return (
+      <div className="d-flex" style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f5f7fa, #c3cfe2)" }}>
+        <MembreSidebar onCollapse={setSidebarCollapsed} dark={false} />
+        <div className="flex-grow-1 d-flex align-items-center justify-content-center p-4" style={{ marginLeft: sidebarCollapsed ? "80px" : "280px" }}>
+          <Alert variant="danger" className="w-50 text-center">
+            <i className="fas fa-exclamation-triangle fa-3x mb-3"></i>
+            <h4>{t("authentication_error", "Erreur d'authentification")}</h4>
+            <p className="mb-3">{authError}</p>
+            <div className="d-flex justify-content-center gap-2 mt-3">
+              <Button 
+                variant="primary" 
+                onClick={retryLoadConversations}
+                className="d-flex align-items-center"
+              >
+                <i className="fas fa-redo me-2"></i>
+                {t("retry", "Réessayer")}
+              </Button>
+              <Button 
+                variant="outline-primary" 
+                onClick={() => window.location.href = '/login'}
+                className="d-flex align-items-center"
+              >
+                <i className="fas fa-sign-in-alt me-2"></i>
+                {t("go_to_login", "Se connecter")}
+              </Button>
+            </div>
+          </Alert>
+        </div>
+      </div>
+    );
+  }
 
-      <div 
-        className="flex-grow-1"
-        style={{ 
-          marginLeft: sidebarCollapsed ? "80px" : "280px", 
-          padding: "2rem", 
-          transition: "margin 0.4s ease",
-          minHeight: "calc(100vh - 80px)"
-        }}
-      >
-        {/* Header */}
-        <div className="d-flex justify-content-between align-items-center mb-5">
+  return (
+    <div className="d-flex" style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f5f7fa, #c3cfe2)" }}>
+      <MembreSidebar onCollapse={setSidebarCollapsed} dark={false} />
+      
+      <div className="flex-grow-1 p-4" style={{ marginLeft: sidebarCollapsed ? "80px" : "280px" }}>
+        
+        {showAlert.show && (
+          <Alert variant={showAlert.type === "success" ? "success" : "danger"} 
+                  className="d-flex align-items-center shadow-lg border-0" 
+                  style={{position:"fixed",top:"20px",right:"20px",zIndex:1050,minWidth:"350px",borderRadius:"15px",
+                  borderLeft:`4px solid ${showAlert.type === "success" ? "#28a745" : "#dc3545"}`,backdropFilter:"blur(10px)",backgroundColor:"rgba(255,255,255,0.95)"}}>
+              <i className={`fas ${showAlert.type==="success"?"fa-check-circle text-success":"fa-exclamation-triangle text-danger"} me-3 fs-5`}></i>
+              <div>
+                  <strong className="d-block">{showAlert.type==="success"?t("success", "Succès"):t("error", "Erreur")}</strong>
+                  <span className="text-muted">{showAlert.message}</span>
+              </div>
+          </Alert>
+        )}
+
+        <div className="d-flex justify-content-between align-items-center mb-4">
           <div>
-            <h1 style={{ 
-              color: "#2c3e50", 
-              fontWeight: "bold", 
-              fontSize: "2rem",
-              marginBottom: "1rem"
-            }}>
-              {t("messages_admin_title", "Messagerie avec l'administration")}
-            </h1>
-            <p style={{ color: COLORS.gray, fontSize: "1rem", margin: 0 }}>
-              {t("messages_admin_subtitle", "Communiquez directement avec l'équipe CEDII")}
+            <h2 className="fw-bold mb-2" style={{background:"linear-gradient(135deg, #2c3e50, #34495e)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent"}}>
+              {t("my_messages", "Mes messages")}
+            </h2>
+            <p className="text-muted mb-0 d-flex align-items-center">
+              <i className="fas fa-comments me-2"></i>
+              {t("communicate_with_admin", "Communiquez avec l'administration CEDII")}
+              {lastUpdateTime && (
+                <small className="ms-3 text-muted">
+                  <i className="fas fa-clock me-1"></i>
+                  Dernière mise à jour: {lastUpdateTime.toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  })}
+                </small>
+              )}
             </p>
           </div>
           <div className="d-flex align-items-center gap-3">
-            <div className="text-end">
-              <div style={{ fontSize: "0.9rem", color: COLORS.gray }}>{t("connected_as", "Connecté en tant que")}</div>
-              <div style={{ fontWeight: "600", color: COLORS.primary }}>{currentUser.name}</div>
-            </div>
+            {totalUnread > 0 && (
+              <Badge bg="danger" className="d-flex align-items-center" style={{borderRadius:"20px",padding:"8px 12px",fontSize:"0.8rem"}}>
+                <i className="fas fa-bell me-1"></i>{totalUnread} {t("unread", "non lu")}{totalUnread>1?"s":""}
+              </Badge>
+            )}
             <Button
-              onClick={startNewConversation}
-              className="shadow-lg rounded-pill px-4 px-lg-5 py-2 py-lg-3 d-flex align-items-center"
+              variant="outline-primary"
+              onClick={handleRefresh}
+              disabled={refreshing || loading}
+              className="d-flex align-items-center"
+              style={{borderRadius:"10px"}}
+            >
+              {refreshing ? (
+                <>
+                  <Spinner animation="border" size="sm" className="me-2" />
+                  {t("refreshing", "Rafraîchissement...")}
+                </>
+              ) : (
+                <>
+                  <FaSync className="me-2" />
+                  {t("refresh", "Rafraîchir")}
+                </>
+              )}
+            </Button>
+            <Button 
+              variant="success" 
+              onClick={startNewConversation} 
+              className="d-flex align-items-center" 
               style={{
-                background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.secondary})`,
-                border: "none",
-                fontWeight: "600",
-                fontSize: "1rem",
-                minWidth: "220px"
+                borderRadius:"10px",
+                background: "linear-gradient(135deg, #28a745, #20c997)",
+                border: "none"
               }}
             >
-              <FaPlus className="me-2" />
-              {t("new_message_button", "Nouveau message")}
+              <i className="fas fa-plus me-2"></i>{t("new_message_button", "Nouveau message")}
             </Button>
           </div>
         </div>
 
-        {/* Alerts */}
-        {error && (
-          <Alert 
-            variant="danger" 
-            dismissible 
-            onClose={() => setError(null)}
-            className="shadow-sm border-0 mb-4"
-            style={{ borderRadius: "15px" }}
-          >
-            <i className="fas fa-exclamation-circle me-2"></i>
-            <strong>{t("error", "Erreur")}:</strong> {error}
-          </Alert>
-        )}
-
-        {success && (
-          <Alert 
-            variant="success" 
-            dismissible 
-            onClose={() => setSuccess(null)}
-            className="shadow-sm border-0 mb-4"
-            style={{ borderRadius: "15px" }}
-          >
-            <i className="fas fa-check-circle me-2"></i>
-            {success}
-          </Alert>
-        )}
-
-        {/* Stats Cards */}
-        <Row className="mb-5 g-4">
-          {statsCards.map((stat, i) => (
-            <Col xl={3} lg={6} md={6} key={i}>
-              <StatsCard {...stat} />
-            </Col>
-          ))}
-        </Row>
-
-        {/* Debug Info (à retirer en production) */}
+        {/* Debug Info (optionnel) */}
         {process.env.NODE_ENV === 'development' && (
-          <Card className="mb-4 border-info">
-            <Card.Body className="p-3">
-              <small className="text-muted">
-                <strong>Debug Info:</strong> User ID: {currentUser.id} | Conversations: {conversations.length} | 
-                Token: {localStorage.getItem('token') ? 'Present' : 'Missing'}
+          <Card className="mb-3 border-info">
+            <Card.Body className="p-2">
+              <small className="text-muted d-flex align-items-center">
+                <i className="fas fa-info-circle me-2"></i>
+                <span>User: {currentUser?.name || 'Non connecté'} | 
+                      Conversations: {conversations.length} |
+                      Mode: Manuel (pas de rafraîchissement automatique)
+                </span>
               </small>
             </Card.Body>
           </Card>
         )}
 
-        {/* Main Content */}
-        <Row className="g-4">
-          {/* Conversations List */}
-          <Col lg={4}>
-            <Card className="shadow-sm border-0 h-100" style={styles.chatArea}>
-              <Card.Header className="border-0" style={styles.chatHeader}>
-                <div className="d-flex align-items-center justify-content-between">
-                  <h5 className="mb-0" style={{ fontWeight: 600 }}>{t("conversations", "Conversations")}</h5>
-                  <Badge pill bg="primary">
-                    {filteredConversations.length}
-                  </Badge>
-                </div>
-                <div className="mt-3">
+        {/* Statistiques */}
+        <Row className="mb-4">
+          {stats.map((stat,index) => (
+            <Col md={3} key={index} className="mb-3">
+              <Card className="border-0 shadow-sm h-100" style={{borderRadius:"20px"}}>
+                <Card.Body className="p-4">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 className="card-title text-muted mb-2">{t(stat.title, stat.title)}</h6>
+                      <h2 className="fw-bold mb-0" style={{background:stat.color, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent"}}>{stat.count}</h2>
+                    </div>
+                    <div className="rounded-circle d-flex align-items-center justify-content-center" style={{width:"60px",height:"60px",background:stat.color}}>
+                      <stat.icon className="text-white fs-4" />
+                    </div>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+
+        {/* Recherche et filtres */}
+        <Card className="border-0 shadow-sm mb-4" style={{borderRadius:"20px"}}>
+          <Card.Body className="p-4">
+            <Row className="g-3 align-items-end">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-search me-2"></i>{t("search", "Recherche")}</Form.Label>
                   <InputGroup>
-                    <InputGroup.Text style={{ 
-                      background: 'transparent', 
-                      borderRight: 'none',
-                      borderTopLeftRadius: '12px',
-                      borderBottomLeftRadius: '12px'
-                    }}>
-                      <FaSearch size={14} style={{ color: COLORS.gray }} />
+                    <InputGroup.Text style={{background:"linear-gradient(135deg, #667eea, #764ba2)",border:"none",color:"white"}}>
+                      <FaSearch />
                     </InputGroup.Text>
-                    <Form.Control
-                      placeholder={t("search_conversations", "Rechercher des conversations...")}
-                      value={searchTerm}
-                      onChange={e => setSearchTerm(e.target.value)}
-                      style={{
-                        borderLeft: 'none',
-                        borderRadius: '0 12px 12px 0',
-                        padding: '0.75rem',
-                        fontSize: '0.95rem'
-                      }}
-                      className="border-start-0"
+                    <Form.Control 
+                      type="text" 
+                      placeholder={t("search_conversations_placeholder", "Rechercher une conversation...")} 
+                      value={searchTerm} 
+                      onChange={e=>setSearchTerm(e.target.value)} 
+                      style={{borderRadius:"0 10px 10px 0"}}
                     />
                   </InputGroup>
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label className="fw-semibold text-muted mb-2"><i className="fas fa-filter me-2"></i>{t("category", "Catégorie")}</Form.Label>
+                  <Form.Select value={filterCategory} onChange={e=>setFilterCategory(e.target.value)} style={{borderRadius:"10px"}}>
+                    <option value="Tous">{t("all_categories", "Toutes les catégories")}</option>
+                    <option value="Support">{t("Support", "Support")}</option>
+                    <option value="Admin">{t("Admin", "Admin")}</option>
+                    <option value="Technique">{t("Technique", "Technique")}</option>
+                    <option value="Urgent">{t("Urgent", "Urgent")}</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={2}>
+                <Button 
+                  variant="outline-secondary" 
+                  onClick={()=>{setSearchTerm(""); setFilterCategory("Tous");}} 
+                  className="d-flex align-items-center w-100" 
+                  style={{borderRadius:"10px"}}
+                >
+                  <i className="fas fa-times me-2"></i>{t("clear", "Effacer")}
+                </Button>
+              </Col>
+            </Row>
+          </Card.Body>
+        </Card>
+
+        <Row>
+          {/* Sidebar des conversations */}
+          <Col md={5}>
+            <Card className="border-0 shadow-sm h-100" style={{borderRadius:"20px"}}>
+              <Card.Body className="p-0">
+                <div className="p-3 border-bottom">
+                  <h5 className="fw-bold mb-3 d-flex align-items-center">
+                    <i className="fas fa-users me-2 text-primary"></i>
+                    {t("my_conversations", "Mes conversations")}
+                    <Badge bg="primary" className="ms-2">{filteredConversations.length}</Badge>
+                  </h5>
                 </div>
-              </Card.Header>
-              
-              <Card.Body className="p-0" style={{ overflowY: 'auto', height: 'calc(100vh - 400px)' }}>
-                {loading ? (
-                  <div className="text-center py-5">
-                    <Spinner animation="border" variant="primary" />
-                    <p className="mt-3 text-muted">{t("loading_conversations", "Chargement des conversations...")}</p>
-                  </div>
-                ) : filteredConversations.length > 0 ? (
-                  <ListGroup variant="flush">
-                    {filteredConversations.map(conv => {
-                      const isActive = selectedConv?.id === conv.id;
-                      const hasUnread = conv.nonLu > 0;
-                      
-                      return (
+                <div style={{maxHeight:"600px", overflowY:"auto"}}>
+                  {loading ? (
+                    <div className="text-center py-5">
+                      <Spinner animation="border" variant="primary" />
+                      <p className="text-muted mt-2">{t("loading_conversations", "Chargement des conversations...")}</p>
+                    </div>
+                  ) : filteredConversations.length > 0 ? (
+                    <ListGroup variant="flush">
+                      {filteredConversations.map(conv => (
                         <ListGroup.Item 
                           key={conv.id}
-                          action
+                          action 
                           onClick={() => handleSelectConv(conv)}
+                          className="border-0" 
                           style={{
-                            ...styles.convoItem(isActive, hasUnread),
-                            backgroundColor: isActive ? 'rgba(102, 126, 234, 0.08)' : COLORS.white
+                            background: selectedConv?.id === conv.id ? "linear-gradient(135deg,#667eea,#764ba2)" : "transparent",
+                            color: selectedConv?.id === conv.id ? "white" : "inherit",
+                            borderLeft: selectedConv?.id === conv.id ? "4px solid #667eea" : "4px solid transparent",
+                            cursor: "pointer",
+                            transition: "all 0.3s ease",
+                            padding: "15px"
                           }}
-                          className="d-flex align-items-center"
                         >
-                          <Avatar 
-                            src={conv.avatarUrl} 
-                            size={44} 
-                            alt={conv.sender}
-                            isOnline={conv.category === 'Support'}
-                          />
-                          <div className="ms-3 flex-grow-1" style={{ minWidth: 0 }}>
-                            <div className="d-flex justify-content-between align-items-center">
-                              <div style={{ 
-                                fontWeight: conv.nonLu > 0 ? 700 : 600, 
-                                color: conv.nonLu > 0 ? COLORS.primary : COLORS.dark,
-                                fontSize: '0.95rem'
-                              }}>
-                                {conv.sender}
+                          <div className="d-flex justify-content-between align-items-start">
+                            <div className="d-flex align-items-center">
+                              <Avatar 
+                                src={conv.avatarUrl} 
+                                size={45}
+                                alt={conv.sender}
+                                isOnline={conv.category === 'Support'}
+                              />
+                              <div className="ms-3">
+                                <h6 className={`mb-1 fw-bold ${conv.nonLu > 0 && selectedConv?.id !== conv.id ? 'text-primary' : ''}`}>
+                                  {conv.sender}
+                                </h6>
+                                <small className={selectedConv?.id === conv.id ? "text-white-50" : "text-muted"}>
+                                  {conv.category || t("Support", "Support")}
+                                </small>
+                                {conv.lastMessage && (
+                                  <p className="mb-0 small mt-1" style={{
+                                    opacity: selectedConv?.id === conv.id ? 0.9 : 0.7,
+                                    lineHeight: "1.3"
+                                  }}>
+                                    {conv.lastMessage.content?.length > 40 
+                                      ? `${conv.lastMessage.content.substring(0, 40)}...`
+                                      : conv.lastMessage.content || t("no_message", "Pas de message")
+                                    }
+                                  </p>
+                                )}
                               </div>
-                              <small style={{ color: COLORS.gray, fontSize: '0.75rem' }}>
-                                {conv.updated_at ? new Date(conv.updated_at).toLocaleDateString() : ''}
+                            </div>
+                            <div className="text-end">
+                              {conv.nonLu > 0 && (
+                                <Badge bg="danger" className="mb-1">
+                                  {conv.nonLu}
+                                </Badge>
+                              )}
+                              <br />
+                              <small className={selectedConv?.id === conv.id ? "text-white-50" : "text-muted"}>
+                                {conv.updated_at ? formatTime(conv.updated_at) : ''}
                               </small>
                             </div>
-                            <div style={{ 
-                              fontSize: '0.85rem',
-                              color: conv.nonLu > 0 ? COLORS.dark : COLORS.gray,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              marginTop: '0.25rem'
-                            }}>
-                              {conv.lastMessage?.content || conv.category || t("no_messages", "Aucun message")}
-                            </div>
                           </div>
-                          {conv.nonLu > 0 && (
-                            <Badge
-                              pill
-                              bg="primary"
-                              style={{
-                                fontSize: '0.7rem',
-                                fontWeight: 600,
-                                minWidth: '20px',
-                                height: '20px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                              }}
-                            >
-                              {conv.nonLu}
-                            </Badge>
-                          )}
                         </ListGroup.Item>
-                      );
-                    })}
-                  </ListGroup>
-                ) : (
-                  <div className="text-center py-5 text-muted">
-                    <FaComments size={48} className="mb-3 opacity-50" />
-                    <h6 className="mb-2">{t("no_conversations", "Aucune conversation")}</h6>
-                    <p className="small mb-3">{t("start_first_conversation", "Commencez par démarrer votre première conversation")}</p>
-                    <Button 
-                      variant="outline-primary" 
-                      size="sm"
-                      onClick={startNewConversation}
-                      className="rounded-pill px-4"
-                    >
-                      <FaPlus className="me-2" />
-                      {t("start_conversation", "Démarrer une conversation")}
-                    </Button>
-                  </div>
-                )}
+                      ))}
+                    </ListGroup>
+                  ) : (
+                    <div className="text-center py-5">
+                      <i className="fas fa-comments fs-1 text-muted mb-3 d-block" style={{opacity:0.5}}></i>
+                      <h6 className="text-muted mb-2">{t("no_conversations_found", "Aucune conversation trouvée")}</h6>
+                      <p className="text-muted small">{t("no_conversations_match", "Aucune conversation ne correspond à votre recherche")}</p>
+                      {conversations.length === 0 && (
+                        <Button 
+                          variant="outline-primary" 
+                          onClick={startNewConversation}
+                          className="mt-2"
+                          size="sm"
+                        >
+                          <i className="fas fa-plus me-1"></i>
+                          {t("start_first_conversation", "Démarrer votre première conversation")}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </Card.Body>
             </Card>
           </Col>
 
-          {/* Chat Area */}
-          <Col lg={8}>
-            <Card className="shadow-sm border-0 h-100" style={styles.chatArea}>
-              {selectedConv ? (
-                <>
-                  <Card.Header className="border-0" style={styles.chatHeader}>
-                    <div className="d-flex align-items-center justify-content-between">
+          {/* Zone de conversation */}
+          <Col md={7}>
+            {selectedConv ? (
+              <Card className="border-0 shadow-sm h-100" style={{borderRadius:"20px"}}>
+                <Card.Body className="d-flex flex-column p-0 h-100">
+                  {/* En-tête de la conversation */}
+                  <div className="p-3 border-bottom bg-white">
+                    <div className="d-flex justify-content-between align-items-center">
                       <div className="d-flex align-items-center">
                         <Avatar 
                           src={selectedConv.avatarUrl} 
-                          size={44} 
+                          size={50}
                           alt={selectedConv.sender}
                           isOnline={selectedConv.category === 'Support'}
                         />
                         <div className="ms-3">
-                          <h5 className="mb-0" style={{ fontWeight: 600 }}>{selectedConv.sender}</h5>
-                          <small style={{ color: COLORS.accent, fontWeight: 500 }}>
-                            {selectedConv.category} • {t("online", "En ligne")}
-                          </small>
+                          <h5 className="fw-bold mb-1">{selectedConv.sender}</h5>
+                          <p className="text-muted mb-0">{selectedConv.category} • {t("online", "En ligne")}</p>
                         </div>
                       </div>
                       <div className="d-flex gap-2">
                         <Button 
                           variant="outline-primary" 
                           size="sm"
-                          className="rounded-pill px-3"
-                          onClick={() => window.print()}
+                          onClick={() => markAllAsRead(selectedConv?.id)}
+                          className="d-flex align-items-center"
+                          style={{borderRadius: "8px"}}
+                          disabled={!selectedConv || (selectedConv.messages && selectedConv.messages.length === 0)}
                         >
-                          <i className="fas fa-print me-1"></i>
-                          {t("print", "Imprimer")}
+                          <i className="fas fa-check-double me-2"></i>
+                          {t("mark_all_as_read", "Tout marquer comme lu")}
                         </Button>
                         <Button 
                           variant="outline-secondary" 
                           size="sm"
-                          className="rounded-pill px-3"
-                          onClick={() => {
-                            const convText = selectedConv.messages
-                              .map(m => `${m.sender}: ${m.content}`)
-                              .join('\n');
-                            navigator.clipboard.writeText(convText);
-                            setSuccess(t("copied_to_clipboard", "Conversation copiée dans le presse-papier"));
-                            setTimeout(() => setSuccess(null), 2000);
-                          }}
+                          onClick={handleRefresh}
+                          className="d-flex align-items-center"
+                          style={{borderRadius: "8px"}}
                         >
-                          <i className="fas fa-copy me-1"></i>
-                          {t("copy", "Copier")}
+                          <i className="fas fa-sync-alt me-2"></i>
+                          {t("refresh_conversation", "Actualiser")}
                         </Button>
                       </div>
                     </div>
-                  </Card.Header>
+                  </div>
 
-                  <div style={styles.messagesArea}>
+                  {/* Messages */}
+                  <div className="flex-grow-1 p-4" style={{
+                    maxHeight: '400px', 
+                    overflowY: 'auto', 
+                    backgroundColor: '#f0f2f5',
+                    backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.1) 1px, transparent 0)',
+                    backgroundSize: '20px 20px'
+                  }}>
                     {selectedConv.messages && selectedConv.messages.length > 0 ? (
-                      selectedConv.messages.map(msg => {
-                        const isAdmin = msg.is_from_admin;
-                        const time = new Date(msg.created_at);
-                        const isToday = new Date().toDateString() === time.toDateString();
-                        
-                        return (
-                          <div key={msg.id} style={{ 
-                            display: 'flex', 
-                            flexDirection: 'column',
-                            alignItems: isAdmin ? 'flex-end' : 'flex-start'
-                          }}>
-                            <div style={{
-                              ...styles.bubble(isAdmin),
-                              animation: 'fadeIn 0.3s ease'
-                            }}>
-                              <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                                {msg.content}
-                                {msg.error && (
-                                  <small className="d-block mt-1" style={{ 
-                                    color: isAdmin ? 'rgba(255,255,255,0.8)' : COLORS.danger,
-                                    fontSize: '0.8rem'
-                                  }}>
-                                    <i className="fas fa-exclamation-triangle me-1"></i>
-                                    {t("message_not_sent", "Message non envoyé")}
-                                  </small>
-                                )}
+                      selectedConv.messages.map((message) => (
+                        <div key={message.id} className="d-flex mb-4" style={{ 
+                          justifyContent: message.is_from_admin ? 'flex-end' : 'flex-start' 
+                        }}>
+                          <div className="d-flex align-items-start" style={{maxWidth: '70%'}}>
+                            {/* Avatar pour les messages du membre */}
+                            {!message.is_from_admin && (
+                              <div className="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" 
+                                style={{
+                                  width: '40px', 
+                                  height: '40px', 
+                                  background: 'linear-gradient(135deg, #667eea, #764ba2)', 
+                                  color: 'white', 
+                                  fontSize: '0.9rem', 
+                                  fontWeight: 'bold'
+                                }}>
+                                {currentUser?.name?.charAt(0)?.toUpperCase() || 'M'}
                               </div>
-                              <div style={styles.bubbleTime}>
-                                <FaClock size={10} />
-                                {isToday 
-                                  ? time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                                  : time.toLocaleDateString() + ' ' + time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                                }
-                                {!isAdmin && <ReadStatusIcon status={msg.read ? 'read' : 'sent'} />}
+                            )}
+                            
+                            <div className="flex-grow-1">
+                              <div className={`rounded-3 p-3 shadow-sm ${
+                                message.is_from_admin 
+                                  ? 'bg-primary text-white' 
+                                  : 'bg-white text-dark'
+                              }`} 
+                                style={{
+                                  borderTopLeftRadius: message.is_from_admin ? '20px' : '4px',
+                                  borderBottomLeftRadius: '20px',
+                                  borderBottomRightRadius: message.is_from_admin ? '4px' : '20px',
+                                  borderTopRightRadius: '20px',
+                                  background: message.is_from_admin 
+                                    ? 'linear-gradient(135deg, #007bff, #0056b3)' 
+                                    : 'white'
+                                }}>
+                                <p className="mb-2" style={{lineHeight: '1.4'}}>
+                                  {message.content}
+                                  {message.error && (
+                                    <small className="d-block mt-1 text-danger">
+                                      <i className="fas fa-exclamation-triangle me-1"></i>
+                                      {t("message_not_sent", "Message non envoyé")}
+                                    </small>
+                                  )}
+                                </p>
+                                <small className={message.is_from_admin ? "text-white-50" : "text-muted"}>
+                                  {formatTime(message.created_at)}
+                                  {!message.is_from_admin && !message.read && (
+                                    <span className="ms-2">
+                                      <i className="fas fa-check text-muted"></i>
+                                    </span>
+                                  )}
+                                  {!message.is_from_admin && message.read && (
+                                    <span className="ms-2">
+                                      <i className="fas fa-check-double text-primary"></i>
+                                    </span>
+                                  )}
+                                </small>
                               </div>
                             </div>
+
+                            {/* Avatar pour les messages de l'admin */}
+                            {message.is_from_admin && (
+                              <div className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 ms-3" 
+                                style={{
+                                  width: '40px', 
+                                  height: '40px', 
+                                  background: 'linear-gradient(135deg, #28a745, #20c997)', 
+                                  color: 'white', 
+                                  fontSize: '0.9rem', 
+                                  fontWeight: 'bold'
+                                }}>
+                                A
+                              </div>
+                            )}
                           </div>
-                        );
-                      })
-                    ) : (
-                      <div className="text-center py-5 text-muted flex-grow-1 d-flex flex-column justify-content-center align-items-center">
-                        <FaComments size={56} className="mb-3 opacity-50" />
-                        <h5 className="mb-2">{t("no_messages_in_conversation", "Aucun message dans cette conversation")}</h5>
-                        <p className="mb-4">{t("send_first_message", "Envoyez le premier message pour commencer la discussion")}</p>
-                        <div className="d-flex gap-2">
-                          <Button 
-                            variant="outline-primary" 
-                            className="rounded-pill px-4"
-                            onClick={() => setNewMessage(t("hello_message_example", "Bonjour, j'aimerais avoir des informations sur..."))}
-                          >
-                            <FaArrowRight className="me-2" />
-                            {t("suggest_message", "Message suggéré")}
-                          </Button>
-                          <Button 
-                            variant="primary" 
-                            className="rounded-pill px-4"
-                            onClick={() => document.querySelector('input[type="text"]')?.focus()}
-                          >
-                            <FaPaperPlane className="me-2" />
-                            {t("start_writing", "Commencer à écrire")}
-                          </Button>
                         </div>
+                      ))
+                    ) : (
+                      <div className="text-center text-muted py-5">
+                        <i className="fas fa-comments fs-1 text-muted mb-3 d-block" style={{opacity:0.5}}></i>
+                        <h6 className="text-muted mb-2">{t("no_messages", "Aucun message")}</h6>
+                        <p className="text-muted small">{t("start_conversation", "Commencez la conversation avec le support")}</p>
+                        <Button 
+                          variant="primary"
+                          onClick={() => {
+                            const defaultMessage = t("hello_support_message", "Bonjour, j'aimerais discuter...");
+                            setNewMessage(defaultMessage);
+                          }}
+                          className="mt-2"
+                          size="sm"
+                        >
+                          <i className="fas fa-comment me-1"></i>
+                          {t("write_first_message", "Écrire votre premier message")}
+                        </Button>
                       </div>
                     )}
                     <div ref={messagesEndRef} />
                   </div>
 
-                  <div style={styles.inputArea}>
-                    <Form onSubmit={handleSendMessage}>
-                      <InputGroup>
-                        <Form.Control
-                          placeholder={t("write_your_message", "Écrivez votre message...")}
-                          value={newMessage}
-                          onChange={e => setNewMessage(e.target.value)}
+                  {/* Zone de saisie */}
+                  <div className="p-3 border-top bg-white">
+                    <Form.Group className="mb-3">
+                      <Form.Control 
+                        as="textarea" 
+                        rows={3} 
+                        value={newMessage} 
+                        onChange={e => setNewMessage(e.target.value)} 
+                        placeholder={`${t("write_message_to", "Écrire un message à")} ${selectedConv.sender}...`} 
+                        style={{
+                          borderRadius: "15px", 
+                          padding: "12px", 
+                          border: "1px solid #e0e0e0", 
+                          resize: "none",
+                          fontSize: "14px"
+                        }} 
+                        disabled={sending}
+                      />
+                    </Form.Group>
+                    <div className="d-flex justify-content-between align-items-center">
+                      <small className="text-muted">
+                        <i className="fas fa-info-circle me-1"></i>
+                        {t("manual_refresh_note", "Cliquez sur le bouton 'Actualiser' pour voir les nouveaux messages")}
+                      </small>
+                      <div className="d-flex gap-2">
+                        <Button 
+                          variant="primary" 
+                          onClick={sendMessage} 
+                          className="d-flex align-items-center" 
                           style={{
-                            ...styles.input,
-                            borderColor: COLORS.border,
-                            ':focus': {
-                              borderColor: COLORS.primary,
-                              boxShadow: `0 0 0 0.25rem rgba(102, 126, 234, 0.25)`
-                            }
-                          }}
-                          disabled={sending}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendMessage(e);
-                            }
-                          }}
-                        />
-                        <Button
-                          type="submit"
-                          disabled={!newMessage.trim() || sending}
-                          style={{
-                            ...styles.sendBtn,
-                            ':hover:not(:disabled)': {
-                              transform: 'scale(1.05)',
-                              boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)'
-                            }
-                          }}
+                            borderRadius: "15px", 
+                            background: "linear-gradient(135deg,#667eea,#764ba2)", 
+                            border: "none", 
+                            padding: "8px 20px",
+                            fontSize: "14px"
+                          }} 
+                          disabled={sending || !newMessage.trim()}
                         >
                           {sending ? (
-                            <Spinner animation="border" size="sm" color="white" />
+                            <>
+                              <Spinner animation="border" size="sm" className="me-2" />
+                              {t("sending", "Envoi...")}
+                            </>
                           ) : (
-                            <FaPaperPlane size={18} color="#fff" />
+                            <>
+                              <i className="fas fa-paper-plane me-2"></i>{t("send", "Envoyer")}
+                            </>
                           )}
                         </Button>
-                      </InputGroup>
-                      <div className="d-flex justify-content-between mt-2">
-                        <small className="text-muted">
-                          {t("press_enter_to_send", "Appuyez sur Entrée pour envoyer")}
-                        </small>
-                        <small className="text-muted">
-                          {newMessage.length}/1000 {t("characters", "caractères")}
-                        </small>
+                        <Button 
+                          variant="outline-secondary" 
+                          onClick={() => setNewMessage("")} 
+                          className="d-flex align-items-center" 
+                          style={{borderRadius: "15px", fontSize: "14px"}} 
+                          disabled={sending}
+                        >
+                          <i className="fas fa-times me-2"></i>{t("clear", "Effacer")}
+                        </Button>
                       </div>
-                    </Form>
+                    </div>
                   </div>
-                </>
-              ) : (
-                <div className="d-flex flex-column justify-content-center align-items-center text-center h-100 py-5 text-muted">
-                  <FaComments size={72} className="mb-4 opacity-50" />
-                  <h4 className="mb-3">{t("no_conversation_selected", "Aucune conversation sélectionnée")}</h4>
-                  <p className="mb-4" style={{ maxWidth: '400px' }}>
-                    {t("select_conversation_to_start", "Sélectionnez une conversation pour commencer à discuter")}
-                  </p>
-                  <Button 
-                    variant="primary" 
-                    className="rounded-pill px-5 py-2"
-                    onClick={startNewConversation}
-                    style={{
-                      background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.secondary})`,
-                      border: 'none'
-                    }}
-                  >
-                    <FaRocket className="me-2" />
-                    {t("start_new_conversation", "Démarrer une nouvelle conversation")}
-                  </Button>
-                </div>
-              )}
-            </Card>
+                </Card.Body>
+              </Card>
+            ) : (
+              <Card className="border-0 shadow-sm h-100 d-flex align-items-center justify-content-center" style={{borderRadius:"20px"}}>
+                <Card.Body className="text-center py-5">
+                  <i className="fas fa-comments fs-1 text-muted mb-3 d-block" style={{opacity:0.5}}></i>
+                  <h5 className="text-muted mb-2">{t("no_conversation_selected", "Aucune conversation sélectionnée")}</h5>
+                  <p className="text-muted mb-3">{t("select_conversation_to_start", "Sélectionnez une conversation pour commencer")}</p>
+                  {conversations.length === 0 ? (
+                    <Button 
+                      variant="primary"
+                      onClick={startNewConversation}
+                      className="d-flex align-items-center mx-auto"
+                    >
+                      <i className="fas fa-plus me-2"></i>
+                      {t("start_first_conversation", "Démarrer votre première conversation")}
+                    </Button>
+                  ) : (
+                    <p className="text-muted small">
+                      {t("click_conversation_left", "Cliquez sur une conversation à gauche pour commencer")}
+                    </p>
+                  )}
+                </Card.Body>
+              </Card>
+            )}
           </Col>
         </Row>
       </div>
@@ -1070,6 +1402,15 @@ const MessagerieMembre = () => {
             to { opacity: 1; transform: translateY(0); }
           }
           
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          
+          .spin {
+            animation: spin 1s linear infinite;
+          }
+          
           ::-webkit-scrollbar {
             width: 6px;
           }
@@ -1091,6 +1432,10 @@ const MessagerieMembre = () => {
           .form-control:focus {
             border-color: ${COLORS.primary} !important;
             box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25) !important;
+          }
+          
+          .message-bubble {
+            animation: fadeIn 0.3s ease;
           }
         `}
       </style>

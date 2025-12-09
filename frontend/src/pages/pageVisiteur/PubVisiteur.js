@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import Navbar from "../../components/Navbar";
+import { useTranslation } from 'react-i18next'; // Import de useTranslation
 
 const PubVisiteur = () => {
+  const { t } = useTranslation(); // Utiliser le hook de traduction
   const [publications, setPublications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -50,7 +52,7 @@ const PubVisiteur = () => {
             ...pub, 
             userReacted: pub.userReacted || false,
             already_viewed: pub.already_viewed || false,
-            category: pub.categorie || "Général",
+            category: pub.categorie || t('general'),
             fichier_url: pub.fichier_url?.startsWith('http') 
               ? pub.fichier_url 
               : `http://localhost:8000/storage/${pub.fichier_url}`,
@@ -60,13 +62,13 @@ const PubVisiteur = () => {
           setPublications(pubs);
         }
       } catch(e){
-        console.error("Erreur chargement publications:", e);
+        console.error(t('error_load'), e);
       } finally{
         setLoading(false);
       }
     };
     fetchPubs();
-  },[]);
+  }, [t]);
 
   // Déterminer le type de fichier
   const getFileType = (fichierUrl) => {
@@ -170,7 +172,7 @@ const PubVisiteur = () => {
         alert(res.data.message);
       }
     } catch(e){
-      console.error("Erreur réaction:", e);
+      console.error(t('error_operation'), e);
       if (e.response?.data?.message) {
         alert(e.response.data.message);
       }
@@ -213,7 +215,7 @@ const PubVisiteur = () => {
         return res.data.already_viewed;
       }
     } catch(e){
-      console.error("Erreur enregistrement vue:", e);
+      console.error(t('error_operation'), e);
     }
     return false;
   };
@@ -242,7 +244,7 @@ const PubVisiteur = () => {
         setShowModal(true);
       }
     } catch (e) {
-      console.error("Erreur chargement détails:", e);
+      console.error(t('error_load'), e);
       setSelectedPublication({
         ...pub,
         already_viewed: pub.already_viewed || false
@@ -314,9 +316,9 @@ const PubVisiteur = () => {
         <div className="d-flex justify-content-center align-items-center min-vh-50">
           <div className="text-center">
             <div className="spinner-border" style={{color: colors.primary, width: '3rem', height: '3rem'}}>
-              <span className="visually-hidden">Chargement...</span>
+              <span className="visually-hidden">{t('loading')}...</span>
             </div>
-            <p className="text-muted mt-3">Chargement des publications...</p>
+            <p className="text-muted mt-3">{t('loading_publications')}</p>
           </div>
         </div>
       </div>
@@ -335,9 +337,9 @@ const PubVisiteur = () => {
         <div className="container">
           <div className="row justify-content-center text-center">
             <div className="col-lg-8">
-              <h1 className="display-5 fw-bold mb-3">Publications Validées</h1>
+              <h1 className="display-5 fw-bold mb-3">{t('publications_recent_title')}</h1>
               <p className="lead mb-0 opacity-90">
-                Découvrez les dernières publications validées par notre communauté
+                {t('publications_recent_title')} {/* Vous pouvez créer une nouvelle clé si nécessaire */}
               </p>
             </div>
           </div>
@@ -359,7 +361,7 @@ const PubVisiteur = () => {
               <input
                 type="text"
                 className="form-control"
-                placeholder="Rechercher une publication..."
+                placeholder={t('search_placeholder')}
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 style={{
@@ -380,9 +382,9 @@ const PubVisiteur = () => {
                 color: colors.primaryDark
               }}
             >
-              <option value="">Toutes les catégories</option>
+              <option value="">{t('all_categories')}</option>
               {categories.map(category => (
-                <option key={category} value={category}>{category}</option>
+                <option key={category} value={category}>{t(category) || category}</option>
               ))}
             </select>
           </div>
@@ -399,11 +401,11 @@ const PubVisiteur = () => {
             }}>
               <div className="card-body py-5">
                 <i className="fas fa-newspaper display-1 mb-3" style={{color: colors.neutral}}></i>
-                <h3 className="h4 mb-2" style={{color: colors.primaryDarker}}>Aucune publication trouvée</h3>
+                <h3 className="h4 mb-2" style={{color: colors.primaryDarker}}>{t('no_publications_found')}</h3>
                 <p style={{color: colors.neutral}}>
                   {searchTerm || selectedCategory 
-                    ? "Aucune publication ne correspond à vos critères." 
-                    : "Aucune publication validée pour le moment."
+                    ? t('no_publications_match') 
+                    : t('no_publications_system')
                   }
                 </p>
               </div>
@@ -414,7 +416,7 @@ const PubVisiteur = () => {
             {/* En-tête avec compteur et indicateurs */}
             <div className="d-flex justify-content-between align-items-center mb-4">
               <h2 className="h4 mb-0" style={{color: colors.primaryDarker}}>
-                {filteredPublications.length} Publication{filteredPublications.length > 1 ? 's' : ''}
+                {filteredPublications.length} {t('publications_total')}{filteredPublications.length > 1 ? 's' : ''}
               </h2>
               
               {/* Indicateurs de pagination */}
@@ -480,7 +482,7 @@ const PubVisiteur = () => {
                       width: '40px',
                       height: '40px',
                       borderRadius: '50%',
-                      display: 'flex',
+                      display: '-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       transition: 'background-color 0.3s ease'
@@ -603,7 +605,7 @@ const PubVisiteur = () => {
                                       fontWeight: '500',
                                       fontSize: '0.8rem'
                                     }}>
-                                      {pub.category}
+                                      {t(pub.category) || pub.category}
                                     </span>
                                     <small style={{color: colors.neutral, fontSize: '0.8rem'}}>
                                       <i className="far fa-clock me-1"></i>
@@ -646,7 +648,7 @@ const PubVisiteur = () => {
                                             color: colors.primaryDark,
                                             fontWeight: '500'
                                           }}>
-                                            {pub.nom_fichier_original || 'Document'}
+                                            {pub.nom_fichier_original || t('document')}
                                           </span>
                                         </div>
                                         <button 
@@ -720,7 +722,7 @@ const PubVisiteur = () => {
                                         }}
                                       >
                                         <i className={`fas ${pub.already_viewed ? 'fa-check' : 'fa-eye'} me-1`}></i>
-                                        Détails
+                                        {t('details') || 'Détails'}
                                       </button>
                                     </div>
                                   </div>
@@ -762,7 +764,7 @@ const PubVisiteur = () => {
             <div className="row mt-4">
               <div className="col-12">
                 <div className="d-flex justify-content-center gap-4 flex-wrap">
-                 
+                  {/* Vous pouvez ajouter une légende ici */}
                 </div>
               </div>
             </div>
@@ -804,7 +806,7 @@ const PubVisiteur = () => {
                       borderRadius: '20px',
                       fontWeight: '500'
                     }}>
-                      {selectedPublication.category}
+                      {t(selectedPublication.category) || selectedPublication.category}
                     </span>
                   </div>
                   <div className="d-flex align-items-center" style={{color: colors.neutral}}>
@@ -814,7 +816,7 @@ const PubVisiteur = () => {
                   {selectedPublication.auteur && (
                     <div className="d-flex align-items-center" style={{color: colors.neutral}}>
                       <i className="fas fa-user me-1"></i>
-                      Auteur: {selectedPublication.auteur}
+                      {t('author')}: {selectedPublication.auteur}
                     </div>
                   )}
                 </div>
@@ -877,13 +879,13 @@ const PubVisiteur = () => {
                         <i className={`fas ${getFileIcon(selectedPublication.nom_fichier_original)} me-3 fs-2`} style={{color: colors.secondary}}></i>
                         <div>
                           <h6 style={{color: colors.primaryDark, fontWeight: '600', marginBottom: '4px'}}>
-                            Document joint
+                            {t('attached_file')}
                           </h6>
                           <p style={{color: colors.neutral, margin: 0}}>
-                            {selectedPublication.nom_fichier_original || 'Document'}
+                            {selectedPublication.nom_fichier_original || t('document')}
                           </p>
                           <small style={{color: colors.neutral, fontSize: '0.85rem'}}>
-                            {selectedPublication.taille_fichier && `Taille: ${formatFileSize(selectedPublication.taille_fichier)}`}
+                            {selectedPublication.taille_fichier && `${t('file_size')}: ${formatFileSize(selectedPublication.taille_fichier)}`}
                           </small>
                         </div>
                       </div>
@@ -900,7 +902,7 @@ const PubVisiteur = () => {
                         }}
                       >
                         <i className="fas fa-download me-2"></i>
-                        Télécharger
+                        {t('download')}
                       </button>
                     </div>
                   </div>
@@ -911,14 +913,14 @@ const PubVisiteur = () => {
                   <div className="col-md-6">
                     <div className="mb-3">
                       <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                        <i className="fas fa-tag me-2"></i>Catégorie
+                        <i className="fas fa-tag me-2"></i>{t('category')}
                       </h6>
-                      <p style={{color: colors.neutral}}>{selectedPublication.category}</p>
+                      <p style={{color: colors.neutral}}>{t(selectedPublication.category) || selectedPublication.category}</p>
                     </div>
                     {selectedPublication.auteur && (
                       <div className="mb-3">
                         <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                          <i className="fas fa-user me-2"></i>Auteur
+                          <i className="fas fa-user me-2"></i>{t('author')}
                         </h6>
                         <p style={{color: colors.neutral}}>{selectedPublication.auteur}</p>
                       </div>
@@ -926,7 +928,7 @@ const PubVisiteur = () => {
                     {selectedPublication.source && (
                       <div className="mb-3">
                         <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                          <i className="fas fa-link me-2"></i>Source
+                          <i className="fas fa-link me-2"></i>{t('source')}
                         </h6>
                         <p style={{color: colors.neutral}}>{selectedPublication.source}</p>
                       </div>
@@ -935,7 +937,7 @@ const PubVisiteur = () => {
                   <div className="col-md-6">
                     <div className="mb-3">
                       <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                        <i className="far fa-calendar me-2"></i>Date de publication
+                        <i className="far fa-calendar me-2"></i>{t('publication_date')}
                       </h6>
                       <p style={{color: colors.neutral}}>
                         {formatDate(selectedPublication.created_at || selectedPublication.date_publication)}
@@ -944,7 +946,7 @@ const PubVisiteur = () => {
                     {selectedPublication.date_modification && (
                       <div className="mb-3">
                         <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                          <i className="fas fa-edit me-2"></i>Dernière modification
+                          <i className="fas fa-edit me-2"></i>{t('last_modification')}
                         </h6>
                         <p style={{color: colors.neutral}}>
                           {formatDate(selectedPublication.date_modification)}
@@ -954,7 +956,7 @@ const PubVisiteur = () => {
                     {selectedPublication.mots_cles && (
                       <div className="mb-3">
                         <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                          <i className="fas fa-hashtag me-2"></i>Mots-clés
+                          <i className="fas fa-hashtag me-2"></i>{t('keywords')}
                         </h6>
                         <div className="d-flex flex-wrap gap-2">
                           {selectedPublication.mots_cles.split(',').map((mot, index) => (
@@ -980,7 +982,7 @@ const PubVisiteur = () => {
                 {/* Statistiques d'engagement */}
                 <div className="border-top pt-4">
                   <h6 style={{color: colors.primaryDarker, fontWeight: '600', marginBottom: '16px'}}>
-                    Statistiques d'engagement
+                    {t('statistics_title')}
                   </h6>
                   
                   <div className="row text-center">
@@ -998,12 +1000,12 @@ const PubVisiteur = () => {
                             transition: 'all 0.3s ease'
                           }}
                           onClick={() => handleReact(selectedPublication)}
-                          title={selectedPublication.userReacted ? "Vous avez déjà aimé cette publication" : "Cliquez pour ajouter aux favoris"}
+                          title={selectedPublication.userReacted ? t('already_reacted') : t('click_to_react')}
                         >
                           <i className={`fas fa-heart fs-5`}></i>
                         </button>
                         <small style={{color: colors.neutral}}>
-                          {selectedPublication.total_reactions || 0} réaction{selectedPublication.total_reactions !== 1 ? 's' : ''}
+                          {selectedPublication.total_reactions || 0} {t('reaction')}{selectedPublication.total_reactions !== 1 ? 's' : ''}
                         </small>
                       </div>
                     </div>
@@ -1021,7 +1023,7 @@ const PubVisiteur = () => {
                           <i className={`fas ${selectedPublication.already_viewed ? 'fa-eye' : 'far fa-eye'} fs-5`}></i>
                         </div>
                         <small style={{color: colors.neutral}}>
-                          {selectedPublication.vues || 0} vue{selectedPublication.vues !== 1 ? 's' : ''}
+                          {selectedPublication.vues || 0} {t('views')}{selectedPublication.vues !== 1 ? 's' : ''}
                         </small>
                       </div>
                     </div>
@@ -1043,7 +1045,7 @@ const PubVisiteur = () => {
                     fontWeight: '500'
                   }}
                 >
-                  Fermer
+                  {t('close')}
                 </button>
                 
                 {selectedPublication.fichier_url && (
@@ -1061,7 +1063,7 @@ const PubVisiteur = () => {
                     }}
                   >
                     <i className="fas fa-download me-2"></i>
-                    Télécharger le document
+                    {t('download_document')}
                   </button>
                 )}
                 
@@ -1069,9 +1071,8 @@ const PubVisiteur = () => {
                   type="button" 
                   className="btn"
                   onClick={() => {
-                    // Fonction pour partager la publication
                     const shareUrl = window.location.href;
-                    const shareText = `Découvrez cette publication : ${selectedPublication.titre}`;
+                    const shareText = `${t('share_text')}: ${selectedPublication.titre}`;
                     
                     if (navigator.share) {
                       navigator.share({
@@ -1080,9 +1081,8 @@ const PubVisiteur = () => {
                         url: shareUrl,
                       });
                     } else {
-                      // Fallback pour les navigateurs qui ne supportent pas l'API Web Share
                       navigator.clipboard.writeText(shareUrl);
-                      alert("Lien copié dans le presse-papier !");
+                      alert(t('link_copied'));
                     }
                   }}
                   style={{
@@ -1095,7 +1095,7 @@ const PubVisiteur = () => {
                   }}
                 >
                   <i className="fas fa-share-alt me-2"></i>
-                  Partager
+                  {t('share')}
                 </button>
               </div>
             </div>

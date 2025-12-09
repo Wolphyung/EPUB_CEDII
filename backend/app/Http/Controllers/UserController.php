@@ -52,7 +52,7 @@ class UserController extends Controller
                 'name' => 'required|string|max:255',
                 'email' => 'required|string|email|max:255|unique:users',
                 'password' => 'required|string|min:8',
-                'statut' => 'nullable|in:actif,inactif,suspendu',
+                'statut' => 'nullable|in:Actif,Inactif,Suspendu, actif, inactif, suspendu',
                 'email_verified_at' => 'nullable|date',
             ]);
 
@@ -127,7 +127,7 @@ class UserController extends Controller
                 'name' => 'sometimes|required|string|max:255',
                 'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $id,
                 'password' => 'sometimes|nullable|string|min:8',
-                'statut' => 'sometimes|nullable|in:actif,inactif,suspendu',
+                'statut' => 'nullable|in:Actif,Inactif,Suspendu, actif, inactif, suspendu',
                 'email_verified_at' => 'nullable|date',
             ]);
 

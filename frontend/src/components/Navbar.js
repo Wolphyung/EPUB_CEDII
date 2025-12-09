@@ -1,3 +1,4 @@
+// src/components/Navbar.js
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { 
@@ -11,10 +12,13 @@ import {
   FiMail,
   FiX
 } from "react-icons/fi";
+import { useTranslation } from 'react-i18next'; // Import de useTranslation
+import LanguageSwitcherCompact from "./LanguageSwitcher"; // Import du commutateur compact
 import "./Navbar.css";
 
 const Navbar = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation(); // Utiliser le hook de traduction
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [userEmail, setUserEmail] = useState("");
@@ -68,34 +72,38 @@ const Navbar = () => {
             <span className="logo-text">
               <img src="/images/logo.jpg" alt="Logo" className="logo-img" />
             </span>
-         
           </Link>
 
           <div className={`nav-menu ${isMenuOpen ? "active" : ""}`}>
             <div className="nav-links">
               <Link className="nav-link" to="/pubvisiteur" onClick={closeMenu}>
                 <FiFileText className="nav-icon" />
-                <span>Publication</span>
+                <span>{t('menu_publication')}</span> {/* Traduction */}
               </Link>
               <Link className="nav-link" to="/eventvisiteur" onClick={closeMenu}>
                 <FiCalendar className="nav-icon" />
-                <span>Événement</span>
+                <span>{t('menu_event')}</span> {/* Traduction */}
               </Link>
               <Link className="nav-link" to="/appeloffrevisiteur" onClick={closeMenu}>
                 <FiBriefcase className="nav-icon" />
-                <span>Appel d'offre</span>
+                <span>{t('menu_call_for_tender')}</span> {/* Traduction */}
               </Link>
               <Link className="nav-link" to="/messagevisiteur" onClick={closeMenu}>
                 <FiMessageSquare className="nav-icon" />
-                <span>Message</span>
+                <span>{t('menu_messages')}</span> {/* Traduction */}
               </Link>
               <Link className="nav-link" to="/profilvisiteur" onClick={closeMenu}>
                 <FiUser className="nav-icon" />
-                <span>Profil</span>
+                <span>{t('menu_profile')}</span> {/* Traduction */}
               </Link>
             </div>
 
             <div className="nav-user-section">
+              {/* Commutateur de langue */}
+              <div className="language-switcher-wrapper">
+                <LanguageSwitcherCompact />
+              </div>
+              
               {localStorage.getItem("token") ? (
                 <div className="user-info">
                   <div className="user-email-container">
@@ -106,13 +114,17 @@ const Navbar = () => {
                   </div>
                   <button className="logout-btn" onClick={handleLogoutClick}>
                     <FiLogOut className="logout-icon" />
-                    <span>Déconnexion</span>
+                    <span>{t('logout_button')}</span> {/* Traduction */}
                   </button>
                 </div>
               ) : (
                 <div className="auth-buttons">
-                  <Link className="signup-btn" to="/signup" onClick={closeMenu}>Inscription</Link>
-                  <Link className="login-btn" to="/login" onClick={closeMenu}>Connexion</Link>
+                  <Link className="signup-btn" to="/signup" onClick={closeMenu}>
+                    {t('signup_button')} {/* Traduction */}
+                  </Link>
+                  <Link className="login-btn" to="/login" onClick={closeMenu}>
+                    {t('login_button')} {/* Traduction */}
+                  </Link>
                 </div>
               )}
             </div>
@@ -141,10 +153,10 @@ const Navbar = () => {
               <FiLogOut />
             </div>
             
-            <h2 className="modal-title">Déconnexion</h2>
+            <h2 className="modal-title">{t('logout_modal_title')}</h2> {/* Traduction */}
             
             <p className="modal-message">
-              Êtes-vous sûr de vouloir vous déconnecter de votre compte ?
+              {t('logout_modal_message')} {/* Traduction */}
             </p>
             
             <div className="modal-buttons">
@@ -152,13 +164,13 @@ const Navbar = () => {
                 className="modal-btn modal-btn-cancel"
                 onClick={() => setShowLogoutModal(false)}
               >
-                Annuler
+                {t('cancel_button')} {/* Traduction */}
               </button>
               <button 
                 className="modal-btn modal-btn-confirm"
                 onClick={handleLogoutConfirm}
               >
-                Oui, me déconnecter
+                {t('logout_button')} {/* Traduction */}
               </button>
             </div>
           </div>

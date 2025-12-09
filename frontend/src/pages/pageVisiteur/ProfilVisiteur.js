@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Navbar from "../../components/Navbar";
+import { useTranslation } from 'react-i18next'; // Import de useTranslation
 
 const ProfilVisiteur = () => {
+  const { t } = useTranslation(); // Utiliser le hook de traduction
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
@@ -46,7 +48,7 @@ const ProfilVisiteur = () => {
   // Récupérer le profil au chargement
   useEffect(() => {
     if (!isAuthenticated()) {
-      showMessage("Veuillez vous connecter pour accéder à votre profil", "error");
+      showMessage(t('login_required_profile'), "error");
       setLoading(false);
       return;
     }
@@ -63,29 +65,29 @@ const ProfilVisiteur = () => {
             email: res.data.email,
           });
         } else {
-          showMessage("Données utilisateur invalides reçues du serveur", "error");
+          showMessage(t('invalid_user_data'), "error");
         }
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Erreur lors du chargement du profil:", err);
+        console.error(t('error_load_profile'), err);
         
         // Si l'erreur est 401, rediriger vers la page de connexion
         if (err.response?.status === 401) {
-          showMessage("Session expirée. Veuillez vous reconnecter", "error");
+          showMessage(t('session_expired'), "error");
           // Optionnel: rediriger automatiquement après un délai
           setTimeout(() => {
             window.location.href = "/login";
           }, 2000);
         } else {
           showMessage(
-            err.response?.data?.message || "Impossible de récupérer le profil",
+            err.response?.data?.message || t('error_fetch_profile'),
             "error"
           );
         }
         setLoading(false);
       });
-  }, []);
+  }, [t]);
 
   const showMessage = (msg, type = "success") => {
     setMessage(msg);
@@ -98,7 +100,7 @@ const ProfilVisiteur = () => {
     e.preventDefault();
     
     if (!isAuthenticated()) {
-      showMessage("Veuillez vous connecter pour modifier votre profil", "error");
+      showMessage(t('login_required_update'), "error");
       return;
     }
 
@@ -114,16 +116,16 @@ const ProfilVisiteur = () => {
           // Mettre à jour le localStorage si nécessaire
           localStorage.setItem("user", JSON.stringify(res.data.user));
         } else {
-          showMessage("Réponse invalide du serveur", "error");
+          showMessage(t('invalid_server_response'), "error");
         }
       })
       .catch((err) => {
-        console.error("Erreur lors de la mise à jour:", err);
+        console.error(t('error_update_profile'), err);
         if (err.response?.status === 401) {
-          showMessage("Session expirée. Veuillez vous reconnecter", "error");
+          showMessage(t('session_expired'), "error");
         } else {
           showMessage(
-            err.response?.data?.message || "Erreur lors de la mise à jour",
+            err.response?.data?.message || t('error_update'),
             "error"
           );
         }
@@ -135,7 +137,7 @@ const ProfilVisiteur = () => {
     e.preventDefault();
     
     if (!isAuthenticated()) {
-      showMessage("Veuillez vous connecter pour changer votre mot de passe", "error");
+      showMessage(t('login_required_password'), "error");
       return;
     }
 
@@ -152,12 +154,12 @@ const ProfilVisiteur = () => {
         });
       })
       .catch((err) => {
-        console.error("Erreur lors du changement de mot de passe:", err);
+        console.error(t('error_change_password'), err);
         if (err.response?.status === 401) {
-          showMessage("Session expirée. Veuillez vous reconnecter", "error");
+          showMessage(t('session_expired'), "error");
         } else {
           showMessage(
-            err.response?.data?.message || "Erreur lors du changement de mot de passe",
+            err.response?.data?.message || t('error_change_password_general'),
             "error"
           );
         }
@@ -178,7 +180,7 @@ const ProfilVisiteur = () => {
         return true;
       }
     } catch (error) {
-      console.error("Erreur lors de la récupération des données du localStorage:", error);
+      console.error(t('error_local_storage'), error);
     }
     return false;
   };
@@ -190,9 +192,9 @@ const ProfilVisiteur = () => {
         <div className="d-flex justify-content-center align-items-center min-vh-50">
           <div className="text-center">
             <div className="spinner-border text-primary mb-3" style={{width: '3rem', height: '3rem'}} role="status">
-              <span className="visually-hidden">Chargement...</span>
+              <span className="visually-hidden">{t('loading')}...</span>
             </div>
-            <p className="text-muted">Chargement du profil...</p>
+            <p className="text-muted">{t('loading_profile')}</p>
           </div>
         </div>
       </div>
@@ -210,9 +212,9 @@ const ProfilVisiteur = () => {
               <div className="card shadow-sm border-0">
                 <div className="card-body text-center py-5">
                   <i className="fas fa-exclamation-triangle text-warning fa-4x mb-4"></i>
-                  <h3 className="text-dark mb-3">Profil non disponible</h3>
+                  <h3 className="text-dark mb-3">{t('profile_unavailable')}</h3>
                   <p className="text-muted mb-4">
-                    {message || "Vous devez être connecté pour accéder à votre profil."}
+                    {message || t('must_login_profile')}
                   </p>
                   <div className="d-flex gap-2 justify-content-center">
                     <button 
@@ -220,7 +222,7 @@ const ProfilVisiteur = () => {
                       onClick={() => window.location.href = "/login"}
                     >
                       <i className="fas fa-sign-in-alt me-2"></i>
-                      Se connecter
+                      {t('login_button')}
                     </button>
                     <button 
                       className="btn btn-outline-secondary"
@@ -231,7 +233,7 @@ const ProfilVisiteur = () => {
                       }}
                     >
                       <i className="fas fa-redo me-2"></i>
-                      Rafraîchir
+                      {t('refresh')}
                     </button>
                   </div>
                 </div>
@@ -253,9 +255,9 @@ const ProfilVisiteur = () => {
         <div className="container position-relative">
           <div className="row justify-content-center text-center">
             <div className="col-lg-8">
-              <h1 className="display-4 fw-bold mb-3">Mon Profil</h1>
+              <h1 className="display-4 fw-bold mb-3">{t('profile_title')}</h1>
               <p className="lead mb-0 opacity-75">
-                Gérez vos informations personnelles et votre mot de passe
+                {t('profile_subtitle')}
               </p>
             </div>
           </div>
@@ -285,7 +287,7 @@ const ProfilVisiteur = () => {
                       role="tab"
                     >
                       <i className="fas fa-user me-2"></i>
-                      Informations du profil
+                      {t('personal_info')}
                     </button>
                   </li>
                   <li className="nav-item" role="presentation">
@@ -296,7 +298,7 @@ const ProfilVisiteur = () => {
                       role="tab"
                     >
                       <i className="fas fa-lock me-2"></i>
-                      Mot de passe
+                      {t('password')}
                     </button>
                   </li>
                 </ul>
@@ -315,25 +317,25 @@ const ProfilVisiteur = () => {
                               <i className="fas fa-user text-primary fs-3"></i>
                             </div>
                             <div>
-                              <h4 className="text-dark mb-1">{user.name || "Non spécifié"}</h4>
-                              <p className="text-muted mb-0">{user.email || "Non spécifié"}</p>
+                              <h4 className="text-dark mb-1">{user.name || t('not_specified')}</h4>
+                              <p className="text-muted mb-0">{user.email || t('not_specified')}</p>
                               <small className="text-muted">
-                                {user.created_at ? `Membre depuis ${new Date(user.created_at).toLocaleDateString('fr-FR')}` : "Membre"}
+                                {user.created_at ? `${t('member_since')} ${new Date(user.created_at).toLocaleDateString('fr-FR')}` : t('member')}
                               </small>
                             </div>
                           </div>
 
                           <div className="row g-3">
                             <div className="col-md-6">
-                              <label className="form-label fw-semibold text-muted">Nom complet</label>
+                              <label className="form-label fw-semibold text-muted">{t('full_name')}</label>
                               <div className="form-control bg-light border-0">
-                                {user.name || "Non spécifié"}
+                                {user.name || t('not_specified')}
                               </div>
                             </div>
                             <div className="col-md-6">
-                              <label className="form-label fw-semibold text-muted">Adresse email</label>
+                              <label className="form-label fw-semibold text-muted">{t('email')}</label>
                               <div className="form-control bg-light border-0">
-                                {user.email || "Non spécifié"}
+                                {user.email || t('not_specified')}
                               </div>
                             </div>
                           </div>
@@ -344,7 +346,7 @@ const ProfilVisiteur = () => {
                               className="btn btn-primary"
                             >
                               <i className="fas fa-edit me-2"></i>
-                              Modifier le profil
+                              {t('edit_profile')}
                             </button>
                             <button
                               onClick={() => {
@@ -355,7 +357,7 @@ const ProfilVisiteur = () => {
                               className="btn btn-outline-danger"
                             >
                               <i className="fas fa-sign-out-alt me-2"></i>
-                              Se déconnecter
+                              {t('logout_button')}
                             </button>
                           </div>
                         </div>
@@ -370,14 +372,14 @@ const ProfilVisiteur = () => {
                                 <i className="fas fa-user-edit text-primary fs-3"></i>
                               </div>
                               <div>
-                                <h4 className="text-dark mb-1">Modifier le profil</h4>
-                                <p className="text-muted mb-0">Mettez à jour vos informations personnelles</p>
+                                <h4 className="text-dark mb-1">{t('edit_profile_title')}</h4>
+                                <p className="text-muted mb-0">{t('edit_profile_subtitle')}</p>
                               </div>
                             </div>
                           </div>
 
                           <div className="col-md-6">
-                            <label className="form-label fw-semibold">Nom complet</label>
+                            <label className="form-label fw-semibold">{t('full_name')}</label>
                             <input
                               type="text"
                               value={formData.name}
@@ -390,7 +392,7 @@ const ProfilVisiteur = () => {
                           </div>
 
                           <div className="col-md-6">
-                            <label className="form-label fw-semibold">Adresse email</label>
+                            <label className="form-label fw-semibold">{t('email')}</label>
                             <input
                               type="email"
                               value={formData.email}
@@ -409,7 +411,7 @@ const ProfilVisiteur = () => {
                                 className="btn btn-success"
                               >
                                 <i className="fas fa-check me-2"></i>
-                                Enregistrer les modifications
+                                {t('save_profile')}
                               </button>
                               <button
                                 type="button"
@@ -417,7 +419,7 @@ const ProfilVisiteur = () => {
                                 className="btn btn-outline-secondary"
                               >
                                 <i className="fas fa-times me-2"></i>
-                                Annuler
+                                {t('cancel_edit')}
                               </button>
                             </div>
                           </div>
@@ -438,15 +440,15 @@ const ProfilVisiteur = () => {
                             <i className="fas fa-lock text-warning fs-3"></i>
                           </div>
                           <div>
-                            <h4 className="text-dark mb-1">Changer le mot de passe</h4>
-                            <p className="text-muted mb-0">Mettez à jour votre mot de passe de connexion</p>
+                            <h4 className="text-dark mb-1">{t('change_password')}</h4>
+                            <p className="text-muted mb-0">{t('change_password_subtitle')}</p>
                           </div>
                         </div>
 
                         <form onSubmit={handleChangePassword}>
                           <div className="row g-3">
                             <div className="col-12">
-                              <label className="form-label fw-semibold">Mot de passe actuel</label>
+                              <label className="form-label fw-semibold">{t('current_password')}</label>
                               <input
                                 type="password"
                                 value={passwordData.current_password}
@@ -454,13 +456,13 @@ const ProfilVisiteur = () => {
                                   setPasswordData({ ...passwordData, current_password: e.target.value })
                                 }
                                 className="form-control form-control-lg"
-                                placeholder="Entrez votre mot de passe actuel"
+                                placeholder={t('current_password_placeholder')}
                                 required
                               />
                             </div>
 
                             <div className="col-md-6">
-                              <label className="form-label fw-semibold">Nouveau mot de passe</label>
+                              <label className="form-label fw-semibold">{t('new_password')}</label>
                               <input
                                 type="password"
                                 value={passwordData.new_password}
@@ -468,13 +470,13 @@ const ProfilVisiteur = () => {
                                   setPasswordData({ ...passwordData, new_password: e.target.value })
                                 }
                                 className="form-control form-control-lg"
-                                placeholder="Entrez le nouveau mot de passe"
+                                placeholder={t('new_password_placeholder')}
                                 required
                               />
                             </div>
 
                             <div className="col-md-6">
-                              <label className="form-label fw-semibold">Confirmer le nouveau mot de passe</label>
+                              <label className="form-label fw-semibold">{t('confirm_new_password')}</label>
                               <input
                                 type="password"
                                 value={passwordData.new_password_confirmation}
@@ -485,7 +487,7 @@ const ProfilVisiteur = () => {
                                   })
                                 }
                                 className="form-control form-control-lg"
-                                placeholder="Confirmez le nouveau mot de passe"
+                                placeholder={t('confirm_password_placeholder')}
                                 required
                               />
                             </div>
@@ -497,7 +499,7 @@ const ProfilVisiteur = () => {
                                   className="btn btn-warning text-white"
                                 >
                                   <i className="fas fa-key me-2"></i>
-                                  Changer le mot de passe
+                                  {t('change_password_button')}
                                 </button>
                                 <button
                                   type="button"
@@ -509,7 +511,7 @@ const ProfilVisiteur = () => {
                                   className="btn btn-outline-secondary"
                                 >
                                   <i className="fas fa-eraser me-2"></i>
-                                  Effacer
+                                  {t('clear')}
                                 </button>
                               </div>
                             </div>
@@ -527,7 +529,7 @@ const ProfilVisiteur = () => {
               <div className="card-header bg-transparent border-0">
                 <h5 className="text-dark mb-0">
                   <i className="fas fa-info-circle me-2 text-primary"></i>
-                  Informations du compte
+                  {t('account_info')}
                 </h5>
               </div>
               <div className="card-body">
@@ -536,13 +538,13 @@ const ProfilVisiteur = () => {
                     <div className="d-flex align-items-center">
                       <i className="fas fa-calendar-plus text-muted me-3"></i>
                       <div>
-                        <small className="text-muted">Date de création</small>
+                        <small className="text-muted">{t('creation_date')}</small>
                         <div className="fw-semibold">
                           {user.created_at ? new Date(user.created_at).toLocaleDateString('fr-FR', {
                             day: 'numeric',
                             month: 'long',
                             year: 'numeric'
-                          }) : 'Non disponible'}
+                          }) : t('not_available')}
                         </div>
                       </div>
                     </div>
@@ -551,8 +553,8 @@ const ProfilVisiteur = () => {
                     <div className="d-flex align-items-center">
                       <i className="fas fa-shield-alt text-muted me-3"></i>
                       <div>
-                        <small className="text-muted">Statut du compte</small>
-                        <div className="fw-semibold text-success">Actif</div>
+                        <small className="text-muted">{t('account_status')}</small>
+                        <div className="fw-semibold text-success">{t('active')}</div>
                       </div>
                     </div>
                   </div>

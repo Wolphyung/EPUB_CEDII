@@ -514,20 +514,6 @@ const MessageAdmin = () => {
                     </div>
                 </div>
 
-                {/* Debug Info (optionnel) */}
-                {process.env.NODE_ENV === 'development' && (
-                  <Card className="mb-3 border-info">
-                    <Card.Body className="p-2">
-                      <small className="text-muted d-flex align-items-center">
-                        <i className="fas fa-info-circle me-2"></i>
-                        <span>Token: {localStorage.getItem('token') ? '✓ Présent' : '✗ Absent'} | 
-                              User: {localStorage.getItem('user') ? '✓ Connecté' : '✗ Non connecté'}
-                        </span>
-                      </small>
-                    </Card.Body>
-                  </Card>
-                )}
-
                 {/* Statistiques */}
                 <Row className="mb-4">
                     {stats.map((stat,index) => (

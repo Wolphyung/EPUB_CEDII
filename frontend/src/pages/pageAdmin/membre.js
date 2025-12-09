@@ -22,8 +22,6 @@ import {
   addVisiteur,
   updateVisiteur,
   deleteVisiteur,
-  fetchAbonnements,
-  addAbonnement,
   checkMembreAbonnement,
 } from "../../services/api";
 import { useTranslation } from "react-i18next";
@@ -35,7 +33,6 @@ const MembrePage = () => {
   const [membresAvecAbonnement, setMembresAvecAbonnement] = useState([]);
   const [visiteurs, setVisiteurs] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [showAbonnementModal, setShowAbonnementModal] = useState(false);
   const [showAlert, setShowAlert] = useState({ show: false, type: "", message: "" });
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -70,20 +67,7 @@ const MembrePage = () => {
     name: "",
     email: "",
     password: "",
-    email_verified_at: null,
     statut: t("Actif") || "actif",
-  });
-
-  const [currentAbonnement, setCurrentAbonnement] = useState({
-    membre_id: "",
-    membre_nom: "",
-    type_abonnement: "mensuel",
-    date_debut: new Date().toISOString().split("T")[0],
-    date_fin: "",
-    statut: t("Actif") || "actif",
-    montant: "9.99",
-    methode_paiement: "Carte",
-    notes: "",
   });
 
   const [avatarError, setAvatarError] = useState("");
@@ -240,7 +224,6 @@ const MembrePage = () => {
       name: "",
       email: "",
       password: "",
-      email_verified_at: null,
       statut: t("Actif") || "actif",
     });
     setShowModal(true);
@@ -254,21 +237,6 @@ const MembrePage = () => {
     setShowModal(true);
   };
 
-  const openAbonnementModal = (membre) => {
-    setCurrentAbonnement({
-      membre_id: membre.id,
-      membre_nom: `${membre.nom || ""} ${membre.prenom}`.trim(),
-      type_abonnement: "mensuel",
-      date_debut: new Date().toISOString().split("T")[0],
-      date_fin: "",
-      statut: t("Actif") || "actif",
-      montant: "9.99",
-      methode_paiement: "Carte",
-      notes: "",
-    });
-    calculateDatesAndPrice();
-    setShowAbonnementModal(true);
-  };
 
   const handleMembreChange = (e) => {
     const { name, value, files } = e.target;
@@ -297,45 +265,6 @@ const MembrePage = () => {
   const handleVisiteurChange = (e) => {
     const { name, value } = e.target;
     setCurrentVisiteur({ ...currentVisiteur, [name]: value });
-  };
-
-  const handleAbonnementChange = (e) => {
-    const { name, value } = e.target;
-    setCurrentAbonnement(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    if (name === "type_abonnement" || name === "date_debut") {
-      calculateDatesAndPrice();
-    }
-  };
-
-  const calculateDatesAndPrice = () => {
-    const dateDebut = new Date(currentAbonnement.date_debut);
-    let dateFin = new Date(dateDebut);
-    let montant = "9.99";
-
-    switch (currentAbonnement.type_abonnement) {
-      case "mensuel":
-        dateFin.setMonth(dateFin.getMonth() + 1);
-        montant = "9.99";
-        break;
-      case "trimestriel":
-        dateFin.setMonth(dateFin.getMonth() + 3);
-        montant = "24.99";
-        break;
-      case "annuel":
-        dateFin.setFullYear(dateFin.getFullYear() + 1);
-        montant = "89.99";
-        break;
-    }
-
-    setCurrentAbonnement(prev => ({
-      ...prev,
-      date_fin: dateFin.toISOString().split("T")[0],
-      montant,
-    }));
   };
 
   const handleSaveMembre = async () => {
@@ -430,12 +359,6 @@ const MembrePage = () => {
             statut: currentVisiteur.statut,
         };
 
-        // Gérer email_verified_at correctement
-        if (currentVisiteur.email_verified_at === "1") {
-            userData.email_verified_at = new Date().toISOString();
-        } else {
-            userData.email_verified_at = null;
-        }
 
         let response;
         if (currentVisiteur.id) {
@@ -464,45 +387,6 @@ const MembrePage = () => {
     }
   };
 
-  const handleSaveAbonnement = async () => {
-    try {
-      if (!currentAbonnement.membre_id) {
-        showNotification("error", t("select_member_required"));
-        return;
-      }
-
-      const abonnementData = {
-        membre_id: currentAbonnement.membre_id,
-        type_abonnement: currentAbonnement.type_abonnement,
-        date_debut: currentAbonnement.date_debut,
-        montant: currentAbonnement.montant,
-        methode_paiement: currentAbonnement.methode_paiement,
-        statut: currentAbonnement.statut,
-        notes: currentAbonnement.notes || null
-        // → PAS de date_fin ici !
-      };
-
-      const response = await addAbonnement(abonnementData);
-      showNotification("success", t("subscription_created_success"));
-      loadMembres();
-      setShowAbonnementModal(false);
-    } catch (err) {
-      console.error('Erreur complète :', err.response?.data);
-
-      const errors = err.response?.data?.errors;
-      const message = err.response?.data?.message;
-
-      if (errors) {
-        // Affiche chaque erreur clairement
-        const errorMessages = Object.values(errors).flat();
-        errorMessages.forEach(msg => showNotification("error", msg));
-      } else if (message) {
-        showNotification("error", message);
-      } else {
-        showNotification("error", "Erreur serveur inconnue");
-      }
-    }
-  };
 
   const handleDeleteMembre = async (id) => {
     if (!window.confirm(t("delete_member_confirmation"))) return;
@@ -674,8 +558,6 @@ const MembrePage = () => {
     actifs: visiteurs.filter(v => v.statut === t("Actif") || v.statut === "actif").length,
     inactifs: visiteurs.filter(v => v.statut === t("Inactif") || v.statut === "inactif").length,
     suspendus: visiteurs.filter(v => v.statut === t("Suspendu") || v.statut === "suspendu").length,
-    verifies: visiteurs.filter(v => v.email_verified_at).length,
-    non_verifies: visiteurs.filter(v => !v.email_verified_at).length,
   };
 
   return (
@@ -947,7 +829,7 @@ const MembrePage = () => {
                         <td>{getTypeBadge(item.type)}</td>
                         <td>
                           {item.email}
-                          {activeView === "visiteurs" && item.email_verified_at && (
+                          {activeView === "visiteurs" && (
                             <Badge bg="success" className="ms-2" size="sm">
                               <i className="fas fa-check"></i>
                             </Badge>
@@ -979,12 +861,7 @@ const MembrePage = () => {
                                 <i className="fas fa-edit me-2"></i>
                                 {t("edit")}
                               </Dropdown.Item>
-                              {activeView === "membres" && item.type !== "visiteur" && (
-                                <Dropdown.Item onClick={() => openAbonnementModal(item)}>
-                                  <i className="fas fa-credit-card me-2"></i>
-                                  {item.has_abonnement ? t("renew_subscription") : t("add_subscription")}
-                                </Dropdown.Item>
-                              )}
+                              
                               <Dropdown.Divider />
                               <Dropdown.Item onClick={() => 
                                 activeView === "membres" 
@@ -1077,9 +954,6 @@ const MembrePage = () => {
                   <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("status")} *</Form.Label><Form.Select name="statut" value={currentVisiteur.statut} onChange={handleVisiteurChange}><option value={t("Actif") || "actif"}>{t("Actif")}</option><option value={t("Inactif") || "inactif"}>{t("Inactif")}</option><option value={t("Suspendu") || "suspendu"}>{t("Suspendu")}</option></Form.Select></Form.Group></Col>
                   <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("password")} {currentVisiteur.id ? `(${t("password_leave_blank")})` : "*"}</Form.Label><Form.Control type="password" name="password" value={currentVisiteur.password || ""} onChange={handleVisiteurChange} required={!currentVisiteur.id} placeholder={t("password_placeholder")} /></Form.Group></Col>
                 </Row>
-                <Row>
-                  <Col md={6}><Form.Group className="mb-3"><Form.Label>{t("email_verified")}</Form.Label><Form.Select name="email_verified_at" value={currentVisiteur.email_verified_at ? "1" : "0"} onChange={(e) => setCurrentVisiteur({...currentVisiteur, email_verified_at: e.target.value === "1" ? new Date().toISOString() : null})}><option value="0">{t("not_verified")}</option><option value="1">{t("verified")}</option></Form.Select></Form.Group></Col>
-                </Row>
               </Form>
             )}
           </Modal.Body>
@@ -1093,114 +967,7 @@ const MembrePage = () => {
           </Modal.Footer>
         </Modal>
 
-        <Modal show={showAbonnementModal} onHide={() => setShowAbonnementModal(false)} size="lg" centered>
-          <Modal.Header closeButton className="bg-success text-white">
-            <Modal.Title><i className="fas fa-credit-card me-2"></i>{currentAbonnement.membre_id ? `${t("subscription_for")} ${currentAbonnement.membre_nom}` : t("new_subscription")}</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Form>
-              <Row>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>{t("member")} *</Form.Label>
-                    <Form.Select 
-                      name="membre_id" 
-                      value={currentAbonnement.membre_id} 
-                      onChange={(e) => {
-                        const selectedMembre = membres.find(m => m.id == e.target.value);
-                        setCurrentAbonnement(prev => ({
-                          ...prev, 
-                          membre_id: e.target.value, 
-                          membre_nom: selectedMembre ? `${selectedMembre.nom || ""} ${selectedMembre.prenom || ""}`.trim() : ""
-                        }));
-                      }} 
-                      required
-                    >
-                      <option value="">{t("select_member")}</option>
-                      {membres.map((membre) => (
-                        <option key={membre.id} value={membre.id}>
-                          {membre.nom || ""} {membre.prenom || ""} ({membre.email})
-                        </option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>{t("subscription_type")} *</Form.Label>
-                    <Form.Select name="type_abonnement" value={currentAbonnement.type_abonnement} onChange={handleAbonnementChange} required>
-                      <option value="mensuel">{t("monthly")} - 9.99€</option>
-                      <option value="trimestriel">{t("quarterly")} - 24.99€</option>
-                      <option value="annuel">{t("annual")} - 89.99€</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-              </Row>
-              <Row>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>{t("start_date")} *</Form.Label>
-                    <Form.Control type="date" name="date_debut" value={currentAbonnement.date_debut} onChange={handleAbonnementChange} required />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>{t("end_date")} *</Form.Label>
-                    <Form.Control type="date" name="date_fin" value={currentAbonnement.date_fin} onChange={handleAbonnementChange} required readOnly />
-                  </Form.Group>
-                </Col>
-              </Row>
-              <Row>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>{t("amount")} *</Form.Label>
-                    <Form.Control type="number" step="0.01" name="montant" value={currentAbonnement.montant} onChange={handleAbonnementChange} required />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>{t("payment_method")}</Form.Label>
-                    <Form.Select name="methode_paiement" value={currentAbonnement.methode_paiement} onChange={handleAbonnementChange}>
-                      <option value="Carte">{t("credit_card")}</option>
-                      <option value="PayPal">PayPal</option>
-                      <option value="Virement">{t("bank_transfer")}</option>
-                      <option value="Espèces">{t("cash")}</option>
-                      <option value="Chèque">{t("check")}</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-              </Row>
-              <Row>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>{t("status")} *</Form.Label>
-                    <Form.Select name="statut" value={currentAbonnement.statut} onChange={handleAbonnementChange} required>
-                      <option value={t("Actif") || "actif"}>{t("Actif")}</option>
-                      <option value={t("Expired") || "expiré"}>{t("Expired")}</option>
-                      <option value={t("Cancelled") || "annulé"}>{t("Cancelled")}</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>{t("transaction_id")}</Form.Label>
-                    <Form.Control type="text" name="transaction_id" value={currentAbonnement.transaction_id || ""} onChange={handleAbonnementChange} placeholder="TRX-123456" />
-                  </Form.Group>
-                </Col>
-              </Row>
-              <Form.Group className="mb-3">
-                <Form.Label>{t("notes")}</Form.Label>
-                <Form.Control as="textarea" rows={3} name="notes" value={currentAbonnement.notes || ""} onChange={handleAbonnementChange} placeholder={t("additional_notes")} />
-              </Form.Group>
-            </Form>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowAbonnementModal(false)}>{t("cancel")}</Button>
-            <Button variant="success" onClick={handleSaveAbonnement}>
-              <i className="fas fa-check me-2"></i>{t("create_subscription")}
-            </Button>
-          </Modal.Footer>
-        </Modal>
+        
       </div>
     </div>
   );

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import Navbar from "../../components/Navbar";
 import axios from "axios";
+import { useTranslation } from 'react-i18next'; // Import de useTranslation
 
 const AppelOffreVisiteur = () => {
+  const { t } = useTranslation(); // Utiliser le hook de traduction
   const [appelsOffre, setAppelsOffre] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -78,7 +80,7 @@ const AppelOffreVisiteur = () => {
           }
         });
         
-        console.log("Données reçues:", res.data);
+        console.log(t('data_received'), res.data);
         
         let offres = [];
         const viewedOffres = getViewedOffresFromLocalStorage();
@@ -93,7 +95,7 @@ const AppelOffreVisiteur = () => {
               user_reaction: null,
               has_viewed: false
             },
-            category: item.appel_offre.type || "Général",
+            category: item.appel_offre.type || t('general'),
             fichier_url: item.appel_offre.fichier ? 
               (item.appel_offre.fichier.startsWith('http') ? 
                 item.appel_offre.fichier : 
@@ -117,7 +119,7 @@ const AppelOffreVisiteur = () => {
               user_reaction: null,
               has_viewed: false
             },
-            category: offre.type || "Général",
+            category: offre.type || t('general'),
             fichier_url: offre.fichier ? 
               (offre.fichier.startsWith('http') ? offre.fichier : `http://127.0.0.1:8000/storage/${offre.fichier.replace(/^\//, '')}`)
               : null,
@@ -131,7 +133,7 @@ const AppelOffreVisiteur = () => {
           }));
         }
         
-        console.log("Appels d'offre traités:", offres);
+        console.log(t('offers_processed'), offres);
         setAppelsOffre(offres);
         setLoading(false);
         
@@ -142,13 +144,13 @@ const AppelOffreVisiteur = () => {
           }
         });
       } catch (error) {
-        console.error("Erreur de chargement :", error);
+        console.error(t('error_load'), error);
         setLoading(false);
       }
     };
 
     fetchAppelsOffre();
-  }, []);
+  }, [t]);
 
   // Déterminer le type de fichier
   const getFileType = (fichier) => {
@@ -163,7 +165,7 @@ const AppelOffreVisiteur = () => {
   // Charger les statistiques d'un appel d'offre
   const loadOffreStats = async (offreId) => {
     if (!offreId || offreId === 'undefined') {
-      console.error('ID d\'appel d\'offre invalide:', offreId);
+      console.error(t('invalid_offer_id'), offreId);
       return;
     }
 
@@ -194,20 +196,20 @@ const AppelOffreVisiteur = () => {
         ));
       }
     } catch (error) {
-      console.error('Erreur chargement stats:', error);
+      console.error(t('error_load_stats'), error);
     }
   };
 
   // Fonction pour gérer les réactions "J'adore"
   const handleReaction = async (offreId) => {
     if (!offreId || offreId === 'undefined') {
-      console.error('ID d\'appel d\'offre invalide pour réaction:', offreId);
+      console.error(t('invalid_offer_id_reaction'), offreId);
       return;
     }
 
     try {
       const visitorId = getVisitorId();
-      console.log("Envoi de réaction avec visitorId:", visitorId);
+      console.log(t('sending_reaction'), visitorId);
       
       const response = await axios.post(
         `http://127.0.0.1:8000/api/appeloffres/${offreId}/react`,
@@ -224,7 +226,7 @@ const AppelOffreVisiteur = () => {
       );
 
       const data = response.data;
-      console.log("Réponse de l'API:", data);
+      console.log(t('api_response'), data);
       
       if (data.success) {
         // Mettre à jour les statistiques localement
@@ -249,12 +251,12 @@ const AppelOffreVisiteur = () => {
           }));
         }
       } else {
-        console.error("Réponse API non réussie:", data);
-        alert(data.message || "Erreur lors de l'ajout de la réaction");
+        console.error(t('api_response_error'), data);
+        alert(data.message || t('reaction_error'));
       }
     } catch (error) {
-      console.error('Erreur réaction:', error.response?.data || error);
-      const errorMessage = error.response?.data?.message || "Erreur lors de l'ajout de la réaction";
+      console.error(t('reaction_error'), error.response?.data || error);
+      const errorMessage = error.response?.data?.message || t('reaction_error');
       alert(errorMessage);
     }
   };
@@ -262,7 +264,7 @@ const AppelOffreVisiteur = () => {
   // Fonction pour enregistrer une vue
   const handleView = async (offreId) => {
     if (!offreId || offreId === 'undefined') {
-      console.error('ID d\'appel d\'offre invalide pour vue:', offreId);
+      console.error(t('invalid_offer_id_view'), offreId);
       return;
     }
 
@@ -313,7 +315,7 @@ const AppelOffreVisiteur = () => {
         return true;
       }
     } catch (error) {
-      console.error('Erreur vue API:', error);
+      console.error(t('view_api_error'), error);
       // Même en cas d'erreur API, marquer comme vu localement
       setAppelsOffre(prev => prev.map(offre => 
         offre.id === offreId 
@@ -330,7 +332,7 @@ const AppelOffreVisiteur = () => {
 
   const handleShowDetails = async (offre) => {
     try {
-      console.log("Ouverture des détails pour l'appel d'offre:", offre.id, offre.intitule);
+      console.log(t('opening_details_offer'), offre.id, offre.intitule);
       
       // Enregistrer la vue (locale + API)
       await handleView(offre.id);
@@ -345,7 +347,7 @@ const AppelOffreVisiteur = () => {
           timeout: 5000
         });
         
-        console.log("Réponse API détails:", res.data);
+        console.log(t('api_response_details'), res.data);
         
         if (res.data.success) {
           setSelectedOffre({
@@ -354,7 +356,7 @@ const AppelOffreVisiteur = () => {
             stats: offre.stats || res.data.data.stats,
             already_viewed: true, // Forcer à true car on vient de le voir
             userReacted: offre.userReacted || false,
-            category: offre.category || res.data.data.type || "Général",
+            category: offre.category || res.data.data.type || t('general'),
             fichier_url: offre.fichier_url || res.data.data.fichier_url,
             type_fichier: offre.type_fichier || getFileType(res.data.data.fichier),
             nom_fichier_original: offre.nom_fichier_original || (res.data.data.fichier ? res.data.data.fichier.split('/').pop() : null)
@@ -367,7 +369,7 @@ const AppelOffreVisiteur = () => {
           });
         }
       } catch (apiError) {
-        console.error("Erreur API détails:", apiError);
+        console.error(t('api_error_details'), apiError);
         // En cas d'erreur API, utiliser les données locales
         setSelectedOffre({
           ...offre,
@@ -379,7 +381,7 @@ const AppelOffreVisiteur = () => {
       setShowModal(true);
       
     } catch (error) {
-      console.error("Erreur générale chargement détails:", error);
+      console.error(t('general_error_details'), error);
       // Utiliser les données locales en cas d'erreur
       setSelectedOffre({
         ...offre,
@@ -397,7 +399,7 @@ const AppelOffreVisiteur = () => {
   const handleDownload = (fileUrl, fileName) => {
     const link = document.createElement('a');
     link.href = fileUrl;
-    link.download = fileName || 'document';
+    link.download = fileName || t('document');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -447,13 +449,13 @@ const AppelOffreVisiteur = () => {
 
   const getStatusBadge = (statut) => {
     const statusConfig = {
-      'Validé': { color: colors.success, text: "Validé", icon: "fa-check-circle" },
-      'en attente': { color: "#F59E0B", text: "En attente", icon: "fa-clock" },
-      'Rejeté': { color: colors.danger, text: "Rejeté", icon: "fa-times-circle" },
-      'Actif': { color: colors.primary, text: "Actif", icon: "fa-play-circle" },
-      'Clôturé': { color: colors.neutral, text: "Clôturé", icon: "fa-flag-checkered" }
+      'Validé': { color: colors.success, text: t('Validé'), icon: "fa-check-circle" },
+      'En attente': { color: "#F59E0B", text: t('En attente'), icon: "fa-clock" },
+      'Rejeté': { color: colors.danger, text: t('Rejeté'), icon: "fa-times-circle" },
+      'Actif': { color: colors.primary, text: t('Actif'), icon: "fa-play-circle" },
+      'Clôturé': { color: colors.neutral, text: t('Clôturé'), icon: "fa-flag-checkered" }
     };
-    const config = statusConfig[statut] || statusConfig['en attente'];
+    const config = statusConfig[statut] || statusConfig[t('En attente')];
     return (
       <span style={{
         backgroundColor: `${config.color}15`,
@@ -528,9 +530,9 @@ const AppelOffreVisiteur = () => {
         <div className="d-flex justify-content-center align-items-center min-vh-50">
           <div className="text-center">
             <div className="spinner-border" style={{color: colors.primary, width: '3rem', height: '3rem'}}>
-              <span className="visually-hidden">Chargement...</span>
+              <span className="visually-hidden">{t('loading')}...</span>
             </div>
-            <p className="text-muted mt-3">Chargement des appels d'offre...</p>
+            <p className="text-muted mt-3">{t('loading_offers')}</p>
           </div>
         </div>
       </div>
@@ -549,9 +551,9 @@ const AppelOffreVisiteur = () => {
         <div className="container">
           <div className="row justify-content-center text-center">
             <div className="col-lg-8">
-              <h1 className="display-5 fw-bold mb-3">Appels d'Offre Validés</h1>
+              <h1 className="display-5 fw-bold mb-3">{t('offers_recent_title')}</h1>
               <p className="lead mb-0 opacity-90">
-                Découvrez les opportunités d'affaires et les appels d'offre actuellement disponibles
+                {t('offers_hero_subtitle')}
               </p>
             </div>
           </div>
@@ -573,7 +575,7 @@ const AppelOffreVisiteur = () => {
               <input
                 type="text"
                 className="form-control"
-                placeholder="Rechercher un appel d'offre..."
+                placeholder={t('search_offers_placeholder')}
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 style={{
@@ -594,9 +596,9 @@ const AppelOffreVisiteur = () => {
                 color: colors.primaryDark
               }}
             >
-              <option value="">Toutes les catégories</option>
+              <option value="">{t('all_categories')}</option>
               {categories.map(category => (
-                <option key={category} value={category}>{category}</option>
+                <option key={category} value={category}>{t(category) || category}</option>
               ))}
             </select>
           </div>
@@ -613,11 +615,11 @@ const AppelOffreVisiteur = () => {
             }}>
               <div className="card-body py-5">
                 <i className="fas fa-file-contract display-1 mb-3" style={{color: colors.neutral}}></i>
-                <h3 className="h4 mb-2" style={{color: colors.primaryDarker}}>Aucun appel d'offre trouvé</h3>
+                <h3 className="h4 mb-2" style={{color: colors.primaryDarker}}>{t('no_offers_found')}</h3>
                 <p style={{color: colors.neutral}}>
                   {searchTerm || selectedCategory 
-                    ? "Aucun appel d'offre ne correspond à vos critères." 
-                    : "Aucun appel d'offre validé pour le moment."
+                    ? t('no_offers_match') 
+                    : t('no_offers_system')
                   }
                 </p>
               </div>
@@ -628,7 +630,7 @@ const AppelOffreVisiteur = () => {
             {/* En-tête avec compteur et indicateurs */}
             <div className="d-flex justify-content-between align-items-center mb-4">
               <h2 className="h4 mb-0" style={{color: colors.primaryDarker}}>
-                {filteredAppels.length} Appel{filteredAppels.length > 1 ? 's' : ''} d'offre
+                {filteredAppels.length} {t('offers_total')}{filteredAppels.length > 1 ? 's' : ''}
               </h2>
               
               {/* Indicateurs de pagination */}
@@ -818,7 +820,7 @@ const AppelOffreVisiteur = () => {
                                           gap: '4px'
                                         }}>
                                           <i className="fas fa-exclamation-triangle"></i>
-                                          Urgent
+                                          {t('urgent')}
                                         </span>
                                       )}
                                       {getStatusBadge(ao.statut)}
@@ -838,7 +840,7 @@ const AppelOffreVisiteur = () => {
                                       fontWeight: '500',
                                       fontSize: '0.8rem'
                                     }}>
-                                      {ao.category}
+                                      {t(ao.category) || ao.category}
                                     </span>
                                     <small style={{color: colors.neutral, fontSize: '0.8rem'}}>
                                       <i className="far fa-clock me-1"></i>
@@ -866,7 +868,7 @@ const AppelOffreVisiteur = () => {
                                   }}>
                                     {ao.description && ao.description.length > 100 ? 
                                       ao.description.substring(0, 100) + '...' : 
-                                      ao.description || "Aucune description disponible"}
+                                      ao.description || t('no_description')}
                                   </p>
 
                                   {/* Informations dates */}
@@ -877,7 +879,7 @@ const AppelOffreVisiteur = () => {
                                           <div className="d-flex align-items-center mb-2">
                                             <i className="fas fa-calendar-check text-danger me-2" style={{fontSize: '0.8rem'}}></i>
                                             <span style={{fontSize: '0.8rem'}}>
-                                              <strong>Clôture:</strong> {formatDateShort(ao.date_cloture)}
+                                              <strong>{t('closing')}:</strong> {formatDateShort(ao.date_cloture)}
                                               {isDatePassed(ao.date_cloture) && (
                                                 <span style={{
                                                   backgroundColor: colors.danger,
@@ -886,7 +888,7 @@ const AppelOffreVisiteur = () => {
                                                   borderRadius: '4px',
                                                   fontSize: '0.65rem',
                                                   marginLeft: '4px'
-                                                }}>Expiré</span>
+                                                }}>{t('expired')}</span>
                                               )}
                                             </span>
                                           </div>
@@ -895,7 +897,7 @@ const AppelOffreVisiteur = () => {
                                           <div className="d-flex align-items-center mb-2">
                                             <i className="fas fa-building text-primary me-2" style={{fontSize: '0.8rem'}}></i>
                                             <span style={{fontSize: '0.8rem'}}>
-                                              <strong>Membre:</strong> {ao.membre.length > 20 ? ao.membre.substring(0, 20) + '...' : ao.membre}
+                                              <strong>{t('member')}:</strong> {ao.membre.length > 20 ? ao.membre.substring(0, 20) + '...' : ao.membre}
                                             </span>
                                           </div>
                                         )}
@@ -903,7 +905,7 @@ const AppelOffreVisiteur = () => {
                                           <div className="d-flex align-items-center">
                                             <i className="fas fa-map-marker-alt text-success me-2" style={{fontSize: '0.8rem'}}></i>
                                             <span style={{fontSize: '0.8rem'}}>
-                                              <strong>Lieu:</strong> {ao.localisation.length > 25 ? ao.localisation.substring(0, 25) + '...' : ao.localisation}
+                                              <strong>{t('location')}:</strong> {ao.localisation.length > 25 ? ao.localisation.substring(0, 25) + '...' : ao.localisation}
                                             </span>
                                           </div>
                                         )}
@@ -925,7 +927,7 @@ const AppelOffreVisiteur = () => {
                                             color: colors.primaryDark,
                                             fontWeight: '500'
                                           }}>
-                                            {ao.nom_fichier_original || 'Document'}
+                                            {ao.nom_fichier_original || t('document')}
                                           </span>
                                         </div>
                                         <button 
@@ -966,7 +968,7 @@ const AppelOffreVisiteur = () => {
                                             minWidth: '32px',
                                             minHeight: '32px'
                                           }}
-                                          title={ao.userReacted ? "Vous avez déjà aimé cet appel d'offre" : "Cliquez pour ajouter aux favoris"}
+                                          title={ao.userReacted ? t('already_reacted_offer') : t('click_to_favorite')}
                                         >
                                           <i 
                                             className={`fas fa-heart fs-6`}
@@ -1018,7 +1020,7 @@ const AppelOffreVisiteur = () => {
                                         }}
                                       >
                                         <i className={`fas ${ao.already_viewed ? 'fa-check' : 'fa-eye'} me-1`}></i>
-                                        {ao.already_viewed ? 'Déjà vu' : 'Détails'}
+                                        {ao.already_viewed ? t('already_viewed') : t('details')}
                                       </button>
                                     </div>
                                   </div>
@@ -1054,15 +1056,6 @@ const AppelOffreVisiteur = () => {
                   <i className="fas fa-chevron-right"></i>
                 </button>
               )}
-            </div>
-
-            {/* Légende et infos */}
-            <div className="row mt-4">
-              <div className="col-12">
-                <div className="d-flex justify-content-center gap-4 flex-wrap">
-                  
-                </div>
-              </div>
             </div>
           </>
         )}
@@ -1102,7 +1095,7 @@ const AppelOffreVisiteur = () => {
                       borderRadius: '20px',
                       fontWeight: '500'
                     }}>
-                      {selectedOffre.category}
+                      {t(selectedOffre.category) || selectedOffre.category}
                     </span>
                     {selectedOffre.urgent && (
                       <span style={{
@@ -1114,7 +1107,7 @@ const AppelOffreVisiteur = () => {
                         marginLeft: '8px'
                       }}>
                         <i className="fas fa-exclamation-triangle me-1"></i>
-                        Urgent
+                        {t('urgent')}
                       </span>
                     )}
                     {getStatusBadge(selectedOffre.statut)}
@@ -1126,7 +1119,7 @@ const AppelOffreVisiteur = () => {
                   {selectedOffre.membre && (
                     <div className="d-flex align-items-center" style={{color: colors.neutral}}>
                       <i className="fas fa-building me-1"></i>
-                      Membre: {selectedOffre.membre}
+                      {t('member')}: {selectedOffre.membre}
                     </div>
                   )}
                 </div>
@@ -1164,14 +1157,14 @@ const AppelOffreVisiteur = () => {
                   <div className="col-md-6">
                     <div className="mb-3">
                       <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                        <i className="fas fa-building me-2"></i>Membre émetteur
+                        <i className="fas fa-building me-2"></i>{t('issuing_member')}
                       </h6>
                       <p style={{color: colors.neutral}}>{selectedOffre.membre}</p>
                     </div>
                     {selectedOffre.localisation && (
                       <div className="mb-3">
                         <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                          <i className="fas fa-map-marker-alt me-2"></i>Localisation
+                          <i className="fas fa-map-marker-alt me-2"></i>{t('location')}
                         </h6>
                         <p style={{color: colors.neutral}}>{selectedOffre.localisation}</p>
                       </div>
@@ -1179,7 +1172,7 @@ const AppelOffreVisiteur = () => {
                     {selectedOffre.type && (
                       <div className="mb-3">
                         <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                          <i className="fas fa-file-contract me-2"></i>Type
+                          <i className="fas fa-file-contract me-2"></i>{t('contract_type')}
                         </h6>
                         <p style={{color: colors.neutral}}>{selectedOffre.type}</p>
                       </div>
@@ -1188,13 +1181,13 @@ const AppelOffreVisiteur = () => {
                   <div className="col-md-6">
                     <div className="mb-3">
                       <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                        <i className="fas fa-calendar-plus me-2"></i>Date d'ouverture
+                        <i className="fas fa-calendar-plus me-2"></i>{t('opening_date')}
                       </h6>
                       <p style={{color: colors.neutral}}>{formatDate(selectedOffre.date_ouverture)}</p>
                     </div>
                     <div className="mb-3">
                       <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                        <i className="fas fa-calendar-check me-2"></i>Date de clôture
+                        <i className="fas fa-calendar-check me-2"></i>{t('closing_date')}
                       </h6>
                       <p style={{color: colors.neutral}}>
                         {formatDate(selectedOffre.date_cloture)}
@@ -1208,7 +1201,7 @@ const AppelOffreVisiteur = () => {
                             marginLeft: '8px',
                             fontWeight: '500'
                           }}>
-                            Expiré
+                            {t('expired')}
                           </span>
                         )}
                       </p>
@@ -1216,7 +1209,7 @@ const AppelOffreVisiteur = () => {
                     {selectedOffre.salaire && (
                       <div className="mb-3">
                         <h6 style={{color: colors.primaryDark, fontWeight: '600'}}>
-                          <i className="fas fa-money-bill-wave me-2"></i>Salaire/Rémunération
+                          <i className="fas fa-money-bill-wave me-2"></i>{t('salary')}
                         </h6>
                         <p style={{color: colors.neutral}}>{selectedOffre.salaire}</p>
                       </div>
@@ -1226,7 +1219,7 @@ const AppelOffreVisiteur = () => {
 
                 {/* Description détaillée */}
                 <div className="mb-4">
-                  <h6 style={{color: colors.primaryDarker, fontWeight: '600', marginBottom: '16px'}}>Description détaillée</h6>
+                  <h6 style={{color: colors.primaryDarker, fontWeight: '600', marginBottom: '16px'}}>{t('detailed_description')}</h6>
                   <div 
                     style={{
                       lineHeight: '1.6',
@@ -1237,7 +1230,7 @@ const AppelOffreVisiteur = () => {
                       whiteSpace: 'pre-wrap'
                     }}
                   >
-                    {selectedOffre.description || "Aucune description disponible"}
+                    {selectedOffre.description || t('no_description')}
                   </div>
                 </div>
 
@@ -1249,10 +1242,10 @@ const AppelOffreVisiteur = () => {
                         <i className={`fas ${getFileIcon(selectedOffre.nom_fichier_original)} me-3 fs-2`} style={{color: colors.secondary}}></i>
                         <div>
                           <h6 style={{color: colors.primaryDark, fontWeight: '600', marginBottom: '4px'}}>
-                            Document attaché
+                            {t('attached_document')}
                           </h6>
                           <p style={{color: colors.neutral, margin: 0}}>
-                            {selectedOffre.nom_fichier_original || 'Document'}
+                            {selectedOffre.nom_fichier_original || t('document')}
                           </p>
                         </div>
                       </div>
@@ -1269,7 +1262,7 @@ const AppelOffreVisiteur = () => {
                         }}
                       >
                         <i className="fas fa-download me-2"></i>
-                        Télécharger
+                        {t('download')}
                       </button>
                     </div>
                   </div>
@@ -1291,14 +1284,14 @@ const AppelOffreVisiteur = () => {
                             transition: 'all 0.3s ease'
                           }}
                           onClick={() => handleReaction(selectedOffre.id)}
-                          title={selectedOffre.userReacted ? "Vous avez déjà aimé cet appel d'offre" : "Cliquez pour ajouter aux favoris"}
+                          title={selectedOffre.userReacted ? t('already_reacted_offer') : t('click_to_favorite')}
                         >
                           <i className={`fas fa-heart fs-5`} style={{
                             color: selectedOffre.userReacted ? colors.darkGray : colors.neutral
                           }}></i>
                         </button>
                         <small style={{color: colors.neutral}}>
-                          {selectedOffre.total_reactions || 0} J'adore
+                          {selectedOffre.total_reactions || 0} {t('love')}
                         </small>
                       </div>
                     </div>
@@ -1316,7 +1309,7 @@ const AppelOffreVisiteur = () => {
                           <i className={`fas ${selectedOffre.already_viewed ? 'fa-eye' : 'far fa-eye'} fs-5`}></i>
                         </div>
                         <small style={{color: colors.neutral}}>
-                          {selectedOffre.vues || 0} vue{selectedOffre.vues !== 1 ? 's' : ''}
+                          {selectedOffre.vues || 0} {t('view')}{selectedOffre.vues !== 1 ? 's' : ''}
                         </small>
                       </div>
                     </div>
@@ -1335,7 +1328,7 @@ const AppelOffreVisiteur = () => {
                           <i className="fas fa-info fs-5"></i>
                         </div>
                         <small style={{color: colors.neutral}}>
-                          {selectedOffre.statut}
+                          {t(selectedOffre.statut) || selectedOffre.statut}
                         </small>
                       </div>
                     </div>
@@ -1356,7 +1349,7 @@ const AppelOffreVisiteur = () => {
                     fontWeight: '500'
                   }}
                 >
-                  Fermer
+                  {t('close')}
                 </button>
                 {selectedOffre.fichier_url && (
                   <button 
@@ -1373,7 +1366,7 @@ const AppelOffreVisiteur = () => {
                     }}
                   >
                     <i className="fas fa-download me-2"></i>
-                    Télécharger
+                    {t('download')}
                   </button>
                 )}
               </div>
