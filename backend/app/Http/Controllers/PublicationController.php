@@ -348,6 +348,18 @@ class PublicationController extends Controller
                 'message' => 'Erreur lors de la validation de la publication'
             ], 500);
         }
+        $publication = Publication::findOrFail($id);
+        $publication->update(['status' => 'validated']);
+        
+        // Notification pour l'auteur
+        NotificationController::createNotification([
+            'type' => 'new_publication',
+            'message' => 'Votre publication "' . $publication->title . '" a été validée',
+            'organisation_name' => 'Publications',
+            'user_id' => $publication->user_id,
+            'item_id' => $publication->id,
+            'item_type' => 'publication'
+        ]);
     }
 
     // 📥 Télécharger le fichier d'une publication

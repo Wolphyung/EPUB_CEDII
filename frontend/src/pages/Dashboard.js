@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ThemeProvider, ThemeToggle, useTheme } from '../components/journuit';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
+import LanguageSwitcher from './../components/LanguageSwitcher';
 
 const API_URL = "http://127.0.0.1:8000/api";
 
 const Dashboard = () => {
+  const { t } = useTranslation();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [stats, setStats] = useState({
     evenements: 0,
@@ -80,54 +83,61 @@ const Dashboard = () => {
   const features = [
     {
       icon: "📰",
-      title: "Actualités Multiformes",
-      description: "Accédez aux actualités nationales, locales et institutionnelles du CEDII"
+      title: t('news_feature'),
+      description: t('news_description')
     },
     {
       icon: "📅",
-      title: "Événements Professionnels",
-      description: "Formations, conférences, séminaires et webinaires avec inscription en ligne"
+      title: t('events_feature'),
+      description: t('events_description')
     },
     {
       icon: "📢",
-      title: "Appels d'Offre Stratégiques",
-      description: "Opportunités publiques, appels à projets et candidatures"
+      title: t('tenders_feature'),
+      description: t('tenders_description')
     },
     {
       icon: "🏛️",
-      title: "Réseau Institutionnel",
-      description: "Connectez-vous avec les membres et partenaires du CEDII"
+      title: t('network_feature'),
+      description: t('network_description')
     }
   ];
 
   const displayStats = [
     { 
       number: loading ? "..." : `${stats.publications}+`, 
-      label: "Publications",
-      description: "Articles, rapports et documents"
+      label: t('publications_count'),
+      description: t('publications_count_label')
     },
     { 
       number: loading ? "..." : `${stats.evenements}+`, 
-      label: "Événements",
-      description: "Conférences, formations, séminaires"
+      label: t('events_count'),
+      description: t('events_type')
     },
     { 
       number: loading ? "..." : `${stats.appelsOffre}+`, 
-      label: "Appels d'offre",
-      description: "Opportunités professionnelles"
+      label: t('tenders_count'),
+      description: t('call_for_tender_description')
     },
     { 
       number: loading ? "..." : `${stats.membres}+`, 
-      label: "Membres Institutionnels",
-      description: "Organisations partenaires"
+      label: t('members_count'),
+      description: t('institutional_members')
     }
   ];
 
   const publicationTypes = [
-    { type: "Actualités", color: "blue", count: stats.publications },
-    { type: "Événements", color: "green", count: stats.evenements },
-    { type: "Appels d'offre", color: "purple", count: stats.appelsOffre },
-    { type: "Annonces", color: "orange", count: stats.membres }
+    { type: t('news_type'), color: "blue", count: stats.publications },
+    { type: t('events_type'), color: "green", count: stats.evenements },
+    { type: t('tenders_type'), color: "purple", count: stats.appelsOffre },
+    { type: t('announcements_type'), color: "orange", count: stats.membres }
+  ];
+
+  const institutionItems = [
+    t('public_sector'),
+    t('ngo_associations'),
+    t('private_sector'),
+    t('international_partners')
   ];
 
   return (
@@ -143,17 +153,22 @@ const Dashboard = () => {
                 </span>
                 <span className="logo-text">CEDII</span>
               </Link>
-              <span className="logo-subtitle">Centre d'Échange, de Documentation et d'Information Interinstitutionnels</span>
+              
             </div>
             
             <div className="header-actions">
               <div className="auth-buttons">
                 <Link to="/login" className="btn btn-login">
-                  Connexion
+                  {t('connect')}
                 </Link>
                 <Link to="/register" className="btn btn-register">
-                  Inscription
+                  {t('become_member')}
                 </Link>
+              </div>
+              
+              {/* Language Switcher placé dans le header */}
+              <div className="language-switcher-container">
+                <LanguageSwitcher />
               </div>
               
               {/* Theme Toggle placé dans le header */}
@@ -179,45 +194,43 @@ const Dashboard = () => {
           <div className="hero-content">
             <div className="hero-text">
               <div className="badge">
-                <span>Plateforme Officielle CEDII</span>
+                <span>{t('official_platform')}</span>
               </div>
               <h1 className="hero-title">
-                Centre d'Échange, de Documentation et d'Information{" "}
-                <span className="highlight">Interinstitutionnels</span>
+                {t('hero_title')}{" "}
+                <span className="highlight">{t('hero_highlight')}</span>
               </h1>
               <p className="hero-description">
-                La plateforme numérique de référence pour l'échange d'informations 
-                institutionnelles, la documentation spécialisée et la diffusion 
-                d'actualités professionnelles à Fianarantsoa.
+                {t('hero_description')}
               </p>
               <div className="hero-buttons">
                 <Link to="/register" className="btn btn-primary">
-                  Devenir Membre
+                  {t('become_member')}
                 </Link>
                 <Link to="/login" className="btn btn-secondary">
-                  Accéder à la Plateforme
+                  {t('access_platform')}
                 </Link>
               </div>
               <div className="security-badge">
                 <div className="lock-icon">🔒</div>
-                <span>Accès sécurisé authentifié pour les membres institutionnels</span>
+                <span>{t('security_badge')}</span>
               </div>
             </div>
             <div className="hero-visual">
               <div className="floating-card card-1">
                 <div className="card-icon">📊</div>
-                <h4>Tableaux de Bord</h4>
-                <p>Analytique en temps réel</p>
+                <h4>{t('dashboard_items')}</h4>
+                <p>{t('dashboard_items_desc')}</p>
               </div>
               <div className="floating-card card-2">
                 <div className="card-icon">🤝</div>
-                <h4>Réseautage</h4>
-                <p>Institutions partenaires</p>
+                <h4>{t('networking')}</h4>
+                <p>{t('networking_desc')}</p>
               </div>
               <div className="floating-card card-3">
                 <div className="card-icon">📈</div>
-                <h4>Reporting</h4>
-                <p>Statistiques détaillées</p>
+                <h4>{t('reporting')}</h4>
+                <p>{t('reporting_desc')}</p>
               </div>
             </div>
           </div>
@@ -243,23 +256,23 @@ const Dashboard = () => {
       <section className="statistics-details-section">
         <div className="container">
           <div className="section-header">
-            <h2>Statistiques Détaillées CEDII</h2>
-            <p>Vue d'ensemble des activités et contenus de la plateforme</p>
+            <h2>{t('statistics_title')}</h2>
+            <p>{t('statistics_description')}</p>
           </div>
           
           <div className="detailed-stats-grid">
             <div className="detailed-stat-card">
               <div className="stat-icon">📅</div>
               <div className="stat-content">
-                <h3>Événements</h3>
+                <h3>{t('events_type')}</h3>
                 <div className="stat-main-value">{loading ? "..." : stats.evenements}</div>
                 <div className="stat-details">
                   <div className="stat-detail-item">
-                    <span className="detail-label">En attente de validation</span>
+                    <span className="detail-label">{t('pending_validation')}</span>
                     <span className="detail-value warning">{stats.evenementsEnAttente}</span>
                   </div>
                   <div className="stat-detail-item">
-                    <span className="detail-label">Taux de validation</span>
+                    <span className="detail-label">{t('validation_rate')}</span>
                     <span className="detail-value">
                       {stats.evenements > 0 
                         ? `${Math.round(((stats.evenements - stats.evenementsEnAttente) / stats.evenements) * 100)}%`
@@ -273,15 +286,15 @@ const Dashboard = () => {
             <div className="detailed-stat-card">
               <div className="stat-icon">📢</div>
               <div className="stat-content">
-                <h3>Publications</h3>
+                <h3>{t('publications_count')}</h3>
                 <div className="stat-main-value">{loading ? "..." : stats.publications}</div>
                 <div className="stat-details">
                   <div className="stat-detail-item">
-                    <span className="detail-label">En attente de validation</span>
+                    <span className="detail-label">{t('pending_validation')}</span>
                     <span className="detail-value warning">{stats.publicationsEnAttente}</span>
                   </div>
                   <div className="stat-detail-item">
-                    <span className="detail-label">Taux de validation</span>
+                    <span className="detail-label">{t('validation_rate')}</span>
                     <span className="detail-value">
                       {stats.publications > 0 
                         ? `${Math.round(((stats.publications - stats.publicationsEnAttente) / stats.publications) * 100)}%`
@@ -295,15 +308,15 @@ const Dashboard = () => {
             <div className="detailed-stat-card">
               <div className="stat-icon">📝</div>
               <div className="stat-content">
-                <h3>Appels d'offre</h3>
+                <h3>{t('tenders_type')}</h3>
                 <div className="stat-main-value">{loading ? "..." : stats.appelsOffre}</div>
                 <div className="stat-details">
                   <div className="stat-detail-item">
-                    <span className="detail-label">Actuellement actifs</span>
+                    <span className="detail-label">{t('currently_active')}</span>
                     <span className="detail-value success">{stats.appelsOffreActifs}</span>
                   </div>
                   <div className="stat-detail-item">
-                    <span className="detail-label">Taux d'activité</span>
+                    <span className="detail-label">{t('activity_rate')}</span>
                     <span className="detail-value">
                       {stats.appelsOffre > 0 
                         ? `${Math.round((stats.appelsOffreActifs / stats.appelsOffre) * 100)}%`
@@ -317,15 +330,15 @@ const Dashboard = () => {
             <div className="detailed-stat-card">
               <div className="stat-icon">👥</div>
               <div className="stat-content">
-                <h3>Membres</h3>
+                <h3>{t('members_count')}</h3>
                 <div className="stat-main-value">{loading ? "..." : stats.membres}</div>
                 <div className="stat-details">
                   <div className="stat-detail-item">
-                    <span className="detail-label">Institutions actives</span>
+                    <span className="detail-label">{t('active_institutions')}</span>
                     <span className="detail-value">{stats.membres}</span>
                   </div>
                   <div className="stat-detail-item">
-                    <span className="detail-label">Croissance</span>
+                    <span className="detail-label">{t('growth')}</span>
                     <span className="detail-value success">+{Math.floor(stats.membres * 0.2)}</span>
                   </div>
                 </div>
@@ -340,44 +353,43 @@ const Dashboard = () => {
         <div className="container">
           <div className="mission-content">
             <div className="mission-text">
-              <h2>Notre Mission</h2>
+              <h2>{t('mission_title')}</h2>
               <p>
-                Le CEDII centralise et diffuse l'information institutionnelle 
-                pour renforcer la collaboration entre les acteurs publics, 
-                privés et associatifs de la région Fianarantsoa.
+                {t('mission_text')}
               </p>
               <div className="mission-points">
                 <div className="mission-point">
                   <div className="point-icon">🎯</div>
                   <div className="point-content">
-                    <h4>Centralisation</h4>
-                    <p>Point unique d'accès à l'information institutionnelle</p>
+                    <h4>{t('centralization')}</h4>
+                    <p>{t('centralization_text')}</p>
                   </div>
                 </div>
                 <div className="mission-point">
                   <div className="point-icon">🔗</div>
                   <div className="point-content">
-                    <h4>Collaboration</h4>
-                    <p>Renforcement des échanges inter-institutionnels</p>
+                    <h4>{t('collaboration')}</h4>
+                    <p>{t('collaboration_text')}</p>
                   </div>
                 </div>
                 <div className="mission-point">
                   <div className="point-icon">🌐</div>
                   <div className="point-content">
-                    <h4>Accessibilité</h4>
-                    <p>Information accessible à tous les publics</p>
+                    <h4>{t('accessibility')}</h4>
+                    <p>{t('accessibility_text')}</p>
                   </div>
                 </div>
               </div>
             </div>
             <div className="mission-visual">
               <div className="institution-card">
-                <h3>Membres Institutionnels</h3>
+                <h3>{t('institutional_members')}</h3>
                 <div className="institution-list">
-                  <div className="institution-item">Secteur Public</div>
-                  <div className="institution-item">ONG & Associations</div>
-                  <div className="institution-item">Secteur Privé</div>
-                  <div className="institution-item">Partenaires Internationaux</div>
+                  {institutionItems.map((item, index) => (
+                    <div key={index} className="institution-item">
+                      {item}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -389,8 +401,8 @@ const Dashboard = () => {
       <section className="features-section">
         <div className="container">
           <div className="section-header">
-            <h2>Services ePub-CEDII</h2>
-            <p>Une plateforme complète pour la gestion et la diffusion d'informations institutionnelles</p>
+            <h2>{t('features_title')}</h2>
+            <p>{t('features_description')}</p>
           </div>
           <div className="features-grid">
             {features.map((feature, index) => (
@@ -398,7 +410,9 @@ const Dashboard = () => {
                 <div className="feature-icon">{feature.icon}</div>
                 <h3 className="feature-title">{feature.title}</h3>
                 <p className="feature-description">{feature.description}</p>
-                <div className="feature-badge">Accès {index < 2 ? "Public" : "Membres"}</div>
+                <div className="feature-badge">
+                  {t('access')} {index < 2 ? t('public_access') : t('member_access')}
+                </div>
               </div>
             ))}
           </div>
@@ -409,8 +423,8 @@ const Dashboard = () => {
       <section className="types-section">
         <div className="container">
           <div className="section-header">
-            <h2>Types de Publications</h2>
-            <p>Contenu diversifié pour tous les besoins informationnels</p>
+            <h2>{t('publication_types')}</h2>
+            <p>{t('publication_types_description')}</p>
           </div>
           <div className="types-grid">
             {publicationTypes.map((pub, index) => (
@@ -418,7 +432,7 @@ const Dashboard = () => {
                 <h4>{pub.type}</h4>
                 <div className="type-stats">
                   <span className="count">{loading ? "..." : `${pub.count}+`}</span>
-                  <span className="label">publications</span>
+                  <span className="label">{t('publications_count_label')}</span>
                 </div>
               </div>
             ))}
@@ -430,27 +444,26 @@ const Dashboard = () => {
       <section className="cta-section">
         <div className="container">
           <div className="cta-content">
-            <h2>Rejoignez le Réseau CEDII</h2>
+            <h2>{t('join_cta')}</h2>
             <p>
-              Accédez à l'ensemble des services et devenez acteur 
-              de l'écosystème informationnel institutionnel
+              {t('join_description')}
             </p>
             <div className="cta-buttons">
               <Link to="/register" className="btn btn-large btn-primary">
-                Adhérer au CEDII
+                {t('join_network')}
               </Link>
               <Link to="/login" className="btn btn-large btn-outline">
-                Se Connecter
+                {t('connect')}
               </Link>
             </div>
             <div className="access-info">
               <div className="access-level">
-                <span className="level public">Public</span>
-                <span>Consultation des actualités et événements</span>
+                <span className="level public">{t('public_access')}</span>
+                <span>{t('public_access_label')}</span>
               </div>
               <div className="access-level">
-                <span className="level member">Membre</span>
-                <span>Accès complet + publications personnalisées</span>
+                <span className="level member">{t('member_access')}</span>
+                <span>{t('member_access_label')}</span>
               </div>
             </div>
           </div>
@@ -469,12 +482,12 @@ const Dashboard = () => {
                 <span className="logo-text">CEDII</span>
               </div>
               <p className="footer-description">
-                Plateforme officielle d'échange d'informations institutionnelles
+                {t('footer_description')}
               </p>
             </div>
             
             <div className="footer-section">
-              <h4>Contact</h4>
+              <h4>{t('contact')}</h4>
               <ul className="footer-contact">
                 <li>📧 cedii.fia@gmail.com</li>
                 <li>📞 +261 34 03 931 91</li>
@@ -484,7 +497,7 @@ const Dashboard = () => {
           </div>
           
           <div className="footer-bottom">
-            <p>© 2025 CEDII - Tous droits réservés</p>
+            <p>{t('copyright')}</p>
             <div className="footer-theme-toggle">
               <ThemeToggle variant="small" />
             </div>
@@ -699,6 +712,14 @@ const Dashboard = () => {
           box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
         }
 
+        .language-switcher-container {
+          display: flex;
+          align-items: center;
+          margin-left: 1rem;
+          padding-left: 1rem;
+          border-left: 1px solid var(--card-border);
+        }
+
         .theme-toggle-container {
           display: flex;
           align-items: center;
@@ -806,6 +827,13 @@ const Dashboard = () => {
           gap: 1rem;
           flex-wrap: wrap;
           margin-bottom: 1.5rem;
+          align-items: center;
+        }
+
+        .language-switcher-hero {
+          display: flex;
+          align-items: center;
+          height: 48px;
         }
 
         .security-badge {
@@ -1334,6 +1362,13 @@ const Dashboard = () => {
           justify-content: center;
           flex-wrap: wrap;
           margin-bottom: 3rem;
+          align-items: center;
+        }
+
+        .language-switcher-cta {
+          display: flex;
+          align-items: center;
+          height: 56px;
         }
 
         .access-info {
@@ -1471,6 +1506,15 @@ const Dashboard = () => {
             font-size: 2.5rem;
           }
 
+          .hero-buttons {
+            flex-direction: column;
+            align-items: center;
+          }
+
+          .language-switcher-hero {
+            margin-top: 1rem;
+          }
+
           .mission-content {
             grid-template-columns: 1fr;
           }
@@ -1507,6 +1551,17 @@ const Dashboard = () => {
           }
         }
 
+        @media (max-width: 768px) {
+          .cta-buttons {
+            flex-direction: column;
+            align-items: center;
+          }
+
+          .language-switcher-cta {
+            margin-top: 1rem;
+          }
+        }
+
         @media (max-width: 480px) {
           .hero-title {
             font-size: 2rem;
@@ -1515,12 +1570,6 @@ const Dashboard = () => {
           .stats-grid,
           .types-grid {
             grid-template-columns: 1fr;
-          }
-
-          .hero-buttons,
-          .cta-buttons {
-            flex-direction: column;
-            align-items: center;
           }
 
           .btn {

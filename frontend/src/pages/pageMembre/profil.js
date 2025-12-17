@@ -14,7 +14,6 @@ import {
   Badge
 } from "react-bootstrap";
 import MembreSidebar from "../../components/MembreSidebar";
-import LanguageSwitcher from "../../components/LanguageSwitcher";
 import { useTranslation } from 'react-i18next';
 import {
   FaUser,
@@ -1112,21 +1111,6 @@ const ProfilMembre = () => {
           </div>
         </Modal.Body>
       </Modal>
-
-      {/* Language Switcher */}
-      <footer style={{ 
-        position: "fixed",
-        bottom: "20px",
-        right: "20px",
-        zIndex: 1000,
-        background: "rgba(255, 255, 255, 0.9)",
-        padding: "10px",
-        borderRadius: "10px",
-        backdropFilter: "blur(5px)",
-        boxShadow: "0 2px 10px rgba(0,0,0,0.1)"
-      }}>
-        <LanguageSwitcher />
-      </footer>
 
       {/* Custom Styles */}
       <style jsx>{`

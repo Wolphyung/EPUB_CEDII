@@ -8,6 +8,7 @@ use App\Models\Abonnement;
 use App\Models\Membre;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class AbonnementController extends Controller
 {
@@ -40,17 +41,23 @@ class AbonnementController extends Controller
     // Créer un nouvel abonnement
     public function store(Request $request)
     {
+        Log::info('Création abonnement - données reçues:', [
+            'type_abonnement' => $request->type_abonnement,
+            'toutes_les_donnees' => $request->all()
+        ]);
+        
         $validator = Validator::make($request->all(), [
             'membre_id' => 'required|exists:membres,id',
-            'type_abonnement' => 'required|in:mensuel,trimestriel,annuel',
+            'type_abonnement' => 'required|in:hebdomadaire,mensuel,annuel',
             'date_debut' => 'required|date',
             'montant' => 'required|numeric|min:0',
             'methode_paiement' => 'nullable|string',
             'notes' => 'nullable|string',
-            'date_fin' => 'required|date|after_or_equal:date_debut',
+            'date_fin' => 'nullable|date|after_or_equal:date_debut',
         ]);
 
         if ($validator->fails()) {
+            Log::error('Validation échouée:', $validator->errors()->toArray());
             return response()->json([
                 'success' => false,
                 'errors' => $validator->errors()
@@ -59,12 +66,28 @@ class AbonnementController extends Controller
 
         // Calculer la date de fin selon le type
         $dateDebut = \Carbon\Carbon::parse($request->date_debut);
-        $dateFin = match($request->type_abonnement) {
-            'mensuel' => $dateDebut->copy()->addMonth(),
-            'trimestriel' => $dateDebut->copy()->addMonths(3),
-            'annuel' => $dateDebut->copy()->addYear(),
-            default => $dateDebut->copy()->addMonth(),
-        };
+        $dateFin = $request->date_fin ? \Carbon\Carbon::parse($request->date_fin) : null;
+        
+        // Si date_fin n'est pas fournie, calculer selon le type
+        if (!$dateFin) {
+            $dateFin = match($request->type_abonnement) {
+                'hebdomadaire' => $dateDebut->copy()->addWeek(),
+                'mensuel' => $dateDebut->copy()->addMonth(),
+                'annuel' => $dateDebut->copy()->addYear(),
+                default => $dateDebut->copy()->addMonth(),
+            };
+        }
+
+        // Calculer le montant selon le type si non fourni
+        $montant = $request->montant;
+        if (!$montant) {
+            $montant = match($request->type_abonnement) {
+                'hebdomadaire' => 2500, // 2,500 AR par semaine
+                'mensuel' => 10000, // 10,000 AR par mois
+                'annuel' => 100000, // 100,000 AR par an (promotion)
+                default => 10000,
+            };
+        }
 
         $abonnement = Abonnement::create([
             'membre_id' => $request->membre_id,
@@ -72,7 +95,7 @@ class AbonnementController extends Controller
             'date_debut' => $dateDebut,
             'date_fin' => $dateFin,
             'statut' => 'actif',
-            'montant' => $request->montant,
+            'montant' => $montant,
             'methode_paiement' => $request->methode_paiement,
             'notes' => $request->notes
         ]);
@@ -90,7 +113,7 @@ class AbonnementController extends Controller
         $abonnement = Abonnement::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
-            'type_abonnement' => 'sometimes|in:mensuel,trimestriel,annuel',
+            'type_abonnement' => 'sometimes|in:hebdomadaire,mensuel,annuel',
             'date_debut' => 'sometimes|date',
             'date_fin' => 'sometimes|date',
             'statut' => 'sometimes|in:actif,expiré,annulé',
@@ -153,13 +176,49 @@ class AbonnementController extends Controller
             ->count();
         $revenus = Abonnement::sum('montant');
 
+        // Statistiques par type
+        $hebdomadaires = Abonnement::where('type_abonnement', 'hebdomadaire')->count();
+        $mensuels = Abonnement::where('type_abonnement', 'mensuel')->count();
+        $annuels = Abonnement::where('type_abonnement', 'annuel')->count();
+
         return response()->json([
             'success' => true,
             'data' => [
                 'total' => $total,
                 'actifs' => $actifs,
                 'expires' => $expires,
-                'revenus' => $revenus
+                'revenus' => $revenus,
+                'par_type' => [
+                    'hebdomadaires' => $hebdomadaires,
+                    'mensuels' => $mensuels,
+                    'annuels' => $annuels
+                ]
+            ]
+        ]);
+    }
+
+    // Calculer le prix selon le type
+    public function calculatePrice($type)
+    {
+        $prices = [
+            'hebdomadaire' => 2500, // 2,500 AR
+            'mensuel' => 10000, // 10,000 AR
+            'annuel' => 100000, // 100,000 AR (2 mois gratuits)
+        ];
+
+        if (!array_key_exists($type, $prices)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Type d\'abonnement invalide'
+            ], 400);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'type' => $type,
+                'montant' => $prices[$type],
+                'devise' => 'AR'
             ]
         ]);
     }

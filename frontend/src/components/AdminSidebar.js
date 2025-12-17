@@ -12,18 +12,26 @@ const AdminSidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeItem, setActiveItem] = useState("");
   const [isHovered, setIsHovered] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem("theme") === "dark";
   });
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // Déterminer l'élément actif basé sur l'URL
+  // Palette CEDII 2025
+  const colors = {
+    primary: "#5B11EE",
+    secondary: "#0405BF",
+    dark: "#02061E",
+    accent: "#0671B6",
+    neutral: "#5E5E5E"
+  };
+
   useEffect(() => {
     const path = location.pathname;
     setActiveItem(path);
   }, [location]);
 
-  // Appliquer le thème au chargement
   useEffect(() => {
     applyTheme(isDarkMode);
   }, [isDarkMode]);
@@ -31,11 +39,11 @@ const AdminSidebar = () => {
   const applyTheme = (darkMode) => {
     if (darkMode) {
       document.documentElement.setAttribute("data-theme", "dark");
-      document.body.style.background = "linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)";
+      document.body.style.background = `linear-gradient(135deg, ${colors.dark} 0%, #1a1a2e 100%)`;
       document.body.style.color = "#ffffff";
     } else {
       document.documentElement.setAttribute("data-theme", "light");
-      document.body.style.background = "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)";
+      document.body.style.background = "linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)";
       document.body.style.color = "#333333";
     }
     localStorage.setItem("theme", darkMode ? "dark" : "light");
@@ -58,44 +66,18 @@ const AdminSidebar = () => {
     setShowLogoutModal(true);
   };
 
-  // Utilisation des CLÉS de traduction pour les labels du menu
   const menuItems = [
     { path: "/dashAdmin", icon: "fas fa-tachometer-alt", labelKey: "menu_dashboard" },
     { path: "/pubAdmin", icon: "fas fa-bullhorn", labelKey: "menu_publication" },
     { path: "/adminEv", icon: "fas fa-calendar-alt", labelKey: "menu_event" },
     { path: "/appeloffreAdmin", icon: "fas fa-file-contract", labelKey: "menu_call_for_tender" },
     { path: "/membreAdmin", icon: "fas fa-users", labelKey: "menu_member" },
-    { path: "/abonnementAdmin", icon: "fas fa-users", labelKey: "Abonnement" },
+    { path: "/abonnementAdmin", icon: "fas fa-crown", labelKey: "Abonnement" },
     { path: "/messageAdmin", icon: "fas fa-comments", labelKey: "menu_messages" },
-    { path: "/notificationAdmin", icon: "fas fa-bell", labelKey: "menu_notifications" },
-    { path: "/parametreAdmin", icon: "fas fa-cogs", labelKey: "menu_settings" },
   ];
 
-  const sidebarStyle = {
-    background: "linear-gradient(180deg, #2c3e50 0%, #34495e 100%)",
-    boxShadow: "4px 0 15px rgba(0, 0, 0, 0.1)",
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    transform: isCollapsed && !isHovered ? "translateX(-85%)" : "translateX(0)",
-    width: isCollapsed && !isHovered ? "80px" : "280px",
-    zIndex: 1040,
-  };
-
-  const linkStyle = (path) => ({
-    background: activeItem === path 
-      ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" 
-      : "transparent",
-    border: "none",
-    borderRadius: "12px",
-    margin: "4px 0",
-    padding: "14px 16px",
-    transition: "all 0.3s ease",
-    transform: activeItem === path ? "translateX(5px)" : "translateX(0)",
-    boxShadow: activeItem === path 
-      ? "0 4px 15px rgba(102, 126, 234, 0.3)" 
-      : "none",
-    position: "relative",
-    overflow: "hidden",
-  });
+  const sidebarWidth = isCollapsed && !isHovered ? "80px" : "280px";
+  const shouldShowContent = !isCollapsed || isHovered;
 
   return (
     <>
@@ -117,391 +99,559 @@ const AdminSidebar = () => {
       )}
 
       <div 
-        className="vh-100 text-white position-fixed"
-        style={sidebarStyle}
+        className="vh-100 text-white position-fixed d-flex flex-column"
+        style={{
+          background: `linear-gradient(180deg, ${colors.dark} 0%, ${colors.secondary} 100%)`,
+          boxShadow: "4px 0 24px rgba(0, 0, 0, 0.3)",
+          transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
+          width: sidebarWidth,
+          zIndex: 1040,
+          borderRight: `1px solid rgba(91, 17, 238, 0.1)`
+        }}
         onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseLeave={() => {
+          setIsHovered(false);
+          setHoveredItem(null);
+        }}
       >
-        {/* En-tête avec bouton de toggle */}
-        <div className="p-4 border-bottom border-secondary" style={{ borderColor: "rgba(255,255,255,0.1) !important" }}>
-          <div className="d-flex align-items-center justify-content-between">
-            {(!isCollapsed || isHovered) && (
-              <div className="text-center w-100">
-                <div className="position-relative">
-                  <div 
-                    className="rounded-circle bg-primary d-inline-flex align-items-center justify-content-center mb-2"
-                  >
-                    <span className="logo-text">
-                      <img src="/images/logo.jpg" alt="Logo" className="logo-img" />
-                    </span>
-                  </div>
-                  <h4 
-                    className="mb-0 fw-bold"
+        {/* Header */}
+        <div 
+          className="p-4" 
+          style={{
+            borderBottom: `1px solid rgba(91, 17, 238, 0.15)`,
+            background: `linear-gradient(135deg, ${colors.primary}15 0%, transparent 100%)`,
+            position: "relative"
+          }}
+        >
+          {/* Status Indicator */}
+          <div 
+            className="position-absolute"
+            style={{
+              top: "20px",
+              left: "15px",
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              backgroundColor: "#00d664",
+              boxShadow: "0 0 12px #00d664",
+              animation: "pulse 2s infinite"
+            }}
+          ></div>
+
+          <div className="d-flex align-items-center justify-content-between mb-3">
+            {shouldShowContent && (
+              <div className="d-flex align-items-center gap-2 flex-grow-1">
+                <div 
+                  className="rounded-circle d-flex align-items-center justify-content-center overflow-hidden"
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`,
+                    boxShadow: `0 4px 16px ${colors.primary}40`,
+                    padding: "2px"
+                  }}
+                >
+                  <img 
+                    src="/images/logo.jpg" 
+                    alt="Logo" 
                     style={{
-                      background: "linear-gradient(135deg, #fff, #a8c0ff)",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                      fontSize: "1.3rem"
+                      width: "100%",
+                      height: "100%",
+                      borderRadius: "50%"
                     }}
-                  >
+                  />
+                </div>
+                <div>
+                  <div className="fw-bold" style={{ 
+                    fontSize: "1.15rem", 
+                    letterSpacing: "0.5px",
+                    background: "linear-gradient(135deg, #fff, #a8c0ff)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent"
+                  }}>
                     {t('admin_panel_title')}
-                  </h4>
-                  <span className="text-white-50 small d-block">{t('admin_role_label')}</span>
+                  </div>
+                  <div style={{ fontSize: "0.7rem", opacity: 0.7 }}>
+                    {t('admin_role_label')}
+                  </div>
                 </div>
               </div>
             )}
+           
             <button
-              className="btn btn-sm text-white position-absolute"
+              className="btn btn-sm d-flex align-items-center justify-content-center"
+              onClick={() => setIsCollapsed(!isCollapsed)}
               style={{
-                top: "20px",
-                right: "15px",
-                background: "rgba(255,255,255,0.1)",
-                border: "none",
+                background: "rgba(255, 255, 255, 0.05)",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
                 borderRadius: "8px",
                 width: "32px",
-                height: "32px"
+                height: "32px",
+                color: "#FFF",
+                transition: "all 0.3s ease",
+                position: shouldShowContent ? "relative" : "absolute",
+                top: shouldShowContent ? "auto" : "20px",
+                right: shouldShowContent ? "auto" : "15px"
               }}
-              onClick={() => setIsCollapsed(!isCollapsed)}
+              onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"}
             >
-              <i className={`fas fa-chevron-${isCollapsed ? "right" : "left"}`}></i>
+              <i className={`fas fa-chevron-${isCollapsed ? "right" : "left"}`} style={{ fontSize: "0.85rem" }}></i>
             </button>
           </div>
         </div>
 
-        {/* Menu de navigation */}
-        <div className="p-3" style={{ height: "calc(100vh - 290px)", overflowY: "auto" }}>
-          <ul className="nav flex-column">
-            {menuItems.map((item) => (
-              <li key={item.path} className="nav-item">
-                <Link
-                  className="nav-link text-white d-flex align-items-center text-decoration-none"
-                  to={item.path}
-                  style={linkStyle(item.path)}
-                  onMouseEnter={(e) => {
-                    if (activeItem !== item.path) {
-                      e.target.style.transform = "translateX(5px)";
-                      e.target.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
-                    }
+        {/* Navigation Menu */}
+        <div 
+          className="flex-grow-1 p-3" 
+          style={{ 
+            overflowY: "auto", 
+            overflowX: "hidden"
+          }}
+        >
+          <ul className="nav flex-column" style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            {menuItems.map((item, index) => {
+              const isActive = activeItem === item.path;
+              return (
+                <li 
+                  key={item.path} 
+                  className="nav-item"
+                  style={{ 
+                    marginBottom: "4px",
+                    position: "relative",
+                    animation: `slideIn 0.3s ease-out ${index * 0.05}s backwards`
                   }}
-                  onMouseLeave={(e) => {
-                    if (activeItem !== item.path) {
-                      e.target.style.transform = "translateX(0)";
-                      e.target.style.backgroundColor = "transparent";
-                    }
-                  }}
+                  onMouseEnter={() => setHoveredItem(item.path)}
+                  onMouseLeave={() => setHoveredItem(null)}
                 >
-                  <i className={`${item.icon} me-3`} style={{ width: "20px", textAlign: "center" }}></i>
-                  {(!isCollapsed || isHovered) && (
-                    <span className="fw-medium">{t(item.labelKey)}</span>
-                  )}
-                  {activeItem === item.path && (
-                    <div 
+                  <Link
+                    className="nav-link text-white d-flex align-items-center text-decoration-none"
+                    to={item.path}
+                    style={{
+                      color: isActive ? "#FFFFFF" : "#CBD5E1",
+                      background: isActive ? `${colors.primary}25` : "transparent",
+                      border: isActive ? `1px solid ${colors.primary}40` : "1px solid transparent",
+                      borderRadius: "10px",
+                      padding: "12px 16px",
+                      transition: "all 0.25s ease",
+                      position: "relative"
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.04)";
+                        e.currentTarget.style.transform = "translateX(4px)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = "transparent";
+                        e.currentTarget.style.transform = "translateX(0)";
+                      }
+                    }}
+                  >
+                    {/* Active Indicator */}
+                    {isActive && (
+                      <div
+                        className="position-absolute"
+                        style={{
+                          left: "0",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          width: "3px",
+                          height: "20px",
+                          background: colors.primary,
+                          borderRadius: "0 2px 2px 0"
+                        }}
+                      ></div>
+                    )}
+                   
+                    <i 
+                      className={`${item.icon} ${shouldShowContent ? 'me-3' : ''}`}
                       style={{
-                        position: "absolute",
-                        right: "10px",
+                        fontSize: "1rem",
+                        color: isActive ? colors.primary : colors.neutral,
+                        minWidth: "20px",
+                        textAlign: "center"
+                      }}
+                    ></i>
+                   
+                    {shouldShowContent && (
+                      <span className="fw-medium" style={{ fontSize: "0.92rem" }}>
+                        {t(item.labelKey)}
+                      </span>
+                    )}
+
+                    {/* Active dot indicator */}
+                    {isActive && (
+                      <div 
+                        className="position-absolute"
+                        style={{
+                          right: "12px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          width: "6px",
+                          height: "6px",
+                          borderRadius: "50%",
+                          backgroundColor: colors.primary,
+                          boxShadow: `0 0 10px ${colors.primary}`
+                        }}
+                      ></div>
+                    )}
+                  </Link>
+
+                  {/* Tooltip for collapsed state */}
+                  {!shouldShowContent && hoveredItem === item.path && (
+                    <div
+                      className="position-absolute"
+                      style={{
+                        left: "90px",
                         top: "50%",
                         transform: "translateY(-50%)",
-                        width: "6px",
-                        height: "6px",
-                        borderRadius: "50%",
-                        backgroundColor: "#fff",
-                        boxShadow: "0 0 10px rgba(255,255,255,0.5)"
+                        background: colors.dark,
+                        border: `1px solid ${colors.primary}40`,
+                        borderRadius: "8px",
+                        padding: "8px 16px",
+                        fontSize: "0.9rem",
+                        fontWeight: "500",
+                        whiteSpace: "nowrap",
+                        zIndex: 1000,
+                        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.3)"
                       }}
-                    ></div>
+                    >
+                      {t(item.labelKey)}
+                    </div>
                   )}
-                </Link>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         </div>
 
-        {/* Section Thème, Déconnexion et Langue */}
-        <div className="p-3 border-top border-secondary" style={{ 
-          borderColor: "rgba(255,255,255,0.1) !important",
-          position: "absolute",
-          bottom: "0",
-          left: "0",
-          right: "0"
-        }}>
-          {/* SÉLECTEUR DE LANGUE (TOUJOURS AFFICHÉ) */}
+        {/* Footer Section */}
+        <div 
+          className="p-3" 
+          style={{
+            borderTop: `1px solid rgba(91, 17, 238, 0.15)`,
+            background: "rgba(0, 0, 0, 0.2)"
+          }}
+        >
+          {/* Language Switcher */}
           <div className="mb-3 text-center">
             <LanguageSwitcher />
           </div>
           
-          {/* Bouton Thème */}
+          {/* Theme Toggle Button */}
           <button
             onClick={toggleTheme}
-            className="btn w-100 d-flex align-items-center justify-content-center text-white text-decoration-none mb-3"
+            className="btn w-100 d-flex align-items-center justify-content-center mb-3"
             style={{
-              background: "linear-gradient(135deg, #ffd700 0%, #ffa500 100%)",
-              border: "none",
-              borderRadius: "12px",
-              padding: isCollapsed && !isHovered ? "12px 0" : "12px 16px",
-              transition: "all 0.3s ease",
-              boxShadow: "0 4px 15px rgba(255, 215, 0, 0.3)"
+              background: `linear-gradient(135deg, ${colors.accent}25, ${colors.primary}25)`,
+              border: `1px solid ${colors.accent}40`,
+              borderRadius: "10px",
+              padding: "12px",
+              color: "#FFF",
+              transition: "all 0.3s ease"
             }}
             onMouseEnter={(e) => {
-              e.target.style.transform = "translateY(-2px)";
-              e.target.style.boxShadow = "0 6px 20px rgba(255, 215, 0, 0.4)";
+              e.currentTarget.style.background = `linear-gradient(135deg, ${colors.accent}35, ${colors.primary}35)`;
+              e.currentTarget.style.transform = "translateY(-2px)";
             }}
             onMouseLeave={(e) => {
-              e.target.style.transform = "translateY(0)";
-              e.target.style.boxShadow = "0 4px 15px rgba(255, 215, 0, 0.3)";
+              e.currentTarget.style.background = `linear-gradient(135deg, ${colors.accent}25, ${colors.primary}25)`;
+              e.currentTarget.style.transform = "translateY(0)";
             }}
             title={isDarkMode ? t('theme_light_mode') : t('theme_dark_mode')}
           >
-            <i className={`fas ${isDarkMode ? "fa-sun" : "fa-moon"}`} style={{ 
-              marginRight: (!isCollapsed || isHovered) ? "8px" : "0", 
-              fontSize: isCollapsed && !isHovered ? "1.25rem" : "1rem"
-            }}></i>
-            {(!isCollapsed || isHovered) && (
-              <span className="fw-medium">
+            <i 
+              className={`fas ${isDarkMode ? "fa-sun" : "fa-moon"}`} 
+              style={{ 
+                marginRight: shouldShowContent ? "8px" : "0", 
+                fontSize: shouldShowContent ? "1rem" : "1.25rem"
+              }}
+            ></i>
+            {shouldShowContent && (
+              <span className="fw-medium" style={{ fontSize: "0.92rem" }}>
                 {t(isDarkMode ? 'theme_light_mode' : 'theme_dark_mode')}
               </span>
             )}
           </button>
 
-          {/* Bouton Déconnexion */}
+          {/* Logout Button */}
           <button
             onClick={handleLogoutClick}
-            className="btn w-100 d-flex align-items-center justify-content-center text-white text-decoration-none"
+            className="btn w-100 d-flex align-items-center justify-content-center"
             style={{
-              background: "linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)",
-              border: "none",
-              borderRadius: "12px",
-              padding: isCollapsed && !isHovered ? "12px 0" : "12px 16px",
-              transition: "all 0.3s ease",
-              boxShadow: "0 4px 15px rgba(255, 107, 107, 0.3)"
+              background: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid rgba(239, 68, 68, 0.2)",
+              borderRadius: "10px",
+              padding: "12px",
+              color: "#FCA5A5",
+              transition: "all 0.3s ease"
             }}
             onMouseEnter={(e) => {
-              e.target.style.transform = "translateY(-2px)";
-              e.target.style.boxShadow = "0 6px 20px rgba(255, 107, 107, 0.4)";
+              e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)";
+              e.currentTarget.style.color = "#F87171";
+              e.currentTarget.style.transform = "translateY(-2px)";
             }}
             onMouseLeave={(e) => {
-              e.target.style.transform = "translateY(0)";
-              e.target.style.boxShadow = "0 4px 15px rgba(255, 107, 107, 0.3)";
+              e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+              e.currentTarget.style.color = "#FCA5A5";
+              e.currentTarget.style.transform = "translateY(0)";
             }}
             title={t('logout_button')}
           >
-            <i className="fas fa-sign-out-alt" style={{
-              marginRight: (!isCollapsed || isHovered) ? "8px" : "0",
-              fontSize: isCollapsed && !isHovered ? "1.25rem" : "1rem"
-            }}></i>
-            {(!isCollapsed || isHovered) && (
-              <span className="fw-medium">{t('logout_button')}</span>
+            <i 
+              className="fas fa-sign-out-alt" 
+              style={{
+                marginRight: shouldShowContent ? "8px" : "0",
+                fontSize: shouldShowContent ? "1rem" : "1.25rem"
+              }}
+            ></i>
+            {shouldShowContent && (
+              <span className="fw-medium" style={{ fontSize: "0.92rem" }}>
+                {t('logout_button')}
+              </span>
             )}
           </button>
 
-          {/* Version badge */}
-          {(!isCollapsed || isHovered) && (
+          {/* Version Badge */}
+          {shouldShowContent && (
             <div className="text-center mt-3">
               <span 
-                className="badge bg-dark bg-opacity-50 text-white-50 px-3 py-2"
+                className="badge px-3 py-2"
                 style={{ 
+                  background: "rgba(255, 255, 255, 0.05)",
+                  color: "rgba(255, 255, 255, 0.5)",
                   borderRadius: "20px",
-                  fontSize: "0.75rem"
+                  fontSize: "0.75rem",
+                  border: "1px solid rgba(255, 255, 255, 0.1)"
                 }}
               >
-                v2.1.0
+                v2.1.0 • CEDII
               </span>
             </div>
           )}
         </div>
-
-        {/* Indicateur de statut */}
-        <div 
-          className="position-absolute"
-          style={{
-            top: "20px",
-            left: "15px",
-            width: "8px",
-            height: "8px",
-            borderRadius: "50%",
-            backgroundColor: "#00d664",
-            boxShadow: "0 0 10px #00d664"
-          }}
-        ></div>
       </div>
 
-      {/* Modal de confirmation de déconnexion */}
+      {/* Logout Modal */}
       <Modal 
         show={showLogoutModal} 
         onHide={() => setShowLogoutModal(false)} 
         centered
-        size="sm"
+        backdrop="static"
       >
-        <Modal.Body className="text-center p-4" style={{ borderRadius: "20px" }}>
-          <div 
-            className="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3"
-            style={{
-              width: "80px",
-              height: "80px",
-              background: "linear-gradient(135deg, #ff6b6b, #ee5a52)",
-              color: "white"
-            }}
-          >
-            <i className="fas fa-sign-out-alt fs-2"></i>
-          </div>
-          
-          <h4 className="fw-bold mb-3" style={{ color: "#2c3e50" }}>
-            {t('logout_modal_title')}
-          </h4>
-          
-          <p className="text-muted mb-4" style={{ lineHeight: "1.5" }}>
-            {t('logout_modal_message')}
-          </p>
-          
-          <div className="d-flex gap-3 justify-content-center">
-            <Button
-              variant="outline-secondary"
-              onClick={() => setShowLogoutModal(false)}
-              className="d-flex align-items-center"
+        <Modal.Body 
+          className="p-0" 
+          style={{
+            background: `linear-gradient(135deg, ${colors.dark}, ${colors.secondary})`,
+            borderRadius: "16px",
+            color: "white"
+          }}
+        >
+          <div className="p-5 text-center">
+            <div 
+              className="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-4"
               style={{
-                borderRadius: "12px",
-                padding: "10px 20px",
-                border: "2px solid #dee2e6",
-                fontWeight: "600"
+                width: "80px",
+                height: "80px",
+                background: "rgba(239, 68, 68, 0.15)",
+                border: "2px solid rgba(239, 68, 68, 0.3)"
               }}
             >
-              <i className="fas fa-times me-2"></i>
-              {t('cancel_button')}
-            </Button>
-            <Button
-              variant="danger"
-              onClick={handleLogoutConfirm}
-              className="d-flex align-items-center"
+              <i className="fas fa-door-open text-danger fs-2"></i>
+            </div>
+           
+            <h4 className="fw-bold mb-2" style={{ 
+              fontSize: "1.5rem",
+              background: "linear-gradient(135deg, #FFFFFF 0%, #FCA5A5 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent"
+            }}>
+              {t('logout_modal_title')}
+            </h4>
+            
+            <p className="mb-4" style={{ opacity: 0.8, lineHeight: "1.6" }}>
+              {t('logout_modal_message')}
+            </p>
+
+            {/* Security Note */}
+            <div 
+              className="alert mb-4" 
+              role="alert" 
               style={{
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
                 borderRadius: "12px",
-                padding: "10px 20px",
-                background: "linear-gradient(135deg, #ff6b6b, #ee5a52)",
-                border: "none",
-                fontWeight: "600"
+                color: "#CBD5E1",
+                textAlign: "left"
               }}
             >
-              <i className="fas fa-check me-2"></i>
-              {t('logout_button')}
-            </Button>
+              <div className="d-flex">
+                <i className="fas fa-shield-alt me-3 mt-1" style={{ opacity: 0.7 }}></i>
+                <div>
+                  <strong>{t('security_note')}</strong>
+                  <div className="small mt-1" style={{ opacity: 0.8 }}>
+                    {t('logout_security_warning')}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="d-flex gap-3">
+              <Button
+                variant="outline-light"
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-fill py-2"
+                style={{
+                  borderRadius: "10px",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  transition: "all 0.3s ease"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+              >
+                <i className="fas fa-times me-2"></i>
+                {t('cancel_button')}
+              </Button>
+             
+              <Button
+                onClick={handleLogoutConfirm}
+                className="flex-fill py-2"
+                style={{
+                  borderRadius: "10px",
+                  background: "linear-gradient(135deg, #EF4444, #DC2626)",
+                  border: "none",
+                  transition: "all 0.3s ease"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
+                onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
+              >
+                <i className="fas fa-sign-out-alt me-2"></i>
+                {t('logout_button')}
+              </Button>
+            </div>
           </div>
         </Modal.Body>
       </Modal>
 
-      {/* Styles CSS */}
-      <style>
-        {`
-          [data-theme="dark"] {
-            --bg-primary: #1a1a1a;
-            --bg-secondary: #2d2d2d;
-            --text-primary: #ffffff;
-            --text-secondary: #b0b0b0;
-            --card-bg: #2d2d2d;
-            --card-border: #404040;
-            --input-bg: #2d2d2d;
-            --input-border: #404040;
-            --table-bg: #2d2d2d;
-            --table-border: #404040;
+      {/* Custom Styles */}
+      <style jsx="true">{`
+        @keyframes pulse {
+          0%, 100% { 
+            transform: scale(1); 
+            opacity: 1; 
           }
+          50% { 
+            transform: scale(1.1); 
+            opacity: 0.8; 
+          }
+        }
 
-          [data-theme="light"] {
-            --bg-primary: #ffffff;
-            --bg-secondary: #f8f9fa;
-            --text-primary: #333333;
-            --text-secondary: #6c757d;
-            --card-bg: #ffffff;
-            --card-border: #dee2e6;
-            --input-bg: #ffffff;
-            --input-border: #ced4da;
-            --table-bg: #ffffff;
-            --table-border: #dee2e6;
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
           }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
 
-          .card {
-            background-color: var(--card-bg) !important;
-            border-color: var(--card-border) !important;
-            color: var(--text-primary) !important;
-          }
+        [data-theme="dark"] {
+          --bg-primary: #1a1a1a;
+          --bg-secondary: #2d2d2d;
+          --text-primary: #ffffff;
+          --text-secondary: #b0b0b0;
+          --card-bg: #2d2d2d;
+          --card-border: #404040;
+          --input-bg: #2d2d2d;
+          --input-border: #404040;
+          --table-bg: #2d2d2d;
+          --table-border: #404040;
+        }
 
-          .form-control {
-            background-color: var(--input-bg) !important;
-            border-color: var(--input-border) !important;
-            color: var(--text-primary) !important;
-          }
+        [data-theme="light"] {
+          --bg-primary: #ffffff;
+          --bg-secondary: #f8f9fa;
+          --text-primary: #333333;
+          --text-secondary: #6c757d;
+          --card-bg: #ffffff;
+          --card-border: #dee2e6;
+          --input-bg: #ffffff;
+          --input-border: #ced4da;
+          --table-bg: #ffffff;
+          --table-border: #dee2e6;
+        }
 
-          .form-control::placeholder {
-            color: var(--text-secondary) !important;
-          }
+        .card {
+          background-color: var(--card-bg) !important;
+          border-color: var(--card-border) !important;
+          color: var(--text-primary) !important;
+        }
 
-          .form-select {
-            background-color: var(--input-bg) !important;
-            border-color: var(--input-border) !important;
-            color: var(--text-primary) !important;
-          }
+        .form-control {
+          background-color: var(--input-bg) !important;
+          border-color: var(--input-border) !important;
+          color: var(--text-primary) !important;
+        }
 
-          .table {
-            background-color: var(--table-bg) !important;
-            color: var(--text-primary) !important;
-          }
+        .form-control::placeholder {
+          color: var(--text-secondary) !important;
+        }
 
-          .table th,
-          .table td {
-            border-color: var(--table-border) !important;
-          }
+        .form-select {
+          background-color: var(--input-bg) !important;
+          border-color: var(--input-border) !important;
+          color: var(--text-primary) !important;
+        }
 
-          .text-muted {
-            color: var(--text-secondary) !important;
-          }
+        .table {
+          background-color: var(--table-bg) !important;
+          color: var(--text-primary) !important;
+        }
 
-          .nav-link:hover {
-            color: #fff !important;
-          }
-          
-          ::-webkit-scrollbar {
-            width: 4px;
-          }
-          
-          ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-          }
-          
-          ::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
-          }
-          
-          ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-          }
-          
-          @keyframes slideIn {
-            from {
-              opacity: 0;
-              transform: translateX(-20px);
-            }
-            to {
-              opacity: 1;
-              transform: translateX(0);
-            }
-          }
-          
-          .nav-item {
-            animation: slideIn 0.3s ease-out;
-          }
+        .table th,
+        .table td {
+          border-color: var(--table-border) !important;
+        }
 
-          body, .card, .form-control, .form-select, .table {
-            transition: all 0.3s ease-in-out;
-          }
+        .text-muted {
+          color: var(--text-secondary) !important;
+        }
 
-          .modal-content {
-            border-radius: 20px !important;
-            border: none !important;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2) !important;
-          }
+        ::-webkit-scrollbar {
+          width: 5px;
+        }
+       
+        ::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.02);
+        }
+       
+        ::-webkit-scrollbar-thumb {
+          background: ${colors.primary}60;
+          border-radius: 10px;
+        }
+       
+        ::-webkit-scrollbar-thumb:hover {
+          background: ${colors.primary};
+        }
 
-          .modal-backdrop {
-            background-color: rgba(0, 0, 0, 0.5) !important;
-          }
-        `}
-      </style>
+        .modal-content {
+          border-radius: 20px !important;
+          border: none !important;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2) !important;
+        }
+
+        .modal-backdrop {
+          background-color: rgba(0, 0, 0, 0.5) !important;
+        }
+
+        body, .card, .form-control, .form-select, .table {
+          transition: all 0.3s ease-in-out;
+        }
+      `}</style>
     </>
   );
 };

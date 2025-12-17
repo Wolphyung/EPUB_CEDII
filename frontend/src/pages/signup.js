@@ -3,8 +3,11 @@ import { Form, Button } from "react-bootstrap";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { ThemeProvider, ThemeToggle, useTheme } from '../components/journuit';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './../components/LanguageSwitcher';
 
 const SignUp = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
@@ -42,19 +45,19 @@ const SignUp = () => {
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = "Nom complet requis";
-    if (!formData.email.trim()) newErrors.email = "Email requis";
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
+    if (!formData.name.trim()) newErrors.name = t('signup.name_required');
+    if (!formData.email.trim()) newErrors.email = t('signup.email_required');
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = t('signup.email_invalid');
 
     const pw = formData.password;
-    if (!pw) newErrors.password = "Mot de passe requis";
-    else if (pw.length < 8) newErrors.password = "Minimum 8 caractères";
-    else if (!/[A-Z]/.test(pw)) newErrors.password = "Doit contenir au moins une majuscule";
-    else if (!/[0-9]/.test(pw)) newErrors.password = "Doit contenir au moins un chiffre";
-    else if (!/[^A-Za-z0-9]/.test(pw)) newErrors.password = "Doit contenir un caractère spécial";
+    if (!pw) newErrors.password = t('signup.password_required');
+    else if (pw.length < 8) newErrors.password = t('signup.password_min_length');
+    else if (!/[A-Z]/.test(pw)) newErrors.password = t('signup.password_uppercase');
+    else if (!/[0-9]/.test(pw)) newErrors.password = t('signup.password_number');
+    else if (!/[^A-Za-z0-9]/.test(pw)) newErrors.password = t('signup.password_special');
 
     if (formData.password !== formData.confirmPassword)
-      newErrors.confirmPassword = "Les mots de passe ne correspondent pas";
+      newErrors.confirmPassword = t('signup.passwords_match');
 
     return newErrors;
   };
@@ -80,7 +83,7 @@ const SignUp = () => {
         password_confirmation: formData.confirmPassword,
       });
 
-      setSuccess("Inscription réussie ! Redirection...");
+      setSuccess(t('signup.success_message'));
       
       if (response.data.token) {
         localStorage.setItem("token", response.data.token);
@@ -105,12 +108,12 @@ const SignUp = () => {
           });
           setErrors(formattedErrors);
         } else {
-          setApiError(error.response.data.message || "Erreur lors de l'inscription");
+          setApiError(error.response.data.message || t('signup.registration_error'));
         }
       } else if (error.request) {
-        setApiError("Impossible de se connecter au serveur. Vérifiez votre connexion.");
+        setApiError(t('signup.server_connection_error'));
       } else {
-        setApiError("Une erreur inattendue s'est produite");
+        setApiError(t('signup.unexpected_error'));
       }
     } finally {
       setLoading(false);
@@ -119,14 +122,19 @@ const SignUp = () => {
 
   return (
     <div className={`signup-container ${isDarkMode ? 'dark-mode' : ''}`}>
-      {/* Header avec Theme Toggle */}
+      {/* Header avec Theme Toggle et Language Switcher */}
       <header className="header">
         <div className="header-content">
           <div className="logo">
-            <i className="fas fa-globe-americas"></i>
+            <img src="/images/logo.jpg" alt="Logo" className="logo-img" />
             <span>CEDII</span>
           </div>
-          <ThemeToggle />
+          <div className="header-right">
+            <div className="language-switcher-header">
+              <LanguageSwitcher />
+            </div>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
@@ -138,15 +146,14 @@ const SignUp = () => {
             <div className="hero-header">
               <div className="badge">
                 <i className="fas fa-user-plus"></i>
-                <span>REJOIGNEZ NOTRE RÉSEAU</span>
+                <span>{t('signup.join_network')}</span>
               </div>
               <h1 className="hero-title">
-                Créez votre compte
-                <span className="title-highlight">institutionnel</span>
+                {t('signup.create_account')}
+                <span className="title-highlight">{t('signup.institutional')}</span>
               </h1>
               <p className="hero-description">
-                Accédez à la plateforme collaborative qui révolutionne les échanges 
-                entre institutions gouvernementales et organisations.
+                {t('signup.hero_description')}
               </p>
             </div>
 
@@ -154,7 +161,7 @@ const SignUp = () => {
             <div className="features-showcase">
               <h2 className="section-title">
                 <i className="fas fa-star"></i>
-                Avantages de l'inscription
+                {t('signup.advantages_title')}
               </h2>
               
               <div className="features-grid">
@@ -163,8 +170,8 @@ const SignUp = () => {
                     <i className="fas fa-network-wired"></i>
                   </div>
                   <div className="feature-content">
-                    <h3>Connexion Réseau</h3>
-                    <p>Accédez à plus de 500 institutions partenaires</p>
+                    <h3>{t('signup.feature_network_title')}</h3>
+                    <p>{t('signup.feature_network_desc')}</p>
                   </div>
                 </div>
                 
@@ -173,8 +180,8 @@ const SignUp = () => {
                     <i className="fas fa-rocket"></i>
                   </div>
                   <div className="feature-content">
-                    <h3>Démarrage Rapide</h3>
-                    <p>Configuration complète en moins de 5 minutes</p>
+                    <h3>{t('signup.feature_quickstart_title')}</h3>
+                    <p>{t('signup.feature_quickstart_desc')}</p>
                   </div>
                 </div>
                 
@@ -183,8 +190,8 @@ const SignUp = () => {
                     <i className="fas fa-headset"></i>
                   </div>
                   <div className="feature-content">
-                    <h3>Support Dédié</h3>
-                    <p>Équipe technique disponible 24/7</p>
+                    <h3>{t('signup.feature_support_title')}</h3>
+                    <p>{t('signup.feature_support_desc')}</p>
                   </div>
                 </div>
                 
@@ -193,32 +200,31 @@ const SignUp = () => {
                     <i className="fas fa-shield-alt"></i>
                   </div>
                   <div className="feature-content">
-                    <h3>Sécurité Maximale</h3>
-                    <p>Chiffrement de bout en bout des données</p>
+                    <h3>{t('signup.feature_security_title')}</h3>
+                    <p>{t('signup.feature_security_desc')}</p>
                   </div>
                 </div>
               </div>
             </div>
 
-        
             {/* Statistiques */}
             <div className="stats-section">
               <div className="stats-grid">
                 <div className="stat-item">
                   <div className="stat-number">500+</div>
-                  <div className="stat-label">Institutions</div>
+                  <div className="stat-label">{t('signup.stats_institutions')}</div>
                 </div>
                 <div className="stat-item">
                   <div className="stat-number">99.9%</div>
-                  <div className="stat-label">Disponibilité</div>
+                  <div className="stat-label">{t('signup.stats_availability')}</div>
                 </div>
                 <div className="stat-item">
                   <div className="stat-number">24/7</div>
-                  <div className="stat-label">Support</div>
+                  <div className="stat-label">{t('signup.stats_support')}</div>
                 </div>
                 <div className="stat-item">
                   <div className="stat-number">≤ 5min</div>
-                  <div className="stat-label">Configuration</div>
+                  <div className="stat-label">{t('signup.stats_configuration')}</div>
                 </div>
               </div>
             </div>
@@ -238,20 +244,20 @@ const SignUp = () => {
           <div className="full-height-form-container">
             {/* Logo CEDII */}
             <div className="cedii-logo">
-              <div className="logo-circle">
-                <i className="fas fa-globe-americas"></i>
-              </div>
+              <span className="logo-text">
+                <img src="/images/logo.jpg" alt="Logo" className="logo-img" />
+              </span>
               <div className="logo-text">
                 <h2>CEDII</h2>
-                <p>Centre d'Échange Institutionnel</p>
+                <p>Centre d'Échange, de Documentation et d'Information Interinstitutionnels</p>
               </div>
             </div>
 
             {/* Carte d'inscription en pleine hauteur */}
             <div className="full-height-signup-card">
               <div className="card-header">
-                <h3>Créer un compte</h3>
-                <p>Rejoignez notre réseau institutionnel</p>
+                <h3>{t('signup.create_account')}</h3>
+                <p>{t('signup.join_network_subtitle')}</p>
               </div>
 
               <Form onSubmit={handleSubmit} className="signup-form">
@@ -272,14 +278,14 @@ const SignUp = () => {
                 <div className="form-group">
                   <label htmlFor="name" className="form-label">
                     <i className="fas fa-user"></i>
-                    Nom complet
+                    {t('signup.full_name')}
                   </label>
                   <div className="input-container">
                     <input
                       id="name"
                       type="text"
                       name="name"
-                      placeholder="Votre nom complet"
+                      placeholder={t('signup.full_name_placeholder')}
                       value={formData.name}
                       onChange={handleChange}
                       disabled={loading}
@@ -292,7 +298,7 @@ const SignUp = () => {
                 <div className="form-group">
                   <label htmlFor="email" className="form-label">
                     <i className="fas fa-envelope"></i>
-                    Email Institutionnel
+                    {t('signup.institutional_email')}
                   </label>
                   <div className="input-container">
                     <input
@@ -312,7 +318,7 @@ const SignUp = () => {
                 <div className="form-group">
                   <label htmlFor="password" className="form-label">
                     <i className="fas fa-lock"></i>
-                    Mot de passe
+                    {t('signup.password')}
                   </label>
                   <div className="input-container">
                     <input
@@ -345,10 +351,10 @@ const SignUp = () => {
                       ></div>
                     </div>
                     <div className="strength-labels">
-                      <span className={strength >= 1 ? 'active' : ''}>Faible</span>
-                      <span className={strength >= 2 ? 'active' : ''}>Moyen</span>
-                      <span className={strength >= 3 ? 'active' : ''}>Fort</span>
-                      <span className={strength >= 4 ? 'active' : ''}>Très fort</span>
+                      <span className={strength >= 1 ? 'active' : ''}>{t('signup.password_weak')}</span>
+                      <span className={strength >= 2 ? 'active' : ''}>{t('signup.password_medium')}</span>
+                      <span className={strength >= 3 ? 'active' : ''}>{t('signup.password_strong')}</span>
+                      <span className={strength >= 4 ? 'active' : ''}>{t('signup.password_very_strong')}</span>
                     </div>
                   </div>
                 </div>
@@ -356,14 +362,14 @@ const SignUp = () => {
                 <div className="form-group">
                   <label htmlFor="confirmPassword" className="form-label">
                     <i className="fas fa-lock"></i>
-                    Confirmer le mot de passe
+                    {t('signup.confirm_password')}
                   </label>
                   <div className="input-container">
                     <input
                       id="confirmPassword"
                       type={showConfirmPw ? "text" : "password"}
                       name="confirmPassword"
-                      placeholder="Confirmer le mot de passe"
+                      placeholder={t('signup.confirm_password_placeholder')}
                       value={formData.confirmPassword}
                       onChange={handleChange}
                       disabled={loading}
@@ -389,28 +395,28 @@ const SignUp = () => {
                   {loading ? (
                     <>
                       <div className="button-spinner"></div>
-                      <span>Inscription...</span>
+                      <span>{t('signup.registering')}</span>
                     </>
                   ) : (
                     <>
                       <i className="fas fa-user-plus"></i>
-                      <span>Créer mon compte</span>
+                      <span>{t('signup.create_my_account')}</span>
                     </>
                   )}
                 </button>
               </Form>
 
               <div className="divider">
-                <span>ou</span>
+                <span>{t('signup.or')}</span>
               </div>
 
               {/* Options de connexion */}
               <div className="signup-options">
                 <div className="login-redirect">
-                  <p>Vous avez déjà un compte ?</p>
+                  <p>{t('signup.have_account')}</p>
                   <Link to="/login" className="login-link">
                     <i className="fas fa-sign-in-alt"></i>
-                    <span>Se connecter</span>
+                    <span>{t('signup.sign_in')}</span>
                   </Link>
                 </div>
               </div>
@@ -418,9 +424,9 @@ const SignUp = () => {
               {/* Conditions d'utilisation */}
               <div className="terms-section">
                 <p className="terms-text">
-                  En créant un compte, vous acceptez nos
-                  <Link to="/terms"> conditions d'utilisation</Link> et notre
-                  <Link to="/privacy"> politique de confidentialité</Link>.
+                  {t('signup.terms_text')}
+                  <Link to="/terms">{t('signup.terms_of_use')}</Link> {t('signup.and')}
+                  <Link to="/privacy">{t('signup.privacy_policy')}</Link>.
                 </p>
               </div>
 
@@ -429,19 +435,19 @@ const SignUp = () => {
                 <div className="footer-links">
                   <Link to="/privacy">
                     <i className="fas fa-shield-alt"></i>
-                    Confidentialité
+                    {t('signup.privacy')}
                   </Link>
                   <Link to="/terms">
                     <i className="fas fa-file-contract"></i>
-                    Conditions
+                    {t('signup.terms')}
                   </Link>
                   <Link to="/support">
                     <i className="fas fa-headset"></i>
-                    Support
+                    {t('signup.support')}
                   </Link>
                 </div>
                 <p className="copyright">
-                  © {new Date().getFullYear()} CEDII Messenger v2.0
+                  © {new Date().getFullYear()} {t('signup.copyright')}
                 </p>
               </div>
             </div>
@@ -523,6 +529,17 @@ const SignUp = () => {
           align-items: center;
         }
 
+        .header-right {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .language-switcher-header {
+          display: flex;
+          align-items: center;
+        }
+
         .logo {
           display: flex;
           align-items: center;
@@ -557,6 +574,13 @@ const SignUp = () => {
           overflow: hidden;
           position: relative;
           display: flex;
+        }
+
+        /* Language Switcher in Form */
+        .language-switcher-form {
+          text-align: center;
+          margin-bottom: 1.5rem;
+          flex-shrink: 0;
         }
 
         /* Left Section Styles */
@@ -1291,6 +1315,10 @@ const SignUp = () => {
             flex-direction: column;
             gap: 0.75rem;
           }
+          
+          .header-right {
+            gap: 0.5rem;
+          }
         }
 
         @media (max-width: 480px) {
@@ -1312,6 +1340,11 @@ const SignUp = () => {
           
           .full-height-signup-card {
             padding: 1.5rem;
+          }
+          
+          .header-right {
+            flex-direction: column;
+            align-items: flex-end;
           }
         }
       `}</style>

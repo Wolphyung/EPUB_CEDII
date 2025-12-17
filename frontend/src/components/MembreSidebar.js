@@ -1,19 +1,31 @@
-import React, { useState, useEffect } from "react";
-import { Nav, Modal, Button, OverlayTrigger, Tooltip } from "react-bootstrap";
+import React, { useState, useEffect, useRef } from "react";
+import { Nav, Modal, Button } from "react-bootstrap";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from 'react-i18next';
 
 const MembreSidebar = ({ onCollapse }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { i18n } = useTranslation();
   const [activeItem, setActiveItem] = useState("");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState(null);
   const [membreInfo, setMembreInfo] = useState({
     nom: "Membre",
     email: "membre@cedii.com",
     avatar: null
   });
+
+  // Palette CEDII 2025
+  const colors = {
+    primary: "#5B11EE",
+    secondary: "#0405BF",
+    dark: "#02061E",
+    accent: "#0671B6",
+    neutral: "#5E5E5E"
+  };
 
   useEffect(() => {
     if (onCollapse) {
@@ -24,7 +36,7 @@ const MembreSidebar = ({ onCollapse }) => {
   useEffect(() => {
     const path = location.pathname;
     setActiveItem(path);
-    
+   
     const user = JSON.parse(localStorage.getItem("user"));
     if (user) {
       setMembreInfo({
@@ -44,630 +56,596 @@ const MembreSidebar = ({ onCollapse }) => {
 
   const displayAvatar = (avatar) => {
     if (!avatar) return null;
-    
-    if (avatar.startsWith("http")) {
-      return avatar;
-    } else if (avatar.startsWith("/")) {
-      return `http://localhost:8000${avatar}`;
-    } else {
-      return `http://localhost:8000/storage/${avatar}`;
-    }
+    if (avatar.startsWith("http")) return avatar;
+    if (avatar.startsWith("/")) return `http://localhost:8000${avatar}`;
+    return `http://localhost:8000/storage/${avatar}`;
   };
 
   const menuItems = [
-    { path: "/dashMembre", icon: "fas fa-chart-line", label: "Dashboard", description: "Vue d'ensemble" },
-    { path: "/pubMembre", icon: "fas fa-newspaper", label: "Publications", description: "Articles et posts" },
-    { path: "/evenementMembre", icon: "fas fa-calendar-star", label: "Événements", description: "Agenda et réunions" },
-    { path: "/appeloffreMembre", icon: "fas fa-briefcase", label: "Opportunités", description: "Offres et appels" },
-    { path: "/profilMembre", icon: "fas fa-user-cog", label: "Profil", description: "Paramètres personnels" },
-     { path: "/abonnementmembre", icon: "fas fa-user-cog", label: "Abonnememnt", description: "Paramètres personnels" },
-    { path: "/messageMembre", icon: "fas fa-comment-dots", label: "Messages", description: "Communications" },
-    { path: "/notificationMembre", icon: "fas fa-bell", label: "Notifications", description: "Alertes et mises à jour" },
+    { path: "/dashMembre", icon: "fas fa-chart-line", label: "Dashboard" },
+    { path: "/pubMembre", icon: "fas fa-newspaper", label: "Publications" },
+    { path: "/evenementMembre", icon: "fas fa-calendar-alt", label: "Événements" },
+    { path: "/appeloffreMembre", icon: "fas fa-briefcase", label: "Opportunités" },
+    { path: "/profilMembre", icon: "fas fa-user-cog", label: "Profil" },
+    { path: "/abonnementmembre", icon: "fas fa-crown", label: "Abonnement" },
+    { path: "/messageMembre", icon: "fas fa-comment-dots", label: "Messages" },
   ];
 
-  const getTooltip = (label, description) => (
-    <Tooltip id={`tooltip-${label}`}>
-      <strong>{label}</strong>
-      <div className="small">{description}</div>
-    </Tooltip>
-  );
+  const sidebarWidth = isCollapsed && !isHovered ? "80px" : "280px";
+  const shouldShowContent = !isCollapsed || isHovered;
+
+  // Composant LanguageSwitcher intégré
+  const LanguageSwitcher = () => {
+    const [isLangOpen, setIsLangOpen] = useState(false);
+    const langDropdownRef = useRef(null);
+
+    const changeLanguage = (lng) => {
+      i18n.changeLanguage(lng);
+      localStorage.setItem('i18nextLng', lng);
+      setIsLangOpen(false);
+    };
+
+    const getCurrentFlag = () => {
+      switch (i18n.language) {
+        case 'fr':
+          return <span className="fi fi-fr" style={{ fontSize: '1.2rem' }}></span>;
+        case 'en':
+          return <span className="fi fi-us" style={{ fontSize: '1.2rem' }}></span>;
+        case 'mg':
+          return <span className="fi fi-mg" style={{ fontSize: '1.2rem' }}></span>;
+        default:
+          return <span className="fi fi-fr" style={{ fontSize: '1.2rem' }}></span>;
+      }
+    };
+
+    // Fermer le dropdown en cliquant à l'extérieur
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (langDropdownRef.current && !langDropdownRef.current.contains(event.target)) {
+          setIsLangOpen(false);
+        }
+      };
+
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, []);
+
+    return (
+      <div 
+        ref={langDropdownRef}
+        style={{ 
+          position: 'relative', 
+          display: 'inline-block',
+          width: 'fit-content',
+          margin: '0 auto',
+        }}
+      >
+        <Button
+          onClick={() => setIsLangOpen(!isLangOpen)}
+          size="sm"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.2)',
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '8px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '6px 12px',
+            minWidth: '60px',
+            justifyContent: 'center',
+            transition: 'all 0.3s ease',
+          }}
+          title="Changer la langue"
+        >
+          <span 
+            className="fas fa-globe" 
+            style={{
+              color: 'white',
+              fontSize: '0.9rem',
+            }}
+          ></span>
+          <span style={{ color: 'white', fontSize: '1.2rem' }}>
+            {getCurrentFlag()}
+          </span>
+          <span 
+            className={`fas fa-chevron-${isLangOpen ? 'up' : 'down'}`}
+            style={{
+              color: 'white',
+              fontSize: '0.7rem',
+              marginLeft: '4px',
+            }}
+          ></span>
+        </Button>
+
+        {isLangOpen && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              marginTop: '4px',
+              backgroundColor: 'rgba(0, 0, 0, 0.9)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '8px',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+              zIndex: 1000,
+              minWidth: '60px',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Option français */}
+            <button
+              onClick={() => changeLanguage('fr')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                padding: '10px 12px',
+                backgroundColor: i18n.language === 'fr' ? 'rgba(102, 126, 234, 0.2)' : 'transparent',
+                color: 'white',
+                border: 'none',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+              }}
+              title="Français"
+            >
+              <span className="fi fi-fr" style={{ fontSize: '1.2rem' }}></span>
+            </button>
+
+            {/* Option anglais */}
+            <button
+              onClick={() => changeLanguage('en')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                padding: '10px 12px',
+                backgroundColor: i18n.language === 'en' ? 'rgba(102, 126, 234, 0.2)' : 'transparent',
+                color: 'white',
+                border: 'none',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+              }}
+              title="English"
+            >
+              <span className="fi fi-us" style={{ fontSize: '1.2rem' }}></span>
+            </button>
+
+            {/* Option malgache */}
+            <button
+              onClick={() => changeLanguage('mg')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                padding: '10px 12px',
+                backgroundColor: i18n.language === 'mg' ? 'rgba(102, 126, 234, 0.2)' : 'transparent',
+                color: 'white',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+              }}
+              title="Malagasy"
+            >
+              <span className="fi fi-mg" style={{ fontSize: '1.2rem' }}></span>
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
-      <div 
+      <div
         className="vh-100 text-white position-fixed d-flex flex-column"
         style={{
-          background: "linear-gradient(165deg, #0F172A 0%, #1E293B 100%)",
-          boxShadow: "8px 0 30px rgba(0, 0, 0, 0.25)",
-          transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-          transform: isCollapsed && !isHovered ? "translateX(-85%)" : "translateX(0)",
-          width: isCollapsed && !isHovered ? "85px" : "300px",
+          background: `linear-gradient(180deg, ${colors.dark} 0%, ${colors.secondary} 100%)`,
+          boxShadow: "4px 0 24px rgba(0, 0, 0, 0.3)",
+          transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
+          width: sidebarWidth,
           zIndex: 1040,
-          borderRight: "1px solid rgba(255, 255, 255, 0.08)"
+          borderRight: `1px solid rgba(91, 17, 238, 0.1)`
         }}
         onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseLeave={() => {
+          setIsHovered(false);
+          setHoveredItem(null);
+        }}
       >
-        {/* En-tête premium */}
-        <div className="p-5 pb-4" style={{ 
-          borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-          background: "linear-gradient(180deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.7) 100%)",
-          position: "relative",
-          overflow: "hidden"
-        }}>
-          {/* Background pattern */}
-          <div style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "radial-gradient(circle at 20% 50%, rgba(56, 189, 248, 0.1) 0%, transparent 50%)",
-            zIndex: 0
-          }}></div>
-          
-          <div className="position-relative z-1">
-            <div className="d-flex align-items-center justify-content-between mb-4">
-              {(!isCollapsed || isHovered) ? (
-                <div className="d-flex align-items-center">
-                 
-               
-                </div>
-              ) : (
-                <div className="rounded-circle p-3 mx-auto" style={{
-                  background: "linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)",
-                  boxShadow: "0 4px 20px rgba(59, 130, 246, 0.3)"
-                }}>
-                  <i className="fas fa-user-tie text-white fs-4"></i>
-                </div>
-              )}
-              
-              <button
-                className="btn btn-sm"
-                onClick={() => setIsCollapsed(!isCollapsed)}
-                style={{
-                  background: "rgba(255, 255, 255, 0.08)",
-                  border: "1px solid rgba(255, 255, 255, 0.12)",
-                  borderRadius: "10px",
-                  width: "36px",
-                  height: "36px",
-                  color: "#CBD5E1",
-                  transition: "all 0.3s ease"
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = "rgba(255, 255, 255, 0.15)";
-                  e.target.style.transform = "rotate(90deg)";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = "rgba(255, 255, 255, 0.08)";
-                  e.target.style.transform = "rotate(0deg)";
-                }}
-              >
-                <i className={`fas fa-chevron-${isCollapsed ? "right" : "left"}`}></i>
-              </button>
-            </div>
-
-            {/* Profil utilisateur */}
-            <div className="text-center">
-              <div className="position-relative d-inline-block mb-3">
-                <div className="position-relative">
-                  {membreInfo.avatar ? (
-                    <img
-                      src={displayAvatar(membreInfo.avatar)}
-                      alt={membreInfo.nom}
-                      className="rounded-circle border-3 shadow-lg"
-                      style={{
-                        width: "90px",
-                        height: "90px",
-                        objectFit: "cover",
-                        border: "3px solid rgba(255, 255, 255, 0.15)",
-                        boxShadow: "0 10px 40px rgba(0, 0, 0, 0.3)",
-                        transition: "all 0.3s ease"
-                      }}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  
-                  <div 
-                    className={`rounded-circle d-flex align-items-center justify-content-center ${membreInfo.avatar ? 'd-none' : ''}`}
-                    style={{ 
-                      width: "90px", 
-                      height: "90px",
-                      background: "linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)",
-                      margin: "0 auto",
-                      border: "3px solid rgba(255, 255, 255, 0.15)",
-                      boxShadow: "0 10px 40px rgba(59, 130, 246, 0.3)"
-                    }}
-                  >
-                    <i className="fas fa-user-check text-white fs-3"></i>
-                  </div>
-
-                  {/* Badge de statut */}
-                  <div 
-                    className="position-absolute d-flex align-items-center justify-content-center"
-                    style={{
-                      bottom: "5px",
-                      right: "5px",
-                      width: "24px",
-                      height: "24px",
-                      borderRadius: "50%",
-                      background: "linear-gradient(135deg, #10B981 0%, #34D399 100%)",
-                      border: "3px solid #1E293B",
-                      boxShadow: "0 0 20px rgba(16, 185, 129, 0.5)"
-                    }}
-                  >
-                    <i className="fas fa-check text-white" style={{ fontSize: "0.6rem" }}></i>
-                  </div>
+        {/* Header */}
+        <div 
+          className="p-4" 
+          style={{
+            borderBottom: `1px solid rgba(91, 17, 238, 0.15)`,
+            background: `linear-gradient(135deg, ${colors.primary}15 0%, transparent 100%)`
+          }}
+        >
+          <div className="d-flex align-items-center justify-content-between mb-3">
+            {shouldShowContent && (
+              <div className="d-flex align-items-center gap-2">
+                <span className="logo-text">
+                  <img src="/images/logo.jpg" alt="Logo" className="logo-img" />
+                </span>
+                <div>
+                  <div className="fw-bold" style={{ fontSize: "1.1rem", letterSpacing: "0.5px" }}>CEDII</div>
+                  <div style={{ fontSize: "0.7rem", opacity: 0.7 }}>Espace Membre</div>
                 </div>
               </div>
-
-              {(!isCollapsed || isHovered) && (
-                <div>
-                  <h5 
-                    className="fw-bold mb-1"
-                    style={{
-                      color: "#FFFFFF",
-                      fontSize: "1.2rem",
-                      letterSpacing: "0.5px"
-                    }}
-                  >
-                    {membreInfo.nom}
-                  </h5>
-                  <div className="text-slate-300 small mb-3" style={{ opacity: 0.8 }}>
-                    <i className="fas fa-envelope me-2"></i>
-                    {membreInfo.email}
-                  </div>
-                  <div className="d-inline-flex align-items-center px-3 py-2 rounded-pill"
-                    style={{
-                      background: "rgba(16, 185, 129, 0.15)",
-                      border: "1px solid rgba(16, 185, 129, 0.3)",
-                      color: "#10B981",
-                      fontSize: "0.85rem",
-                      fontWeight: "500"
-                    }}
-                  >
-                    <div className="me-2" style={{
-                      width: "8px",
-                      height: "8px",
-                      borderRadius: "50%",
-                      background: "#10B981",
-                      animation: "pulse 2s infinite"
-                    }}></div>
-                    Membre Premium
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
+           
+            <button
+              className="btn btn-sm d-flex align-items-center justify-content-center"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              style={{
+                background: "rgba(255, 255, 255, 0.05)",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                borderRadius: "8px",
+                width: "32px",
+                height: "32px",
+                color: "#FFF",
+                transition: "all 0.3s ease"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"}
+            >
+              <i className="fas fa-bars" style={{ fontSize: "0.85rem" }}></i>
+            </button>
           </div>
+
+          {/* User Profile */}
+          {shouldShowContent && (
+            <div className="text-center mt-4">
+              <div className="position-relative d-inline-block mb-3">
+                {membreInfo.avatar ? (
+                  <img
+                    src={displayAvatar(membreInfo.avatar)}
+                    alt={membreInfo.nom}
+                    className="rounded-circle"
+                    style={{
+                      width: "72px",
+                      height: "72px",
+                      objectFit: "cover",
+                      border: `3px solid ${colors.primary}`,
+                      boxShadow: `0 8px 24px ${colors.primary}30`
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+               
+                <div
+                  className={`rounded-circle d-flex align-items-center justify-content-center ${membreInfo.avatar ? 'd-none' : ''}`}
+                  style={{
+                    width: "72px",
+                    height: "72px",
+                    background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`,
+                    border: `3px solid ${colors.primary}40`,
+                    boxShadow: `0 8px 24px ${colors.primary}30`
+                  }}
+                >
+                  <i className="fas fa-user text-white fs-4"></i>
+                </div>
+               
+                {/* Status Badge */}
+                <div
+                  className="position-absolute d-flex align-items-center justify-content-center"
+                  style={{
+                    bottom: "2px",
+                    right: "2px",
+                    width: "20px",
+                    height: "20px",
+                    borderRadius: "50%",
+                    background: "#10B981",
+                    border: `3px solid ${colors.dark}`,
+                    boxShadow: "0 0 12px rgba(16, 185, 129, 0.6)"
+                  }}
+                ></div>
+              </div>
+             
+              <h6 className="fw-bold mb-1" style={{ fontSize: "1.05rem" }}>
+                {membreInfo.nom}
+              </h6>
+              <div className="small mb-3" style={{ opacity: 0.7, fontSize: "0.85rem" }}>
+                {membreInfo.email}
+              </div>
+              <div 
+                className="d-inline-flex align-items-center px-3 py-1 rounded-pill"
+                style={{
+                  background: `${colors.primary}20`,
+                  border: `1px solid ${colors.primary}40`,
+                  fontSize: "0.8rem",
+                  fontWeight: "500"
+                }}
+              >
+                <i className="fas fa-star me-2" style={{ color: colors.primary, fontSize: "0.7rem" }}></i>
+                Membre Premium
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Menu de navigation */}
-        <div className="flex-grow-1 p-4" style={{ 
-          overflowY: "auto",
-          overflowX: "hidden"
-        }}>
+        {/* Navigation Menu */}
+        <div 
+          className="flex-grow-1 p-3" 
+          style={{ overflowY: "auto", overflowX: "hidden" }}
+        >
           <Nav className="flex-column gap-1">
             {menuItems.map((item) => {
               const isActive = activeItem === item.path;
               return (
-                <Nav.Item key={item.path}>
-                  <OverlayTrigger
-                    placement="right"
-                    overlay={getTooltip(item.label, item.description)}
-                    show={isCollapsed && !isHovered ? undefined : false}
+                <Nav.Item 
+                  key={item.path}
+                  onMouseEnter={() => setHoveredItem(item.path)}
+                  onMouseLeave={() => setHoveredItem(null)}
+                  style={{ position: "relative" }}
+                >
+                  <Link
+                    className="nav-link text-decoration-none d-flex align-items-center"
+                    to={item.path}
+                    style={{
+                      color: isActive ? "#FFFFFF" : "#CBD5E1",
+                      background: isActive ? `${colors.primary}25` : "transparent",
+                      border: isActive ? `1px solid ${colors.primary}40` : "1px solid transparent",
+                      borderRadius: "10px",
+                      padding: "12px 16px",
+                      transition: "all 0.25s ease",
+                      position: "relative"
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.04)";
+                        e.currentTarget.style.transform = "translateX(4px)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = "transparent";
+                        e.currentTarget.style.transform = "translateX(0)";
+                      }
+                    }}
                   >
-                    <Link
-                      className="nav-link text-decoration-none position-relative"
-                      to={item.path}
-                      style={{
-                        color: isActive ? "#FFFFFF" : "#CBD5E1",
-                        background: isActive 
-                          ? "linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(139, 92, 246, 0.25) 100%)"
-                          : "transparent",
-                        border: isActive 
-                          ? "1px solid rgba(59, 130, 246, 0.3)"
-                          : "1px solid transparent",
-                        borderRadius: "12px",
-                        padding: "14px 18px",
-                        margin: "4px 0",
-                        transition: "all 0.3s ease",
-                        position: "relative",
-                        overflow: "hidden"
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
-                          e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)";
-                          e.currentTarget.style.transform = "translateX(5px)";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.borderColor = "transparent";
-                          e.currentTarget.style.transform = "translateX(0)";
-                        }
-                      }}
-                    >
-                      {/* Effet de fond au survol */}
-                      <div className="position-absolute top-0 bottom-0 start-0 end-0"
+                    {/* Active Indicator */}
+                    {isActive && (
+                      <div
+                        className="position-absolute"
                         style={{
-                          background: "linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)",
-                          opacity: 0,
-                          transition: "opacity 0.3s ease",
-                          zIndex: 0
+                          left: "0",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          width: "3px",
+                          height: "20px",
+                          background: colors.primary,
+                          borderRadius: "0 2px 2px 0"
                         }}
                       ></div>
-                      
-                      <div className="position-relative z-1 d-flex align-items-center">
-                        <div className="position-relative">
-                          <i className={`${item.icon} me-3`} style={{ 
-                            width: "24px", 
-                            textAlign: "center",
-                            fontSize: "1.1rem",
-                            color: isActive ? "#60A5FA" : "#94A3B8"
-                          }}></i>
-                          {isActive && (
-                            <div 
-                              className="position-absolute"
-                              style={{
-                                top: "50%",
-                                left: "-8px",
-                                transform: "translateY(-50%)",
-                                width: "4px",
-                                height: "24px",
-                                background: "linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)",
-                                borderRadius: "2px"
-                              }}
-                            ></div>
-                          )}
-                        </div>
-                        
-                        {(!isCollapsed || isHovered) && (
-                          <div className="flex-grow-1">
-                            <div className="fw-medium" style={{ fontSize: "0.95rem" }}>
-                              {item.label}
-                            </div>
-                            <div className="text-slate-400 small" style={{ 
-                              fontSize: "0.8rem",
-                              opacity: 0.8
-                            }}>
-                              {item.description}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {isActive && (
-                          <div className="ms-2">
-                            <div 
-                              style={{
-                                width: "8px",
-                                height: "8px",
-                                borderRadius: "50%",
-                                background: "linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)",
-                                boxShadow: "0 0 10px rgba(59, 130, 246, 0.5)"
-                              }}
-                            ></div>
-                          </div>
-                        )}
-                      </div>
-                    </Link>
-                  </OverlayTrigger>
+                    )}
+                   
+                    <i 
+                      className={`${item.icon} ${shouldShowContent ? 'me-3' : ''}`} 
+                      style={{
+                        fontSize: "1rem",
+                        color: isActive ? colors.primary : colors.neutral,
+                        minWidth: "20px",
+                        textAlign: "center"
+                      }}
+                    ></i>
+                   
+                    {shouldShowContent && (
+                      <span className="fw-medium" style={{ fontSize: "0.92rem" }}>
+                        {item.label}
+                      </span>
+                    )}
+                  </Link>
+
+                  {/* Tooltip for collapsed state */}
+                  {!shouldShowContent && hoveredItem === item.path && (
+                    <div
+                      className="position-absolute"
+                      style={{
+                        left: "90px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: colors.dark,
+                        border: `1px solid ${colors.primary}40`,
+                        borderRadius: "8px",
+                        padding: "8px 16px",
+                        fontSize: "0.9rem",
+                        fontWeight: "500",
+                        whiteSpace: "nowrap",
+                        zIndex: 1000,
+                        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.3)"
+                      }}
+                    >
+                      {item.label}
+                    </div>
+                  )}
                 </Nav.Item>
               );
             })}
           </Nav>
         </div>
 
-        {/* Section inférieure avec déconnexion */}
-        <div className="p-4 mt-auto" style={{ 
-          borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-          background: "rgba(15, 23, 42, 0.5)",
-          backdropFilter: "blur(10px)"
-        }}>
-          {(!isCollapsed || isHovered) && (
-            <div className="mb-4">
+        {/* Footer */}
+        <div 
+          className="p-3 mt-auto" 
+          style={{
+            borderTop: `1px solid rgba(91, 17, 238, 0.15)`,
+            background: "rgba(0, 0, 0, 0.2)"
+          }}
+        >
+          {/* Bouton de traduction ajouté ici */}
+          {shouldShowContent && (
+            <div className="mb-3 d-flex justify-content-center">
+              <LanguageSwitcher />
+            </div>
+          )}
+
+          {shouldShowContent && (
+            <div className="mb-3">
               <div className="d-flex align-items-center justify-content-between mb-2">
-                <span className="text-slate-400 small">Progression mensuelle</span>
-                <span className="text-slate-300 small fw-medium">65%</span>
+                <span className="small" style={{ opacity: 0.7, fontSize: "0.8rem" }}>Activité</span>
+                <span className="small fw-medium" style={{ fontSize: "0.8rem" }}>78%</span>
               </div>
-              <div className="progress" style={{
-                height: "6px",
-                background: "rgba(255, 255, 255, 0.05)",
-                borderRadius: "3px",
-                overflow: "hidden"
-              }}>
-                <div 
+              <div 
+                className="progress" 
+                style={{
+                  height: "4px",
+                  background: "rgba(255, 255, 255, 0.08)",
+                  borderRadius: "2px"
+                }}
+              >
+                <div
                   className="progress-bar"
                   style={{
-                    background: "linear-gradient(90deg, #3B82F6 0%, #8B5CF6 100%)",
-                    borderRadius: "3px",
-                    width: "65%",
+                    background: `linear-gradient(90deg, ${colors.primary}, ${colors.accent})`,
+                    width: "78%",
                     transition: "width 1s ease"
                   }}
                 ></div>
               </div>
             </div>
           )}
-          
+         
           <button
             onClick={() => setShowLogoutModal(true)}
-            className="btn w-100 d-flex align-items-center justify-content-center text-white position-relative overflow-hidden"
+            className="btn w-100 d-flex align-items-center justify-content-center"
             style={{
-              background: "linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%)",
+              background: "rgba(239, 68, 68, 0.1)",
               border: "1px solid rgba(239, 68, 68, 0.2)",
-              borderRadius: "12px",
-              padding: "14px",
-              transition: "all 0.3s ease",
-              color: "#FCA5A5"
+              borderRadius: "10px",
+              padding: "12px",
+              color: "#FCA5A5",
+              transition: "all 0.3s ease"
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.2) 100%)";
-              e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.3)";
-              e.currentTarget.style.transform = "translateY(-2px)";
+              e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)";
               e.currentTarget.style.color = "#F87171";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%)";
-              e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.2)";
-              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
               e.currentTarget.style.color = "#FCA5A5";
             }}
           >
             <i className="fas fa-sign-out-alt me-2"></i>
-            {(!isCollapsed || isHovered) && (
-              <span className="fw-medium">Déconnexion</span>
-            )}
+            {shouldShowContent && <span className="fw-medium">Déconnexion</span>}
           </button>
 
-          {(!isCollapsed || isHovered) && (
-            <div className="text-center mt-3">
-              <div className="text-slate-500 small">
-                <div className="d-flex align-items-center justify-content-center">
-                  <i className="fas fa-shield-alt me-2 text-slate-400"></i>
-                  <span>Sécurisé • v2.1.0</span>
-                </div>
-                <div className="mt-1" style={{ fontSize: "0.75rem", opacity: 0.6 }}>
-                  © 2025 CEDII • Tous droits réservés
-                </div>
-              </div>
+          {shouldShowContent && (
+            <div className="text-center mt-3 small" style={{ opacity: 0.5, fontSize: "0.75rem" }}>
+              © 2025 CEDII • v2.1.0
             </div>
           )}
         </div>
       </div>
 
-      {/* Modal de déconnexion premium */}
-      <Modal 
-        show={showLogoutModal} 
-        onHide={() => setShowLogoutModal(false)} 
+      {/* Logout Modal */}
+      <Modal
+        show={showLogoutModal}
+        onHide={() => setShowLogoutModal(false)}
         centered
         backdrop="static"
       >
-        <Modal.Body className="p-0 overflow-hidden" style={{ borderRadius: "20px" }}>
-          <div style={{
-            background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
+        <Modal.Body 
+          className="p-0" 
+          style={{
+            background: `linear-gradient(135deg, ${colors.dark}, ${colors.secondary})`,
+            borderRadius: "16px",
             color: "white"
-          }}>
-            {/* En-tête du modal */}
-            <div className="p-5 text-center position-relative overflow-hidden">
-              <div style={{
-                position: "absolute",
-                top: "-50%",
-                right: "-50%",
-                width: "200%",
-                height: "200%",
-                background: "radial-gradient(circle at center, rgba(239, 68, 68, 0.1) 0%, transparent 70%)",
-                zIndex: 0
-              }}></div>
-              
-              <div className="position-relative z-1">
-                <div className="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-4"
-                  style={{
-                    width: "100px",
-                    height: "100px",
-                    background: "linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.2) 100%)",
-                    border: "2px solid rgba(239, 68, 68, 0.3)",
-                    boxShadow: "0 10px 40px rgba(239, 68, 68, 0.2)"
-                  }}
-                >
-                  <i className="fas fa-door-open text-rose-400 fs-1"></i>
-                </div>
-                
-                <h3 className="fw-bold mb-2" style={{ 
-                  fontSize: "1.8rem",
-                  background: "linear-gradient(135deg, #FFFFFF 0%, #FCA5A5 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent"
-                }}>
-                  Déconnexion
-                </h3>
-                
-                <p className="text-slate-300 mb-0" style={{ lineHeight: "1.6", opacity: 0.9 }}>
-                  Vous êtes sur le point de quitter votre espace sécurisé
-                </p>
-              </div>
+          }}
+        >
+          <div className="p-5 text-center">
+            <div 
+              className="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-4"
+              style={{
+                width: "80px",
+                height: "80px",
+                background: "rgba(239, 68, 68, 0.15)",
+                border: "2px solid rgba(239, 68, 68, 0.3)"
+              }}
+            >
+              <i className="fas fa-door-open text-danger fs-2"></i>
             </div>
+           
+            <h4 className="fw-bold mb-3">Confirmer la déconnexion</h4>
+            <p className="mb-4" style={{ opacity: 0.8 }}>
+              Êtes-vous sûr de vouloir vous déconnecter ?
+            </p>
 
-            {/* Contenu du modal */}
-            <div className="p-5 pt-4" style={{ background: "rgba(255, 255, 255, 0.02)" }}>
-              <div className="alert alert-dark border-slate-700 mb-4" role="alert" style={{
-                background: "rgba(255, 255, 255, 0.03)",
-                border: "1px solid rgba(255, 255, 255, 0.08)",
-                borderRadius: "12px",
-                color: "#CBD5E1"
-              }}>
-                <div className="d-flex">
-                  <i className="fas fa-info-circle text-slate-400 me-3 mt-1"></i>
-                  <div>
-                    <strong>Information</strong>
-                    <div className="small mt-1">
-                      Votre session sera fermée et vous devrez vous reconnecter pour accéder à nouveau.
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="d-flex flex-column gap-3">
-                <Button
-                  variant="outline-light"
-                  onClick={() => setShowLogoutModal(false)}
-                  className="d-flex align-items-center justify-content-center py-3"
-                  style={{
-                    borderRadius: "12px",
-                    border: "2px solid rgba(255, 255, 255, 0.1)",
-                    background: "transparent",
-                    fontWeight: "600",
-                    fontSize: "1rem",
-                    transition: "all 0.3s ease"
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = "rgba(255, 255, 255, 0.05)";
-                    e.target.style.borderColor = "rgba(255, 255, 255, 0.2)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = "transparent";
-                    e.target.style.borderColor = "rgba(255, 255, 255, 0.1)";
-                  }}
-                >
-                  <i className="fas fa-times me-3"></i>
-                  Annuler et rester connecté
-                </Button>
-                
-                <Button
-                  onClick={handleLogoutConfirm}
-                  className="d-flex align-items-center justify-content-center py-3"
-                  style={{
-                    borderRadius: "12px",
-                    border: "none",
-                    background: "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)",
-                    fontWeight: "600",
-                    fontSize: "1rem",
-                    boxShadow: "0 4px 20px rgba(239, 68, 68, 0.3)",
-                    transition: "all 0.3s ease"
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.transform = "translateY(-2px)";
-                    e.target.style.boxShadow = "0 6px 25px rgba(239, 68, 68, 0.4)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.transform = "translateY(0)";
-                    e.target.style.boxShadow = "0 4px 20px rgba(239, 68, 68, 0.3)";
-                  }}
-                >
-                  <i className="fas fa-sign-out-alt me-3"></i>
-                  Se déconnecter maintenant
-                </Button>
-              </div>
+            <div className="d-flex gap-3">
+              <Button
+                variant="outline-light"
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-fill py-2"
+                style={{
+                  borderRadius: "10px",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  transition: "all 0.3s ease"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+              >
+                Annuler
+              </Button>
+             
+              <Button
+                onClick={handleLogoutConfirm}
+                className="flex-fill py-2"
+                style={{
+                  borderRadius: "10px",
+                  background: "linear-gradient(135deg, #EF4444, #DC2626)",
+                  border: "none",
+                  transition: "all 0.3s ease"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
+                onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
+              >
+                Se déconnecter
+              </Button>
             </div>
           </div>
         </Modal.Body>
       </Modal>
 
-      {/* Styles CSS globaux */}
-      <style>
-        {`
-          @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.2); opacity: 0.8; }
-            100% { transform: scale(1); opacity: 1; }
-          }
-          
-          @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          
-          .nav-item {
-            animation: fadeIn 0.3s ease-out;
-          }
-          
-          /* Scrollbar personnalisée */
-          ::-webkit-scrollbar {
-            width: 6px;
-          }
-          
-          ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 10px;
-          }
-          
-          ::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.5) 0%, rgba(139, 92, 246, 0.5) 100%);
-            border-radius: 10px;
-          }
-          
-          ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.8) 0%, rgba(139, 92, 246, 0.8) 100%);
-          }
-          
-          /* Tooltip personnalisé */
-          .tooltip {
-            backdrop-filter: blur(10px);
-            background: rgba(15, 23, 42, 0.95) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px !important;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-          }
-          
-          .tooltip-inner {
-            background: transparent !important;
-            padding: 10px 15px !important;
-            text-align: left;
-          }
-          
-          .tooltip.bs-tooltip-end .tooltip-arrow::before {
-            border-right-color: rgba(15, 23, 42, 0.95) !important;
-          }
-          
-          /* Animation de flottement */
-          @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-          }
-          
-          .floating {
-            animation: float 3s ease-in-out infinite;
-          }
-          
-          /* Effet de verre (glassmorphism) */
-          .glass {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-          }
-          
-          /* Transition pour les liens */
-          .nav-link {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-          }
-          
-          /* Effet de surbrillance */
-          .highlight {
-            position: relative;
-          }
-          
-          .highlight::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
-            border-radius: inherit;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            z-index: 0;
-          }
-          
-          .highlight:hover::before {
-            opacity: 1;
-          }
-        `}
-      </style>
+      {/* Custom Styles */}
+      <style jsx="true">{`
+        ::-webkit-scrollbar {
+          width: 5px;
+        }
+       
+        ::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.02);
+        }
+       
+        ::-webkit-scrollbar-thumb {
+          background: ${colors.primary}60;
+          border-radius: 10px;
+        }
+       
+        ::-webkit-scrollbar-thumb:hover {
+          background: ${colors.primary};
+        }
+
+        .tooltip-inner {
+          background: ${colors.dark} !important;
+          border: 1px solid ${colors.primary}40;
+          border-radius: 8px !important;
+        }
+
+        .nav-link {
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+      `}</style>
     </>
   );
 };

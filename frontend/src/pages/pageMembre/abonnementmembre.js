@@ -13,7 +13,6 @@ import {
   Tab,
   Nav,
   Tabs,
-  ListGroup,
   Table,
   Spinner,
   OverlayTrigger,
@@ -38,7 +37,11 @@ import {
   FaReceipt,
   FaShieldAlt,
   FaLock,
-  FaBolt
+  FaBolt,
+  FaCoins,
+  FaCalendarDay,
+  FaCalendarWeek,
+  FaCalendar
 } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -73,58 +76,67 @@ const AbonnementMembrePage = () => {
   const [historique, setHistorique] = useState([]);
   const [historiqueLoading, setHistoriqueLoading] = useState(false);
   
-  // Formules d'abonnement disponibles
+  // Prix fixes en Ariary
+  const PRICES = {
+    hebdomadaire: 2500,
+    mensuel: 10000,
+    annuel: 100000
+  };
+
+  // Formules d'abonnement disponibles en Ariary
   const [formules, setFormules] = useState([
     {
       id: 1,
-      type: "mensuel",
-      nom: "Mensuel",
-      prix: 9.99,
-      economie: "Standard",
-      duree_jours: 30,
+      type: "hebdomadaire",
+      nom: "Hebdomadaire",
+      prix: PRICES.hebdomadaire,
+      economie: "Flexible",
+      duree_jours: 7,
       avantages: [
         "Accès à toutes les publications",
         "Notifications des événements",
-        "Support email prioritaire",
-        "5 publications maximum par mois"
+        "Support email",
+        "Parfait pour essayer le service"
       ],
       popular: false,
-      bestValue: false
+      bestValue: false,
+      icon: FaCalendarDay
     },
     {
       id: 2,
-      type: "trimestriel",
-      nom: "Trimestriel",
-      prix: 24.99,
-      economie: "Économisez 15%",
-      duree_jours: 90,
+      type: "mensuel",
+      nom: "Mensuel",
+      prix: PRICES.mensuel,
+      economie: "Standard",
+      duree_jours: 30,
       avantages: [
-        "Tous les avantages mensuels",
-        "Publications illimitées",
-        "Support chat en direct",
-        "Rapport mensuel personnalisé",
-        "Accès aux statistiques avancées"
+        "Tous les avantages hebdomadaires",
+        "Support prioritaire",
+        "10 publications maximum par mois",
+        "Accès aux statistiques basiques"
       ],
       popular: true,
-      bestValue: false
+      bestValue: false,
+      icon: FaCalendarWeek
     },
     {
       id: 3,
       type: "annuel",
       nom: "Annuel",
-      prix: 89.99,
-      economie: "Économisez 25%",
+      prix: PRICES.annuel,
+      economie: "Économisez 2 mois",
       duree_jours: 365,
       avantages: [
-        "Tous les avantages trimestriels",
-        "Accès prioritaire au support 24/7",
-        "Formation en ligne gratuite",
-        "Certificat de membre premium",
-        "Promotions exclusives",
-        "Accès anticipé aux nouvelles fonctionnalités"
+        "Tous les avantages mensuels",
+        "Support chat en direct",
+        "Publications illimitées",
+        "Rapport mensuel personnalisé",
+        "Accès aux statistiques avancées",
+        "Promotions exclusives"
       ],
       popular: false,
-      bestValue: true
+      bestValue: true,
+      icon: FaCalendar
     }
   ]);
   
@@ -187,16 +199,19 @@ const AbonnementMembrePage = () => {
       if (abonnementRes.data.success && abonnementRes.data.data) {
         const data = abonnementRes.data.data;
         const dateFin = new Date(data.date_fin);
+        const dateDebut = new Date(data.date_debut);
         const now = new Date();
         const joursRestants = Math.ceil((dateFin - now) / (1000 * 60 * 60 * 24));
+        const totalJours = Math.ceil((dateFin - dateDebut) / (1000 * 60 * 60 * 24));
+        const joursEcoules = Math.ceil((now - dateDebut) / (1000 * 60 * 60 * 24));
+        const pourcentage = Math.max(0, Math.min(100, (joursEcoules / totalJours) * 100));
         
         setAbonnementActuel({
           ...data,
           jours_restants: joursRestants,
           is_expired: dateFin < now || data.statut !== 'actif',
           expire_bientot: !(dateFin < now || data.statut !== 'actif') && joursRestants <= 7,
-          pourcentage: Math.max(0, Math.min(100, (joursRestants / (data.type_abonnement === "mensuel" ? 30 : 
-                                      data.type_abonnement === "trimestriel" ? 90 : 365)) * 100))
+          pourcentage: pourcentage
         });
       } else {
         // Aucun abonnement actif
@@ -235,13 +250,16 @@ const AbonnementMembrePage = () => {
       console.error("Erreur lors du chargement des données:", error);
       
       // Données de démonstration
+      const dateFinDemo = new Date(Date.now() + 45 * 24 * 60 * 60 * 1000);
+      const dateDebutDemo = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
+      
       setAbonnementActuel({
         id: 1,
-        type_abonnement: "trimestriel",
-        date_debut: "2024-01-01",
-        date_fin: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        type_abonnement: "mensuel",
+        date_debut: dateDebutDemo.toISOString().split('T')[0],
+        date_fin: dateFinDemo.toISOString().split('T')[0],
         statut: "actif",
-        montant: 24.99,
+        montant: PRICES.mensuel,
         methode_paiement: "Carte",
         jours_restants: 45,
         is_expired: false,
@@ -252,44 +270,73 @@ const AbonnementMembrePage = () => {
       setHistorique([
         {
           id: 1,
-          type_abonnement: "mensuel",
+          type_abonnement: "hebdomadaire",
           date_debut: "2023-11-01",
-          date_fin: "2023-12-01",
+          date_fin: "2023-11-08",
           statut: "expiré",
-          montant: 9.99,
-          methode_paiement: "PayPal"
+          montant: PRICES.hebdomadaire,
+          methode_paiement: "Mobile Money"
         },
         {
           id: 2,
-          type_abonnement: "trimestriel",
+          type_abonnement: "mensuel",
           date_debut: "2023-12-01",
-          date_fin: "2024-03-01",
+          date_fin: "2024-01-01",
           statut: "expiré",
-          montant: 24.99,
+          montant: PRICES.mensuel,
           methode_paiement: "Carte"
         },
         {
           id: 3,
-          type_abonnement: "trimestriel",
-          date_debut: "2024-03-01",
-          date_fin: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          type_abonnement: "mensuel",
+          date_debut: dateDebutDemo.toISOString().split('T')[0],
+          date_fin: dateFinDemo.toISOString().split('T')[0],
           statut: "actif",
-          montant: 24.99,
+          montant: PRICES.mensuel,
           methode_paiement: "Carte"
         }
       ]);
 
       setStats({
-        totalDepense: 59.97,
+        totalDepense: PRICES.hebdomadaire + PRICES.mensuel + PRICES.mensuel,
         abonnementsActifs: 1,
-        joursMoyens: 90,
-        dernierRenouvellement: "2024-03-01T00:00:00"
+        joursMoyens: 30,
+        dernierRenouvellement: dateDebutDemo.toISOString()
       });
 
     } finally {
       setLoading(false);
       setAbonnementLoading(false);
       setHistoriqueLoading(false);
+    }
+  };
+
+  // Fonction pour formater les montants en Ariary
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('fr-MG', {
+      style: 'decimal',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount) + ' AR';
+  };
+
+  // Fonction pour obtenir le label du type d'abonnement
+  const getTypeLabel = (type) => {
+    switch(type) {
+      case "hebdomadaire": return "Hebdomadaire";
+      case "mensuel": return "Mensuel";
+      case "annuel": return "Annuel";
+      default: return type;
+    }
+  };
+
+  // Fonction pour obtenir l'icône du type d'abonnement
+  const getTypeIcon = (type) => {
+    switch(type) {
+      case "hebdomadaire": return FaCalendarDay;
+      case "mensuel": return FaCalendarWeek;
+      case "annuel": return FaCalendar;
+      default: return FaCalendar;
     }
   };
 
@@ -359,8 +406,7 @@ const AbonnementMembrePage = () => {
     };
 
     const status = getStatusConfig();
-    const typeLabel = abonnementActuel.type_abonnement === "mensuel" ? "Mensuel" :
-                     abonnementActuel.type_abonnement === "trimestriel" ? "Trimestriel" : "Annuel";
+    const TypeIcon = getTypeIcon(abonnementActuel.type_abonnement);
 
     return (
       <Card className="shadow border-0" style={{ borderRadius: "20px" }}>
@@ -379,11 +425,17 @@ const AbonnementMembrePage = () => {
             <Col md={6}>
               <div className="mb-3">
                 <small className="text-muted d-block">Type d'abonnement</small>
-                <h5 className="fw-bold">{typeLabel}</h5>
+                <div className="d-flex align-items-center">
+                  <TypeIcon className="me-2 text-primary" />
+                  <h5 className="fw-bold mb-0">{getTypeLabel(abonnementActuel.type_abonnement)}</h5>
+                </div>
               </div>
               <div className="mb-3">
                 <small className="text-muted d-block">Montant</small>
-                <h5 className="fw-bold">{abonnementActuel.montant} €</h5>
+                <div className="d-flex align-items-center">
+                  <FaCoins className="me-2 text-warning" />
+                  <h5 className="fw-bold mb-0">{formatCurrency(abonnementActuel.montant)}</h5>
+                </div>
               </div>
               <div>
                 <small className="text-muted d-block">Méthode de paiement</small>
@@ -393,23 +445,29 @@ const AbonnementMembrePage = () => {
             <Col md={6}>
               <div className="mb-3">
                 <small className="text-muted d-block">Date de début</small>
-                <h5 className="fw-bold">
-                  {new Date(abonnementActuel.date_debut).toLocaleDateString("fr-FR", {
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric"
-                  })}
-                </h5>
+                <div className="d-flex align-items-center">
+                  <FaCalendarAlt className="me-2 text-info" />
+                  <h5 className="fw-bold mb-0">
+                    {new Date(abonnementActuel.date_debut).toLocaleDateString("fr-FR", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric"
+                    })}
+                  </h5>
+                </div>
               </div>
               <div className="mb-3">
                 <small className="text-muted d-block">Date de fin</small>
-                <h5 className="fw-bold">
-                  {new Date(abonnementActuel.date_fin).toLocaleDateString("fr-FR", {
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric"
-                  })}
-                </h5>
+                <div className="d-flex align-items-center">
+                  <FaCalendarAlt className="me-2 text-info" />
+                  <h5 className="fw-bold mb-0">
+                    {new Date(abonnementActuel.date_fin).toLocaleDateString("fr-FR", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric"
+                    })}
+                  </h5>
+                </div>
               </div>
               <div>
                 <small className="text-muted d-block">ID Transaction</small>
@@ -485,90 +543,137 @@ const AbonnementMembrePage = () => {
         </p>
 
         <Row className="g-4">
-          {formules.map((formule) => (
-            <Col lg={4} key={formule.id}>
-              <Card 
-                className={`shadow border-0 h-100 ${formule.popular ? 'popular-card' : ''} ${formule.bestValue ? 'best-value-card' : ''}`}
-                style={{ 
-                  borderRadius: "20px",
-                  border: formule.popular ? "2px solid #28a745" : 
-                          formule.bestValue ? "2px solid #ffc107" : "none",
-                  transition: "all 0.3s ease",
-                  cursor: "pointer"
-                }}
-                onClick={() => handleSelectPlan(formule)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-10px)";
-                  e.currentTarget.style.boxShadow = "0 15px 35px rgba(0,0,0,0.15)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 5px 20px rgba(0,0,0,0.1)";
-                }}
-              >
-                {formule.popular && (
-                  <div className="position-absolute top-0 start-50 translate-middle mt-3">
-                    <Badge bg="success" className="px-3 py-2 fs-6">
-                      <FaBolt className="me-1" /> Plus populaire
-                    </Badge>
-                  </div>
-                )}
-                
-                {formule.bestValue && (
-                  <div className="position-absolute top-0 start-50 translate-middle mt-3">
-                    <Badge bg="warning" className="px-3 py-2 fs-6 text-dark">
-                      <FaShieldAlt className="me-1" /> Meilleur rapport
-                    </Badge>
-                  </div>
-                )}
-
-                <Card.Body className="p-4 d-flex flex-column">
-                  <div className="text-center mb-4">
-                    <h3 className="fw-bold">{formule.nom}</h3>
-                    <div className="my-3">
-                      <span className="display-4 fw-bold">{formule.prix}€</span>
-                      <span className="text-muted">/{formule.type === "mensuel" ? "mois" : 
-                                                     formule.type === "trimestriel" ? "3 mois" : "an"}</span>
+          {formules.map((formule) => {
+            const FormuleIcon = formule.icon;
+            return (
+              <Col lg={4} key={formule.id}>
+                <Card 
+                  className={`shadow border-0 h-100 ${formule.popular ? 'popular-card' : ''} ${formule.bestValue ? 'best-value-card' : ''}`}
+                  style={{ 
+                    borderRadius: "20px",
+                    border: formule.popular ? "2px solid #28a745" : 
+                            formule.bestValue ? "2px solid #ffc107" : "none",
+                    transition: "all 0.3s ease",
+                    cursor: "pointer"
+                  }}
+                  onClick={() => handleSelectPlan(formule)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-10px)";
+                    e.currentTarget.style.boxShadow = "0 15px 35px rgba(0,0,0,0.15)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "0 5px 20px rgba(0,0,0,0.1)";
+                  }}
+                >
+                  {formule.popular && (
+                    <div className="position-absolute top-0 start-50 translate-middle mt-3">
+                      <Badge bg="success" className="px-3 py-2 fs-6">
+                        <FaBolt className="me-1" /> Plus populaire
+                      </Badge>
                     </div>
-                    <Badge bg="info" className="px-3 py-2">
-                      {formule.economie}
-                    </Badge>
-                  </div>
-
-                  <div className="mb-4">
-                    <h6 className="fw-bold mb-3">Avantages inclus :</h6>
-                    <ul className="list-unstyled">
-                      {formule.avantages.map((avantage, index) => (
-                        <li key={index} className="mb-2">
-                          <FaCheckCircle className="text-success me-2" />
-                          {avantage}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="mt-auto">
-                    <Button 
-                      variant={formule.popular ? "success" : formule.bestValue ? "warning" : "primary"}
-                      className="w-100 py-3"
-                      onClick={() => handleSelectPlan(formule)}
-                    >
-                      <FaCreditCard className="me-2" />
-                      Choisir cette formule
-                    </Button>
-                    
-                    <div className="text-center mt-3">
-                      <small className="text-muted">
-                        <FaShieldAlt className="me-1" />
-                        Garantie satisfait ou remboursé 30 jours
-                      </small>
+                  )}
+                  
+                  {formule.bestValue && (
+                    <div className="position-absolute top-0 start-50 translate-middle mt-3">
+                      <Badge bg="warning" className="px-3 py-2 fs-6 text-dark">
+                        <FaShieldAlt className="me-1" /> Meilleur rapport
+                      </Badge>
                     </div>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-          ))}
+                  )}
+
+                  <Card.Body className="p-4 d-flex flex-column">
+                    <div className="text-center mb-4">
+                      <div className="mb-3">
+                        <FormuleIcon size={48} className="text-primary" />
+                      </div>
+                      <h3 className="fw-bold">{formule.nom}</h3>
+                      <div className="my-3">
+                        <span className="display-4 fw-bold">{formatCurrency(formule.prix)}</span>
+                        <span className="text-muted">
+                          /{formule.type === "hebdomadaire" ? "semaine" : 
+                            formule.type === "mensuel" ? "mois" : "an"}
+                        </span>
+                      </div>
+                      <Badge bg="info" className="px-3 py-2">
+                        {formule.economie}
+                      </Badge>
+                    </div>
+
+                    <div className="mb-4">
+                      <h6 className="fw-bold mb-3">Avantages inclus :</h6>
+                      <ul className="list-unstyled">
+                        {formule.avantages.map((avantage, index) => (
+                          <li key={index} className="mb-2">
+                            <FaCheckCircle className="text-success me-2" />
+                            {avantage}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="mt-auto">
+                      <Button 
+                        variant={formule.popular ? "success" : formule.bestValue ? "warning" : "primary"}
+                        className="w-100 py-3"
+                        onClick={() => handleSelectPlan(formule)}
+                      >
+                        <FaCreditCard className="me-2" />
+                        Choisir cette formule
+                      </Button>
+                      
+                      <div className="text-center mt-3">
+                        <small className="text-muted">
+                          <FaShieldAlt className="me-1" />
+                          Garantie satisfait ou remboursé 30 jours
+                        </small>
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+            );
+          })}
         </Row>
+
+        {/* Calcul du meilleur plan */}
+        <Card className="mt-5 border-0 bg-light">
+          <Card.Body>
+            <h5 className="fw-bold mb-3">
+              <FaCoins className="me-2 text-warning" />
+              Quel est le meilleur plan pour vous ?
+            </h5>
+            <Row>
+              <Col md={4}>
+                <div className="text-center p-3">
+                  <h6 className="text-info">Hebdomadaire</h6>
+                  <p className="text-muted small">
+                    Idéal pour tester le service
+                  </p>
+                  <div className="fw-bold">{formatCurrency(PRICES.hebdomadaire / 7)}/jour</div>
+                </div>
+              </Col>
+              <Col md={4}>
+                <div className="text-center p-3">
+                  <h6 className="text-primary">Mensuel</h6>
+                  <p className="text-muted small">
+                    Parfait pour les besoins réguliers
+                  </p>
+                  <div className="fw-bold">{formatCurrency(PRICES.mensuel / 30)}/jour</div>
+                </div>
+              </Col>
+              <Col md={4}>
+                <div className="text-center p-3">
+                  <h6 className="text-success">Annuel</h6>
+                  <p className="text-muted small">
+                    Le plus économique à long terme
+                  </p>
+                  <div className="fw-bold">{formatCurrency(PRICES.annuel / 365)}/jour</div>
+                </div>
+              </Col>
+            </Row>
+          </Card.Body>
+        </Card>
 
         <div className="mt-5 pt-4 border-top">
           <h5 className="fw-bold mb-3">
@@ -653,15 +758,6 @@ const AbonnementMembrePage = () => {
       return <Badge bg="success">Actif</Badge>;
     };
 
-    const getTypeLabel = (type) => {
-      switch(type) {
-        case "mensuel": return "Mensuel";
-        case "trimestriel": return "Trimestriel";
-        case "annuel": return "Annuel";
-        default: return type;
-      }
-    };
-
     return (
       <div>
         <div className="d-flex justify-content-between align-items-center mb-4">
@@ -691,45 +787,54 @@ const AbonnementMembrePage = () => {
                 </tr>
               </thead>
               <tbody>
-                {historique.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <strong>{getTypeLabel(item.type_abonnement)}</strong>
-                    </td>
-                    <td>
-                      <div>
-                        <small className="d-block">
-                          {new Date(item.date_debut).toLocaleDateString("fr-FR")}
-                        </small>
-                        <small className="text-muted">
-                          au {new Date(item.date_fin).toLocaleDateString("fr-FR")}
-                        </small>
-                      </div>
-                    </td>
-                    <td>
-                      <strong>{item.montant} €</strong>
-                    </td>
-                    <td>
-                      <div className="d-flex align-items-center">
-                        {item.methode_paiement === "Carte" && <FaCreditCard className="me-2 text-primary" />}
-                        {item.methode_paiement === "PayPal" && <FaPaypal className="me-2 text-info" />}
-                        {item.methode_paiement === "Mobile" && <FaMobileAlt className="me-2 text-success" />}
-                        {item.methode_paiement}
-                      </div>
-                    </td>
-                    <td>
-                      {getStatusBadge(item.statut, item.date_fin)}
-                    </td>
-                    <td>
-                      <Button size="sm" variant="outline-primary" className="me-2">
-                        <FaReceipt />
-                      </Button>
-                      <Button size="sm" variant="outline-secondary">
-                        <FaDownload />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                {historique.map((item) => {
+                  const TypeIcon = getTypeIcon(item.type_abonnement);
+                  return (
+                    <tr key={item.id}>
+                      <td>
+                        <div className="d-flex align-items-center">
+                          <TypeIcon className="me-2 text-primary" />
+                          <strong>{getTypeLabel(item.type_abonnement)}</strong>
+                        </div>
+                      </td>
+                      <td>
+                        <div>
+                          <small className="d-block">
+                            {new Date(item.date_debut).toLocaleDateString("fr-FR")}
+                          </small>
+                          <small className="text-muted">
+                            au {new Date(item.date_fin).toLocaleDateString("fr-FR")}
+                          </small>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="d-flex align-items-center">
+                          <FaCoins className="me-2 text-warning" />
+                          <strong>{formatCurrency(item.montant)}</strong>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="d-flex align-items-center">
+                          {item.methode_paiement === "Carte" && <FaCreditCard className="me-2 text-primary" />}
+                          {item.methode_paiement === "PayPal" && <FaPaypal className="me-2 text-info" />}
+                          {item.methode_paiement === "Mobile Money" && <FaMobileAlt className="me-2 text-success" />}
+                          {item.methode_paiement}
+                        </div>
+                      </td>
+                      <td>
+                        {getStatusBadge(item.statut, item.date_fin)}
+                      </td>
+                      <td>
+                        <Button size="sm" variant="outline-primary" className="me-2">
+                          <FaReceipt />
+                        </Button>
+                        <Button size="sm" variant="outline-secondary">
+                          <FaDownload />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </Table>
           </Card.Body>
@@ -741,7 +846,10 @@ const AbonnementMembrePage = () => {
             <Card className="border-0 bg-light">
               <Card.Body className="p-3">
                 <small className="text-muted d-block">Total dépensé</small>
-                <h4 className="fw-bold mb-0">{stats.totalDepense.toFixed(2)} €</h4>
+                <div className="d-flex align-items-center">
+                  <FaCoins className="me-2 text-warning" />
+                  <h4 className="fw-bold mb-0">{formatCurrency(stats.totalDepense)}</h4>
+                </div>
               </Card.Body>
             </Card>
           </Col>
@@ -792,29 +900,31 @@ const AbonnementMembrePage = () => {
           membre_id: user.id,
           type_abonnement: selectedFormule.type,
           montant: selectedFormule.prix,
-          methode_paiement: paiementInfo.methode,
+          methode_paiement: paiementInfo.methode === "carte" ? "Carte" : 
+                          paiementInfo.methode === "paypal" ? "PayPal" : "Mobile Money",
           notes: `Paiement ${paiementInfo.methode} - ${selectedFormule.nom}`,
           transaction_id: `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
         };
 
-        // Simuler un appel API
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Appel API réel
+        const response = await axios.post(
+          "http://127.0.0.1:8000/api/abonnements",
+          abonnementData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
 
-        // En production, utiliser l'API réelle :
-        // const response = await axios.post(
-        //   "http://127.0.0.1:8000/api/abonnements",
-        //   abonnementData,
-        //   { headers: { Authorization: `Bearer ${token}` } }
-        // );
-
-        setPaiementSuccess(true);
-        setTimeout(() => {
-          setShowPaiementModal(false);
-          setPaiementSuccess(false);
-          setPaiementLoading(false);
-          fetchAbonnementData();
-          setActiveTab("current");
-        }, 3000);
+        if (response.data.success) {
+          setPaiementSuccess(true);
+          setTimeout(() => {
+            setShowPaiementModal(false);
+            setPaiementSuccess(false);
+            setPaiementLoading(false);
+            fetchAbonnementData();
+            setActiveTab("current");
+          }, 2000);
+        } else {
+          throw new Error(response.data.message || "Erreur lors de la création de l'abonnement");
+        }
 
       } catch (error) {
         console.error("Erreur lors du paiement:", error);
@@ -868,15 +978,21 @@ const AbonnementMembrePage = () => {
                   <Row>
                     <Col md={6}>
                       <h6 className="fw-bold">Formule choisie</h6>
-                      <h5 className="text-primary">{selectedFormule.nom}</h5>
+                      <div className="d-flex align-items-center">
+                        {selectedFormule.icon && <selectedFormule.icon className="me-2 text-primary" />}
+                        <h5 className="text-primary mb-0">{selectedFormule.nom}</h5>
+                      </div>
                       <p className="mb-0 text-muted">
                         {selectedFormule.duree_jours} jours - {selectedFormule.economie}
                       </p>
                     </Col>
                     <Col md={6} className="text-end">
                       <h6 className="fw-bold">Montant à payer</h6>
-                      <h2 className="text-success">{selectedFormule.prix} €</h2>
-                      <small className="text-muted">TVA incluse</small>
+                      <div className="d-flex align-items-center justify-content-end">
+                        <FaCoins className="me-2 text-warning" />
+                        <h2 className="text-success mb-0">{formatCurrency(selectedFormule.prix)}</h2>
+                      </div>
+                      <small className="text-muted">Prix en Ariary</small>
                     </Col>
                   </Row>
                 </Card.Body>
@@ -1034,16 +1150,12 @@ const AbonnementMembrePage = () => {
                 <div className="border-top pt-3">
                   <div className="d-flex justify-content-between mb-3">
                     <span>Sous-total</span>
-                    <span>{selectedFormule.prix} €</span>
-                  </div>
-                  <div className="d-flex justify-content-between mb-3">
-                    <span>TVA (20%)</span>
-                    <span>{(selectedFormule.prix * 0.2).toFixed(2)} €</span>
+                    <span>{formatCurrency(selectedFormule.prix)}</span>
                   </div>
                   <div className="d-flex justify-content-between fw-bold fs-5">
                     <span>Total</span>
                     <span className="text-success">
-                      {(selectedFormule.prix * 1.2).toFixed(2)} €
+                      {formatCurrency(selectedFormule.prix)}
                     </span>
                   </div>
                 </div>
@@ -1076,7 +1188,7 @@ const AbonnementMembrePage = () => {
                     ) : (
                       <>
                         <FaLock className="me-2" />
-                        Payer maintenant {(selectedFormule.prix * 1.2).toFixed(2)} €
+                        Payer maintenant {formatCurrency(selectedFormule.prix)}
                       </>
                     )}
                   </Button>

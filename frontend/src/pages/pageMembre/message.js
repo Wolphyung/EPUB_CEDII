@@ -1,5 +1,3 @@
-// src/pages/membre/MessagerieMembre.jsx
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { 
   Card, 
@@ -15,7 +13,6 @@ import {
   Col
 } from "react-bootstrap";
 import MembreSidebar from "../../components/MembreSidebar";
-import LanguageSwitcher from "../../components/LanguageSwitcher";
 import { useTranslation } from 'react-i18next';
 import { 
   FaSearch, 
@@ -784,8 +781,9 @@ const markAllAsRead = async (conversationId) => {
           console.log(`Synchronisation réussie avec ${config.method.toUpperCase()} ${config.url}`);
           break;
         }
-      } catch (methodErr) {
-        // Continuer avec la méthode suivante
+      }
+      catch (methodErr) {
+        console.log("Synchronisation échoué");
       }
     }
     
@@ -899,16 +897,7 @@ const markAllAsRead = async (conversationId) => {
             <p className="text-muted mb-0 d-flex align-items-center">
               <i className="fas fa-comments me-2"></i>
               {t("communicate_with_admin", "Communiquez avec l'administration CEDII")}
-              {lastUpdateTime && (
-                <small className="ms-3 text-muted">
-                  <i className="fas fa-clock me-1"></i>
-                  Dernière mise à jour: {lastUpdateTime.toLocaleTimeString('fr-FR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                  })}
-                </small>
-              )}
+              
             </p>
           </div>
           <div className="d-flex align-items-center gap-3">
@@ -950,21 +939,6 @@ const markAllAsRead = async (conversationId) => {
             </Button>
           </div>
         </div>
-
-        {/* Debug Info (optionnel) */}
-        {process.env.NODE_ENV === 'development' && (
-          <Card className="mb-3 border-info">
-            <Card.Body className="p-2">
-              <small className="text-muted d-flex align-items-center">
-                <i className="fas fa-info-circle me-2"></i>
-                <span>User: {currentUser?.name || 'Non connecté'} | 
-                      Conversations: {conversations.length} |
-                      Mode: Manuel (pas de rafraîchissement automatique)
-                </span>
-              </small>
-            </Card.Body>
-          </Card>
-        )}
 
         {/* Statistiques */}
         <Row className="mb-4">
@@ -1378,21 +1352,6 @@ const markAllAsRead = async (conversationId) => {
           </Col>
         </Row>
       </div>
-
-      {/* Language Switcher in Footer */}
-      <footer style={{ 
-        position: "fixed",
-        bottom: "20px",
-        right: "20px",
-        zIndex: 1000,
-        background: "rgba(255, 255, 255, 0.9)",
-        padding: "10px",
-        borderRadius: "10px",
-        backdropFilter: "blur(5px)",
-        boxShadow: "0 2px 10px rgba(0,0,0,0.1)"
-      }}>
-        <LanguageSwitcher />
-      </footer>
 
       {/* Animation CSS via style tag */}
       <style>

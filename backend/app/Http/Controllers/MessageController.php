@@ -8,6 +8,7 @@ use App\Models\Membre;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException; 
+use App\Http\Controllers\NotificationController;
 
 class MessageController extends Controller
 {
@@ -258,6 +259,14 @@ class MessageController extends Controller
                 'message' => 'Erreur lors de l\'envoi du message: ' . $e->getMessage()
             ], 500);
         }
+        NotificationController::createNotification([
+            'type' => 'new_message',
+            'message' => 'Nouveau message de ' . auth()->user()->name,
+            'organisation_name' => 'Messagerie',
+            'user_id' => $request->receiver_id,
+            'item_id' => $message->id,
+            'item_type' => 'message'
+        ]);
     }
 
     /**

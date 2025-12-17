@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   Row,
@@ -21,7 +21,7 @@ import {
   updateAbonnement,
   deleteAbonnement,
   getAbonnementStats,
-} from "../../services/api";
+} from "../../services/api"; // Retiré calculatePrice qui n'est pas utilisé
 import { useTranslation } from "react-i18next";
 
 const AbonnementPage = () => {
@@ -34,6 +34,10 @@ const AbonnementPage = () => {
     actifs: 0,
     expires: 0,
     revenus: 0,
+    par_type: {
+      mensuels: 0,
+      annuels: 0
+    }
   });
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -43,6 +47,12 @@ const AbonnementPage = () => {
   const [filterStatut, setFilterStatut] = useState("Tous");
   const [filterType, setFilterType] = useState("Tous");
 
+  // Prix fixes en Ariary
+  const PRICES = {
+    mensuel: 10000,
+    annuel: 100000
+  };
+
   const [currentAbonnement, setCurrentAbonnement] = useState({
     id: null,
     membre_id: "",
@@ -50,7 +60,7 @@ const AbonnementPage = () => {
     date_debut: new Date().toISOString().split("T")[0],
     date_fin: "",
     statut: "actif",
-    montant: "9.99",
+    montant: PRICES.mensuel,
     methode_paiement: "Carte",
     notes: "",
   });
@@ -58,19 +68,15 @@ const AbonnementPage = () => {
   const [renewData, setRenewData] = useState({
     abonnement_id: null,
     type_abonnement: "mensuel",
-    montant: "",
+    montant: PRICES.mensuel,
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const showNotification = (type, message) => {
+  const showNotification = useCallback((type, message) => {
     setShowAlert({ show: true, type, message });
     setTimeout(() => setShowAlert({ show: false, type: "", message: "" }), 4000);
-  };
+  }, []);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [abonnementRes, membreRes, statsRes] = await Promise.all([
@@ -88,46 +94,53 @@ const AbonnementPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showNotification, t]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]); // Correction: ajout de loadData dans les dépendances
+
+  const calculateDatesAndPrice = useCallback((newDate = currentAbonnement.date_debut, type = currentAbonnement.type_abonnement) => {
+    const dateDebut = new Date(newDate);
+    let dateFin = new Date(dateDebut);
+    
+    // Calcul de la date de fin selon le type
+    switch (type) {
+      case "mensuel":
+        dateFin.setMonth(dateFin.getMonth() + 1); // 1 mois
+        break;
+      case "annuel":
+        dateFin.setFullYear(dateFin.getFullYear() + 1); // 1 an
+        break;
+      default:
+        dateFin.setMonth(dateFin.getMonth() + 1); // Défaut: 1 mois
+        break;
+    }
+
+    // Prix fixe selon le type
+    const montant = PRICES[type] || PRICES.mensuel;
+
+    setCurrentAbonnement(prev => ({
+      ...prev,
+      type_abonnement: type,
+      date_fin: dateFin.toISOString().split("T")[0],
+      montant: montant
+    }));
+  }, [currentAbonnement.date_debut, currentAbonnement.type_abonnement]); // Correction: ajout des dépendances
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setCurrentAbonnement((prev) => ({
-      ...prev,
+    setCurrentAbonnement((prevState) => ({ // Correction: utilisation de prevState au lieu de prev
+      ...prevState,
       [name]: value,
     }));
 
     // Calcul automatique de la date de fin et du montant
     if (name === "type_abonnement" || name === "date_debut") {
-      calculateDatesAndPrice();
+      const typeValue = name === "type_abonnement" ? value : currentAbonnement.type_abonnement;
+      const dateValue = name === "date_debut" ? value : currentAbonnement.date_debut;
+      calculateDatesAndPrice(dateValue, typeValue);
     }
-  };
-
-  const calculateDatesAndPrice = () => {
-    const dateDebut = new Date(currentAbonnement.date_debut);
-    let dateFin = new Date(dateDebut);
-    let montant = "9.99";
-
-    switch (currentAbonnement.type_abonnement) {
-      case "mensuel":
-        dateFin.setMonth(dateFin.getMonth() + 1);
-        montant = "9.99";
-        break;
-      case "trimestriel":
-        dateFin.setMonth(dateFin.getMonth() + 3);
-        montant = "24.99";
-        break;
-      case "annuel":
-        dateFin.setFullYear(dateFin.getFullYear() + 1);
-        montant = "89.99";
-        break;
-    }
-
-    setCurrentAbonnement((prev) => ({
-      ...prev,
-      date_fin: dateFin.toISOString().split("T")[0],
-      montant,
-    }));
   };
 
   const openAddModal = () => {
@@ -138,7 +151,7 @@ const AbonnementPage = () => {
       date_debut: new Date().toISOString().split("T")[0],
       date_fin: "",
       statut: "actif",
-      montant: "9.99",
+      montant: PRICES.mensuel,
       methode_paiement: "Carte",
       notes: "",
     });
@@ -159,7 +172,7 @@ const AbonnementPage = () => {
     setRenewData({
       abonnement_id: abonnement.id,
       type_abonnement: abonnement.type_abonnement,
-      montant: abonnement.montant,
+      montant: PRICES[abonnement.type_abonnement] || abonnement.montant,
     });
     setShowRenewModal(true);
   };
@@ -170,6 +183,12 @@ const AbonnementPage = () => {
         showNotification("error", t("select_member_error"));
         return;
       }
+
+      // Debug: voir ce qui est envoyé
+      console.log("Données envoyées au backend:", {
+        type_abonnement: currentAbonnement.type_abonnement,
+        toutes_les_donnees: currentAbonnement
+      });
 
       if (currentAbonnement.id) {
         await updateAbonnement(currentAbonnement.id, currentAbonnement);
@@ -182,6 +201,7 @@ const AbonnementPage = () => {
       loadData();
       setShowModal(false);
     } catch (error) {
+      console.error("Erreur complète:", error.response?.data);
       const errors = error.response?.data?.errors;
       if (errors) {
         Object.values(errors).flat().forEach((err) => showNotification("error", err));
@@ -197,18 +217,24 @@ const AbonnementPage = () => {
         (a) => a.id === renewData.abonnement_id
       );
 
+      if (!oldAbonnement) {
+        showNotification("error", t("subscription_not_found"));
+        return;
+      }
+
       const dateDebut = new Date();
       let dateFin = new Date();
 
+      // Calcul de la nouvelle date de fin
       switch (renewData.type_abonnement) {
         case "mensuel":
           dateFin.setMonth(dateFin.getMonth() + 1);
           break;
-        case "trimestriel":
-          dateFin.setMonth(dateFin.getMonth() + 3);
-          break;
         case "annuel":
           dateFin.setFullYear(dateFin.getFullYear() + 1);
+          break;
+        default:
+          dateFin.setMonth(dateFin.getMonth() + 1); // Défaut: 1 mois
           break;
       }
 
@@ -221,6 +247,7 @@ const AbonnementPage = () => {
         notes: `Renouvellement depuis abonnement #${oldAbonnement.id}`,
       });
 
+      // Marquer l'ancien abonnement comme expiré
       await updateAbonnement(oldAbonnement.id, { statut: "expiré" });
 
       showNotification("success", t("subscription_renewed"));
@@ -228,6 +255,7 @@ const AbonnementPage = () => {
       setShowRenewModal(false);
     } catch (error) {
       showNotification("error", t("renew_error"));
+      console.error("Erreur renouvellement:", error);
     }
   };
 
@@ -243,7 +271,6 @@ const AbonnementPage = () => {
     }
   };
 
-  // Nouvelle fonction pour changer le membre d'un abonnement
   const handleChangeMembre = async (abonnementId, newMembreId) => {
     try {
       await updateAbonnement(abonnementId, { membre_id: newMembreId });
@@ -310,13 +337,8 @@ const AbonnementPage = () => {
   const getTypeBadge = (type) => {
     const badges = {
       mensuel: (
-        <Badge bg="info" className="px-3 py-2">
-          <i className="fas fa-calendar-week me-2"></i> {t("monthly")}
-        </Badge>
-      ),
-      trimestriel: (
         <Badge bg="primary" className="px-3 py-2">
-          <i className="fas fa-calendar-alt me-2"></i> {t("quarterly")}
+          <i className="fas fa-calendar-alt me-2"></i> {t("monthly")}
         </Badge>
       ),
       annuel: (
@@ -345,10 +367,11 @@ const AbonnementPage = () => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("fr-FR", {
-      style: "currency",
-      currency: "EUR",
-    }).format(amount);
+    return new Intl.NumberFormat('fr-MG', {
+      style: 'decimal',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount) + ' AR';
   };
 
   const formatDate = (dateString) => {
@@ -475,7 +498,7 @@ const AbonnementPage = () => {
                     background: "#f093fb",
                   }}
                 >
-                  <i className="fas fa-euro-sign text-white fs-4"></i>
+                  <i className="fas fa-coins text-white fs-4"></i>
                 </div>
                 <h4 className="mb-0">{formatCurrency(stats.revenus)}</h4>
                 <small className="text-muted">{t("total_revenue")}</small>
@@ -514,7 +537,6 @@ const AbonnementPage = () => {
                 >
                   <option value="Tous">{t("all_types")}</option>
                   <option value="mensuel">{t("monthly")}</option>
-                  <option value="trimestriel">{t("quarterly")}</option>
                   <option value="annuel">{t("annual")}</option>
                 </Form.Select>
               </Col>
@@ -577,49 +599,7 @@ const AbonnementPage = () => {
                                 ID: {abonnement.membre_id}
                               </small>
                             </div>
-                            <DropdownButton
-                              title={<i className="fas fa-exchange-alt"></i>}
-                              variant="outline-secondary"
-                              size="sm"
-                              onSelect={(membreId) => handleChangeMembre(abonnement.id, membreId)}
-                            >
-                              <Dropdown.Header>Changer de membre :</Dropdown.Header>
-                              {membres.map((membre) => (
-                                <Dropdown.Item
-                                  key={membre.id}
-                                  eventKey={membre.id}
-                                  active={membre.id === abonnement.membre_id}
-                                >
-                                  <div className="d-flex align-items-center">
-                                    <div className="me-2">
-                                      {membre.avatar ? (
-                                        <img
-                                          src={membre.avatar}
-                                          alt={membre.nom}
-                                          width="30"
-                                          height="30"
-                                          className="rounded-circle"
-                                        />
-                                      ) : (
-                                        <div className="bg-secondary rounded-circle d-flex align-items-center justify-content-center text-white"
-                                          style={{ width: 30, height: 30 }}>
-                                          <i className="fas fa-user"></i>
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div>
-                                      <strong>{membre.nom} {membre.prenom}</strong>
-                                      <div className="text-muted small">{membre.email}</div>
-                                    </div>
-                                  </div>
-                                </Dropdown.Item>
-                              ))}
-                              {membres.length === 0 && (
-                                <Dropdown.Item disabled>
-                                  Aucun membre disponible
-                                </Dropdown.Item>
-                              )}
-                            </DropdownButton>
+                            
                           </div>
                         </td>
                         <td>{getTypeBadge(abonnement.type_abonnement)}</td>
@@ -733,26 +713,7 @@ const AbonnementPage = () => {
                       <option value="">{t("select_member")}</option>
                       {membres.map((membre) => (
                         <option key={membre.id} value={membre.id}>
-                          <div className="d-flex align-items-center">
-                            {membre.avatar ? (
-                              <img
-                                src={membre.avatar}
-                                alt={membre.nom}
-                                width="30"
-                                height="30"
-                                className="rounded-circle me-2"
-                              />
-                            ) : (
-                              <div className="bg-secondary rounded-circle d-flex align-items-center justify-content-center text-white me-2"
-                                style={{ width: 30, height: 30 }}>
-                                <i className="fas fa-user"></i>
-                              </div>
-                            )}
-                            <div>
-                              <strong>{membre.nom} {membre.prenom}</strong>
-                              <div className="text-muted small">{membre.email}</div>
-                            </div>
-                          </div>
+                          {membre.nom} {membre.prenom} - {membre.email}
                         </option>
                       ))}
                     </Form.Select>
@@ -767,11 +728,12 @@ const AbonnementPage = () => {
                       onChange={handleInputChange}
                       required
                     >
-                      <option value="mensuel">{t("monthly")} - 9.99€</option>
-                      <option value="trimestriel">
-                        {t("quarterly")} - 24.99€
+                      <option value="mensuel">
+                        {t("monthly")} - {formatCurrency(PRICES.mensuel)}
                       </option>
-                      <option value="annuel">{t("annual")} - 89.99€</option>
+                      <option value="annuel">
+                        {t("annual")} - {formatCurrency(PRICES.annuel)}
+                      </option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -792,15 +754,19 @@ const AbonnementPage = () => {
                 </Col>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>{t("end_date")} *</Form.Label>
+                    <Form.Label>{t("end_date")} (calculé automatiquement)</Form.Label>
                     <Form.Control
                       type="date"
                       name="date_fin"
                       value={currentAbonnement.date_fin}
                       onChange={handleInputChange}
-                      required
                       readOnly
+                      className="bg-light"
                     />
+                    <small className="text-muted">
+                      {currentAbonnement.type_abonnement === "mensuel" && "1 mois"}
+                      {currentAbonnement.type_abonnement === "annuel" && "1 an"}
+                    </small>
                   </Form.Group>
                 </Col>
               </Row>
@@ -811,12 +777,18 @@ const AbonnementPage = () => {
                     <Form.Label>{t("amount")} *</Form.Label>
                     <Form.Control
                       type="number"
-                      step="0.01"
+                      step="100"
+                      min="0"
                       name="montant"
                       value={currentAbonnement.montant}
                       onChange={handleInputChange}
                       required
+                      readOnly
+                      className="bg-light"
                     />
+                    <small className="text-muted">
+                      Prix fixe pour {t(currentAbonnement.type_abonnement)}
+                    </small>
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -832,6 +804,7 @@ const AbonnementPage = () => {
                       <option value="Virement">Virement bancaire</option>
                       <option value="Espèces">Espèces</option>
                       <option value="Chèque">Chèque</option>
+                      <option value="Mobile Money">Mobile Money</option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -909,25 +882,29 @@ const AbonnementPage = () => {
                 <Form.Label>{t("new_subscription_type")}</Form.Label>
                 <Form.Select
                   value={renewData.type_abonnement}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const type = e.target.value;
                     setRenewData({
                       ...renewData,
-                      type_abonnement: e.target.value,
-                    })
-                  }
+                      type_abonnement: type,
+                      montant: PRICES[type] || PRICES.mensuel
+                    });
+                  }}
                 >
-                  <option value="mensuel">{t("monthly")} - 9.99€</option>
-                  <option value="trimestriel">
-                    {t("quarterly")} - 24.99€
+                  <option value="mensuel">
+                    {t("monthly")} - {formatCurrency(PRICES.mensuel)}
                   </option>
-                  <option value="annuel">{t("annual")} - 89.99€</option>
+                  <option value="annuel">
+                    {t("annual")} - {formatCurrency(PRICES.annuel)}
+                  </option>
                 </Form.Select>
               </Form.Group>
               <Form.Group className="mb-3">
-                <Form.Label>{t("amount")} *</Form.Label>
+                <Form.Label>{t("amount")}</Form.Label>
                 <Form.Control
                   type="number"
-                  step="0.01"
+                  step="100"
+                  min="0"
                   value={renewData.montant}
                   onChange={(e) =>
                     setRenewData({
@@ -937,6 +914,9 @@ const AbonnementPage = () => {
                   }
                   required
                 />
+                <small className="text-muted">
+                  Prix fixe: {formatCurrency(PRICES[renewData.type_abonnement] || 0)}
+                </small>
               </Form.Group>
             </Form>
           </Modal.Body>

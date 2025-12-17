@@ -72,6 +72,19 @@ const MembrePage = () => {
 
   const [avatarError, setAvatarError] = useState("");
 
+  // Prix fixes en Ariary pour les abonnements
+  const PRICES = {
+    hebdomadaire: 2500,
+    mensuel: 10000,
+    annuel: 100000
+  };
+
+  // Traduction des types d'abonnements
+  const SUBSCRIPTION_TYPES = {
+    mensuel: t("monthly"),
+    annuel: t("annual")
+  };
+
   useEffect(() => {
     loadAllData();
   }, []);
@@ -141,17 +154,34 @@ const MembrePage = () => {
           try {
             const res = await checkMembreAbonnement(membre.id);
             const abonnementInfo = res.data?.data || null;
+            const hasAbonnement = res.data?.has_abonnement || false;
+            
+            // Calcul de l'état de l'abonnement
+            let abonnementStatut = "none";
+            let joursRestants = 0;
+            let estActif = false;
+            
+            if (abonnementInfo) {
+              const dateFin = new Date(abonnementInfo.date_fin);
+              const maintenant = new Date();
+              joursRestants = Math.ceil((dateFin - maintenant) / (1000 * 60 * 60 * 24));
+              estActif = dateFin > maintenant && abonnementInfo.statut === "actif";
+              
+              if (estActif) {
+                abonnementStatut = joursRestants <= 7 ? "expiring" : "active";
+              } else {
+                abonnementStatut = "expired";
+              }
+            }
             
             return {
               ...membre,
               abonnement_info: abonnementInfo,
-              has_abonnement: res.data?.has_abonnement || false,
-              abonnement_valide: abonnementInfo ? 
-                new Date(abonnementInfo.date_fin) > new Date() && abonnementInfo.statut === t("Actif") 
-                : false,
-              jours_restants: abonnementInfo ? 
-                Math.ceil((new Date(abonnementInfo.date_fin) - new Date()) / (1000 * 60 * 60 * 24))
-                : 0,
+              has_abonnement: hasAbonnement,
+              abonnement_valide: estActif,
+              jours_restants: joursRestants,
+              abonnement_statut: abonnementStatut,
+              abonnement_type: abonnementInfo?.type_abonnement || null,
             };
           } catch (error) {
             console.error(`${t("error")} ${membre.id}:`, error);
@@ -161,6 +191,8 @@ const MembrePage = () => {
               has_abonnement: false,
               abonnement_valide: false,
               jours_restants: 0,
+              abonnement_statut: "none",
+              abonnement_type: null,
             };
           }
         })
@@ -175,6 +207,8 @@ const MembrePage = () => {
         has_abonnement: false,
         abonnement_valide: false,
         jours_restants: 0,
+        abonnement_statut: "none",
+        abonnement_type: null,
       })));
     }
   };
@@ -182,6 +216,15 @@ const MembrePage = () => {
   const showNotification = (type, message) => {
     setShowAlert({ show: true, type, message });
     setTimeout(() => setShowAlert({ ...showAlert, show: false }), 4000);
+  };
+
+  // Fonction pour formater les montants en Ariary
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('fr-MG', {
+      style: 'decimal',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount) + ' AR';
   };
 
   const openAddMembreModal = () => {
@@ -236,7 +279,6 @@ const MembrePage = () => {
     });
     setShowModal(true);
   };
-
 
   const handleMembreChange = (e) => {
     const { name, value, files } = e.target;
@@ -326,7 +368,6 @@ const MembrePage = () => {
       const message = err.response?.data?.message;
 
       if (errors) {
-        // Affiche chaque erreur clairement
         const errorMessages = Object.values(errors).flat();
         errorMessages.forEach(msg => showNotification("error", msg));
       } else if (message) {
@@ -359,10 +400,8 @@ const MembrePage = () => {
             statut: currentVisiteur.statut,
         };
 
-
         let response;
         if (currentVisiteur.id) {
-            // Pour la mise à jour, ne pas envoyer le password s'il est vide
             if (!userData.password) {
                 delete userData.password;
             }
@@ -386,7 +425,6 @@ const MembrePage = () => {
         }
     }
   };
-
 
   const handleDeleteMembre = async (id) => {
     if (!window.confirm(t("delete_member_confirmation"))) return;
@@ -412,56 +450,78 @@ const MembrePage = () => {
     }
   };
 
+  // Fonction pour obtenir le badge d'abonnement
   const getAbonnementBadge = (membre) => {
-    if (!membre.has_abonnement || !membre.abonnement_info) {
-      return (
-        <Badge bg="secondary" className="px-3 py-2">
-          <i className="fas fa-times-circle me-2"></i> {t("no_subscription")}
-        </Badge>
-      );
+    const { abonnement_statut, jours_restants, abonnement_type } = membre;
+    
+    switch (abonnement_statut) {
+      case "active":
+        return (
+          <Badge bg="success" className="px-3 py-2">
+            <i className="fas fa-check-circle me-2"></i> 
+            {t("valid_subscription")}
+          </Badge>
+        );
+        
+      case "expiring":
+        return (
+          <Badge bg="warning" className="px-3 py-2">
+            <i className="fas fa-exclamation-triangle me-2"></i> 
+            {t("expires_in")} {jours_restants} {t("days")}
+          </Badge>
+        );
+        
+      case "expired":
+        return (
+          <Badge bg="danger" className="px-3 py-2">
+            <i className="fas fa-clock me-2"></i> 
+            {t("expired")}
+          </Badge>
+        );
+        
+      case "none":
+      default:
+        return (
+          <Badge bg="secondary" className="px-3 py-2">
+            <i className="fas fa-times-circle me-2"></i> 
+            {t("no_subscription")}
+          </Badge>
+        );
     }
-
-    const now = new Date();
-    const dateFin = new Date(membre.abonnement_info.date_fin);
-    const isExpired = dateFin < now;
-    const joursRestants = Math.ceil((dateFin - now) / (1000 * 60 * 60 * 24));
-
-    if (isExpired || membre.abonnement_info.statut !== t("Actif")) {
-      return (
-        <Badge bg="danger" className="px-3 py-2">
-          <i className="fas fa-clock me-2"></i> {t("expired")}
-        </Badge>
-      );
-    }
-
-    if (joursRestants <= 7) {
-      return (
-        <Badge bg="warning" className="px-3 py-2">
-          <i className="fas fa-exclamation-triangle me-2"></i> {t("expires_in")} {joursRestants} {t("days")}
-        </Badge>
-      );
-    }
-
-    return (
-      <Badge bg="success" className="px-3 py-2">
-        <i className="fas fa-check-circle me-2"></i> {t("valid")} ({joursRestants} {t("days")})
-      </Badge>
-    );
   };
 
+  // Fonction pour obtenir les détails de l'abonnement
   const getAbonnementDetails = (membre) => {
     if (!membre.has_abonnement || !membre.abonnement_info) {
-      return <small className="text-muted">{t("no_subscription")}</small>;
+      return <small className="text-muted">{t("no_subscription_details")}</small>;
     }
 
-    const dateFin = new Date(membre.abonnement_info.date_fin);
-    const formattedDate = dateFin.toLocaleDateString("fr-FR");
+    const { abonnement_info } = membre;
+    const dateFin = new Date(abonnement_info.date_fin);
+    const dateDebut = new Date(abonnement_info.date_debut);
+    const formattedDateFin = dateFin.toLocaleDateString("fr-FR");
+    const formattedDateDebut = dateDebut.toLocaleDateString("fr-FR");
     
     return (
-      <div>
-        <small className="text-muted">
-          {membre.abonnement_info.type_abonnement} - {t("until")} {formattedDate}
+      <div className="mt-1">
+        <small className="text-muted d-block">
+          <i className="fas fa-calendar-alt me-1"></i>
+          {SUBSCRIPTION_TYPES[abonnement_info.type_abonnement] || abonnement_info.type_abonnement}
         </small>
+        <small className="text-muted d-block">
+          <i className="fas fa-coins me-1"></i>
+          {formatCurrency(abonnement_info.montant)}
+        </small>
+        <small className="text-muted d-block">
+          <i className="fas fa-calendar-check me-1"></i>
+          {formattedDateDebut} → {formattedDateFin}
+        </small>
+        {membre.jours_restants > 0 && (
+          <small className="text-success d-block">
+            <i className="fas fa-clock me-1"></i>
+            {membre.jours_restants} {t("days_left")}
+          </small>
+        )}
       </div>
     );
   };
@@ -511,10 +571,12 @@ const MembrePage = () => {
         const matchesType =
           filterType === t("all_types") || filterType === "Tous" || membre.type === filterType.toLowerCase();
 
+        // Filtrage par état d'abonnement
         const matchesAbonnement = filterAbonnement === t("all") || filterAbonnement === "Tous" || 
-          (filterAbonnement === t("with_subscription") && membre.has_abonnement && membre.abonnement_valide) ||
-          (filterAbonnement === t("without_subscription") && !membre.has_abonnement) ||
-          (filterAbonnement === t("expired") && membre.has_abonnement && !membre.abonnement_valide);
+          (filterAbonnement === t("active_subscriptions") && membre.abonnement_statut === "active") ||
+          (filterAbonnement === t("expiring_subscriptions") && membre.abonnement_statut === "expiring") ||
+          (filterAbonnement === t("expired_subscriptions") && membre.abonnement_statut === "expired") ||
+          (filterAbonnement === t("without_subscription") && membre.abonnement_statut === "none");
 
         return matchesSearch && matchesStatut && matchesType && matchesAbonnement;
       })
@@ -546,11 +608,13 @@ const MembrePage = () => {
     setAvatarError("");
   };
 
+  // Statistiques pour les membres
   const statsMembres = {
     total: membres.length,
     actifs: membres.filter(m => m.statut === t("Actif") || m.statut === "actif").length,
-    avec_abonnement: membresAvecAbonnement.filter(m => m.has_abonnement && m.abonnement_valide).length,
-    sans_abonnement: membresAvecAbonnement.filter(m => !membres.has_abonnement).length,
+    avec_abonnement: membresAvecAbonnement.filter(m => m.abonnement_statut === "active").length,
+    abonnements_expirants: membresAvecAbonnement.filter(m => m.abonnement_statut === "expiring").length,
+    sans_abonnement: membresAvecAbonnement.filter(m => m.abonnement_statut === "none").length,
   };
 
   const statsVisiteurs = {
@@ -643,7 +707,7 @@ const MembrePage = () => {
                       <i className="fas fa-credit-card text-white fs-4"></i>
                     </div>
                     <h4 className="mb-0">{statsMembres.avec_abonnement}</h4>
-                    <small className="text-muted">{t("with_subscription")}</small>
+                    <small className="text-muted">{t("active_subscriptions")}</small>
                   </Card.Body>
                 </Card>
               </Col>
@@ -651,10 +715,10 @@ const MembrePage = () => {
                 <Card className="border-0 shadow-sm h-100">
                   <Card.Body className="text-center">
                     <div className="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style={{ width: 60, height: 60, background: "#fd746c" }}>
-                      <i className="fas fa-credit-card text-white fs-4"></i>
+                      <i className="fas fa-exclamation-triangle text-white fs-4"></i>
                     </div>
-                    <h4 className="mb-0">{statsMembres.sans_abonnement}</h4>
-                    <small className="text-muted">{t("without_subscription")}</small>
+                    <h4 className="mb-0">{statsMembres.abonnements_expirants}</h4>
+                    <small className="text-muted">{t("expiring_subscriptions")}</small>
                   </Card.Body>
                 </Card>
               </Col>
@@ -747,9 +811,10 @@ const MembrePage = () => {
                 <Col md={2}>
                   <Form.Select value={filterAbonnement} onChange={(e) => setFilterAbonnement(e.target.value)}>
                     <option value={t("all")}>{t("all_subscriptions")}</option>
-                    <option value={t("with_subscription")}>{t("with_subscription")}</option>
+                    <option value={t("active_subscriptions")}>{t("active_subscriptions")}</option>
+                    <option value={t("expiring_subscriptions")}>{t("expiring_subscriptions")}</option>
+                    <option value={t("expired_subscriptions")}>{t("expired_subscriptions")}</option>
                     <option value={t("without_subscription")}>{t("without_subscription")}</option>
-                    <option value={t("expired")}>{t("expired_subscription")}</option>
                   </Form.Select>
                 </Col>
               )}
@@ -838,8 +903,10 @@ const MembrePage = () => {
                         <td>{getStatusBadge(item.statut)}</td>
                         {activeView === "membres" && (
                           <td>
-                            {getAbonnementBadge(item)}
-                            {getAbonnementDetails(item)}
+                            <div className="d-flex flex-column">
+                              {getAbonnementBadge(item)}
+                              {getAbonnementDetails(item)}
+                            </div>
                           </td>
                         )}
                         <td>
@@ -966,8 +1033,6 @@ const MembrePage = () => {
             </Button>
           </Modal.Footer>
         </Modal>
-
-        
       </div>
     </div>
   );

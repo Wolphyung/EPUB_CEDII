@@ -2,8 +2,11 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 import { ThemeProvider, ThemeToggle, useTheme } from '../components/journuit';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './../components/LanguageSwitcher';
 
 const Login = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -23,7 +26,7 @@ const Login = () => {
         password,
       });
 
-      if (res.data.message === "Connexion réussie ✅") {
+      if (res.data.message === t('login.success_message')) {
         const user = res.data.user;
         localStorage.setItem("user", JSON.stringify(user));
         
@@ -43,15 +46,15 @@ const Login = () => {
           navigate("/dashboard");
         }
       } else {
-        setError("Réponse inattendue du serveur");
+        setError(t('login.unexpected_response'));
       }
     } catch (err) {
       if (err.response) {
-        setError(err.response.data.message || "Erreur de connexion");
+        setError(err.response.data.message || t('login.connection_error'));
       } else if (err.request) {
-        setError("Impossible de contacter le serveur");
+        setError(t('login.server_connection_error'));
       } else {
-        setError("Une erreur est survenue");
+        setError(t('login.unexpected_error'));
       }
       console.error("Erreur de connexion:", err);
     } finally {
@@ -78,16 +81,20 @@ const Login = () => {
 
   return (
     <div className={`login-container ${isDarkMode ? 'dark-mode' : ''}`}>
-      {/* Header avec Theme Toggle */}
+      {/* Header avec Theme Toggle et Language Switcher */}
       <header className="header">
         <div className="header-content">
           <div className="logo">
-            <i className="fas fa-globe-americas"></i>
+            <span className="logo-text">
+              <img src="/images/logo.jpg" alt="Logo" className="logo-img" />
+            </span>
             <span>CEDII Messenger</span>
           </div>
           <div className="header-actions">
+            <div className="language-switcher-header">
+              <LanguageSwitcher />
+            </div>
             <ThemeToggle />
-         
           </div>
         </div>
       </header>
@@ -100,15 +107,14 @@ const Login = () => {
             <div className="hero-header">
               <div className="badge">
                 <i className="fas fa-sign-in-alt"></i>
-                <span>ACCÈS SÉCURISÉ</span>
+                <span>{t('login.secure_access')}</span>
               </div>
               <h1 className="hero-title">
-                Bienvenue sur
+                {t('login.welcome_to')}
                 <span className="title-highlight">CEDII Messenger</span>
               </h1>
               <p className="hero-description">
-                Connectez-vous pour accéder à la plateforme d'échange institutionnelle 
-                qui révolutionne la collaboration entre les organisations.
+                {t('login.hero_description')}
               </p>
             </div>
 
@@ -116,7 +122,7 @@ const Login = () => {
             <div className="features-showcase">
               <h2 className="section-title">
                 <i className="fas fa-star"></i>
-                Pourquoi se connecter ?
+                {t('login.why_login_title')}
               </h2>
               
               <div className="features-grid">
@@ -125,8 +131,8 @@ const Login = () => {
                     <i className="fas fa-bolt"></i>
                   </div>
                   <div className="feature-content">
-                    <h3>Accès Instantané</h3>
-                    <p>Connectez-vous en moins de 10 secondes</p>
+                    <h3>{t('login.feature_instant_title')}</h3>
+                    <p>{t('login.feature_instant_desc')}</p>
                   </div>
                 </div>
                 
@@ -135,8 +141,8 @@ const Login = () => {
                     <i className="fas fa-shield-alt"></i>
                   </div>
                   <div className="feature-content">
-                    <h3>Sécurité Maximale</h3>
-                    <p>Authentification à double facteur disponible</p>
+                    <h3>{t('login.feature_security_title')}</h3>
+                    <p>{t('login.feature_security_desc')}</p>
                   </div>
                 </div>
                 
@@ -145,8 +151,8 @@ const Login = () => {
                     <i className="fas fa-exchange-alt"></i>
                   </div>
                   <div className="feature-content">
-                    <h3>Collaboration</h3>
-                    <p>Échangez avec 500+ institutions</p>
+                    <h3>{t('login.feature_collaboration_title')}</h3>
+                    <p>{t('login.feature_collaboration_desc')}</p>
                   </div>
                 </div>
                 
@@ -155,32 +161,31 @@ const Login = () => {
                     <i className="fas fa-chart-line"></i>
                   </div>
                   <div className="feature-content">
-                    <h3>Analytics</h3>
-                    <p>Tableaux de bord en temps réel</p>
+                    <h3>{t('login.feature_analytics_title')}</h3>
+                    <p>{t('login.feature_analytics_desc')}</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            
             {/* Statistiques */}
             <div className="stats-section">
               <div className="stats-grid">
                 <div className="stat-item">
                   <div className="stat-number">500+</div>
-                  <div className="stat-label">Institutions</div>
+                  <div className="stat-label">{t('login.stats_institutions')}</div>
                 </div>
                 <div className="stat-item">
                   <div className="stat-number">99.9%</div>
-                  <div className="stat-label">Disponibilité</div>
+                  <div className="stat-label">{t('login.stats_availability')}</div>
                 </div>
                 <div className="stat-item">
                   <div className="stat-number">24/7</div>
-                  <div className="stat-label">Support</div>
+                  <div className="stat-label">{t('login.stats_support')}</div>
                 </div>
                 <div className="stat-item">
                   <div className="stat-number">≤ 10s</div>
-                  <div className="stat-label">Connexion</div>
+                  <div className="stat-label">{t('login.stats_login')}</div>
                 </div>
               </div>
             </div>
@@ -200,27 +205,27 @@ const Login = () => {
           <div className="full-height-form-container">
             {/* Logo CEDII */}
             <div className="cedii-logo">
-              <div className="logo-circle">
-                <i className="fas fa-globe-americas"></i>
-              </div>
+              <span className="logo-text">
+                <img src="/images/logo.jpg" alt="Logo" className="logo-img" />
+              </span>
               <div className="logo-text">
                 <h2>CEDII</h2>
-                <p>Centre d'Échange Institutionnel</p>
+                <p>Centre d'Échange, de Documentation et d'Information Interinstitutionnels</p>
               </div>
             </div>
 
             {/* Carte de connexion en pleine hauteur */}
             <div className="full-height-login-card">
               <div className="card-header">
-                <h3>Connexion</h3>
-                <p>Accédez à votre espace sécurisé</p>
+                <h3>{t('login.login_title')}</h3>
+                <p>{t('login.login_subtitle')}</p>
               </div>
 
               <form onSubmit={handleLogin} className="login-form">
                 <div className="form-group">
                   <label htmlFor="email" className="form-label">
                     <i className="fas fa-envelope"></i>
-                    Email Institutionnel
+                    {t('login.institutional_email')}
                   </label>
                   <div className="input-container">
                     <input
@@ -239,7 +244,7 @@ const Login = () => {
                 <div className="form-group">
                   <label htmlFor="password" className="form-label">
                     <i className="fas fa-lock"></i>
-                    Mot de passe
+                    {t('login.password')}
                   </label>
                   <div className="input-container">
                     <input
@@ -266,9 +271,12 @@ const Login = () => {
                 <div className="form-options">
                   <div className="remember-me">
                     <input type="checkbox" id="remember" />
-                    <label htmlFor="remember">Se souvenir de moi</label>
+                    <label htmlFor="remember">{t('login.remember_me')}</label>
                   </div>
-            
+                  <Link to="/forgot-password" className="forgot-link">
+                    <i className="fas fa-key"></i>
+                    {t('login.forgot_password')}
+                  </Link>
                 </div>
 
                 {error && (
@@ -286,40 +294,68 @@ const Login = () => {
                   {loading ? (
                     <>
                       <div className="button-spinner"></div>
-                      <span>Connexion...</span>
+                      <span>{t('login.logging_in')}</span>
                     </>
                   ) : (
                     <>
                       <i className="fas fa-sign-in-alt"></i>
-                      <span>Se connecter</span>
+                      <span>{t('login.sign_in')}</span>
                     </>
                   )}
                 </button>
               </form>
 
               <div className="divider">
-                <span>ou</span>
+                <span>{t('login.or')}</span>
               </div>
 
-             
+              {/* Quick Access */}
+              <div className="login-options">
+                <div className="quick-access">
+                  <div className="access-title">{t('login.quick_access_title')}</div>
+                  <div className="access-buttons">
+                    <button 
+                      onClick={() => handleQuickLogin('admin')}
+                      className="access-btn admin"
+                    >
+                      <i className="fas fa-user-shield"></i>
+                      {t('login.admin_access')}
+                    </button>
+                    <button 
+                      onClick={() => handleQuickLogin('membre')}
+                      className="access-btn member"
+                    >
+                      <i className="fas fa-user-tie"></i>
+                      {t('login.member_access')}
+                    </button>
+                    <button 
+                      onClick={() => handleQuickLogin('visiteur')}
+                      className="access-btn visitor"
+                    >
+                      <i className="fas fa-user"></i>
+                      {t('login.visitor_access')}
+                    </button>
+                  </div>
+                </div>
+              </div>
 
               {/* Redirection vers inscription */}
               <div className="register-section">
                 <p className="register-text">
-                  Nouvelle institution ? <strong>Créez votre compte gratuitement</strong>
+                  {t('login.new_institution')} <strong>{t('login.create_free_account')}</strong>
                 </p>
                 <Link to="/register" className="register-button">
                   <i className="fas fa-user-plus"></i>
-                  <span>S'inscrire maintenant</span>
+                  <span>{t('login.register_now')}</span>
                 </Link>
               </div>
 
               {/* Conditions d'utilisation */}
               <div className="terms-section">
                 <p className="terms-text">
-                  En vous connectant, vous acceptez nos
-                  <Link to="/terms"> conditions d'utilisation</Link> et notre
-                  <Link to="/privacy"> politique de confidentialité</Link>.
+                  {t('login.terms_text')}
+                  <Link to="/terms">{t('login.terms_of_use')}</Link> {t('login.and')}
+                  <Link to="/privacy">{t('login.privacy_policy')}</Link>.
                 </p>
               </div>
 
@@ -328,19 +364,19 @@ const Login = () => {
                 <div className="footer-links">
                   <Link to="/privacy">
                     <i className="fas fa-shield-alt"></i>
-                    Confidentialité
+                    {t('login.privacy')}
                   </Link>
                   <Link to="/terms">
                     <i className="fas fa-file-contract"></i>
-                    Conditions
+                    {t('login.terms')}
                   </Link>
                   <Link to="/support">
                     <i className="fas fa-headset"></i>
-                    Support
+                    {t('login.support')}
                   </Link>
                 </div>
                 <p className="copyright">
-                  © {new Date().getFullYear()} CEDII Messenger v2.0
+                  © {new Date().getFullYear()} {t('login.copyright')}
                 </p>
               </div>
             </div>
@@ -422,6 +458,17 @@ const Login = () => {
           align-items: center;
         }
 
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .language-switcher-header {
+          display: flex;
+          align-items: center;
+        }
+
         .logo {
           display: flex;
           align-items: center;
@@ -433,26 +480,6 @@ const Login = () => {
 
         .logo i {
           font-size: 1.5rem;
-        }
-
-        .header-actions {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .header-link {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          color: var(--text-secondary);
-          text-decoration: none;
-          font-size: 0.875rem;
-          transition: color 0.3s ease;
-        }
-
-        .header-link:hover {
-          color: var(--primary-color);
         }
 
         /* Split Layout */
@@ -476,6 +503,13 @@ const Login = () => {
           overflow: hidden;
           position: relative;
           display: flex;
+        }
+
+        /* Language Switcher in Form */
+        .language-switcher-form {
+          text-align: center;
+          margin-bottom: 1.5rem;
+          flex-shrink: 0;
         }
 
         /* Left Section Styles */
@@ -598,152 +632,6 @@ const Login = () => {
           color: var(--text-secondary);
           line-height: 1.5;
           margin: 0;
-        }
-
-        /* Dashboard Preview */
-        .dashboard-section {
-          margin-bottom: 3rem;
-        }
-
-        .dashboard-preview {
-          background: var(--bg-primary);
-          border: 1px solid var(--border-color);
-          border-radius: var(--radius-xl);
-          overflow: hidden;
-          box-shadow: var(--shadow-lg);
-        }
-
-        .dashboard-header {
-          background: var(--bg-tertiary);
-          padding: 1rem 1.5rem;
-          border-bottom: 1px solid var(--border-color);
-        }
-
-        .dashboard-nav {
-          display: flex;
-          gap: 2rem;
-        }
-
-        .nav-item {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          color: var(--text-secondary);
-          font-size: 0.875rem;
-          font-weight: 500;
-          padding: 0.5rem 0;
-          cursor: pointer;
-          transition: color 0.3s ease;
-        }
-
-        .nav-item:hover,
-        .nav-item.active {
-          color: var(--primary-color);
-        }
-
-        .nav-item i {
-          font-size: 1rem;
-        }
-
-        .dashboard-content {
-          padding: 1.5rem;
-        }
-
-        .stats-row {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 1rem;
-          margin-bottom: 2rem;
-        }
-
-        .stat-card {
-          background: var(--bg-secondary);
-          border: 1px solid var(--border-color);
-          border-radius: var(--radius-lg);
-          padding: 1rem;
-        }
-
-        .stat-header {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          margin-bottom: 0.5rem;
-        }
-
-        .stat-header i {
-          color: var(--primary-color);
-          font-size: 0.875rem;
-        }
-
-        .stat-header span {
-          font-size: 0.75rem;
-          font-weight: 500;
-          color: var(--text-secondary);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .stat-value {
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: var(--text-primary);
-          margin-bottom: 0.25rem;
-        }
-
-        .stat-trend {
-          display: flex;
-          align-items: center;
-          gap: 0.25rem;
-          font-size: 0.75rem;
-          font-weight: 500;
-        }
-
-        .stat-trend.up {
-          color: var(--success-color);
-        }
-
-        .activity-chart {
-          background: var(--bg-secondary);
-          border: 1px solid var(--border-color);
-          border-radius: var(--radius-lg);
-          padding: 1.5rem;
-        }
-
-        .chart-title {
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: var(--text-primary);
-          margin-bottom: 1rem;
-        }
-
-        .chart-bars {
-          display: flex;
-          align-items: flex-end;
-          gap: 1rem;
-          height: 120px;
-          padding-top: 1rem;
-        }
-
-        .chart-bar-container {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          height: 100%;
-        }
-
-        .chart-bar {
-          width: 100%;
-          background: linear-gradient(to top, var(--primary-color), var(--secondary-color));
-          border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-          min-height: 10px;
-          animation: barGrow 1s ease-out;
-        }
-
-        .chart-label {
-          margin-top: 0.5rem;
-          font-size: 0.75rem;
-          color: var(--text-secondary);
         }
 
         /* Stats */
@@ -1281,12 +1169,6 @@ const Login = () => {
           }
         }
 
-        @keyframes barGrow {
-          from {
-            height: 0%;
-          }
-        }
-
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
@@ -1357,6 +1239,10 @@ const Login = () => {
           .access-buttons {
             flex-direction: column;
           }
+          
+          .header-actions {
+            gap: 0.5rem;
+          }
         }
 
         @media (max-width: 480px) {
@@ -1374,6 +1260,11 @@ const Login = () => {
           
           .full-height-login-card {
             padding: 1.5rem;
+          }
+          
+          .header-actions {
+            flex-direction: column;
+            align-items: flex-end;
           }
         }
       `}</style>

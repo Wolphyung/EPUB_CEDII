@@ -155,16 +155,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/members', [MessageController::class, 'listMembers']);
     });
 
-    // ==================== NOTIFICATIONS ====================
-    Route::prefix('notifications')->group(function () {
-        Route::get('/', [NotificationController::class, 'index']);
-        Route::post('/', [NotificationController::class, 'store']);
-        Route::put('/{id}/read', [NotificationController::class, 'markAsRead']);
-        Route::put('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
-        Route::delete('/clear', [NotificationController::class, 'clearAll']);
-        Route::delete('/{id}', [NotificationController::class, 'destroy']);
-    });
-
     // ==================== MEMBRES (Opérations CRUD) ====================
     Route::prefix('membres')->group(function () {
         Route::post('/', [MembreController::class, 'store']);
@@ -179,24 +169,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [UserController::class, 'store']);
         Route::put('/{id}', [UserController::class, 'update']);
         Route::delete('/{id}', [UserController::class, 'destroy']);
-    });
-
-});
-
-// =========================================================================
-// ROUTES ADMIN (Peut nécessiter des permissions supplémentaires)
-// =========================================================================
-
-Route::prefix('admin')->group(function () {
-
-    // Notifications admin
-    Route::prefix('notifications')->group(function () {
-        Route::get('/', [NotificationController::class, 'index']);
-        Route::put('/{id}/read', [NotificationController::class, 'markAsRead']);
-        Route::put('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
-        Route::delete('/clear', [NotificationController::class, 'clearAll']);
-        Route::delete('/{id}', [NotificationController::class, 'destroy']);
-        Route::post('/', [NotificationController::class, 'store']);
     });
 
 });
